@@ -11,7 +11,6 @@
 #cmakedefine HAVE_OPENIMAGEIO
 #cmakedefine HAVE_HALIDE
 #cmakedefine HAVE_OCIO
-#cmakedefine HAVE_SQLITE 
 
 // --- Macros for C++ code ---
 #ifdef HAVE_HALIDE
