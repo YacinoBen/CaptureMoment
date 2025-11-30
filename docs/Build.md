@@ -121,15 +121,16 @@ git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
 cd C:\vcpkg
 .\bootstrap-vcpkg.bat
 
-# 2. Install dependencies
-.\vcpkg install openimageio:x64-windows qt6-base:x64-windows qt6-declarative:x64-windows
-
-# 3. Set environment variable (PowerShell)
-$env:VCPKG_ROOT = "C:\vcpkg"
+# 3. Set environment variable  vcpkg
+You can see follow a tutorial
 
 # 4. Clone repository
 git clone https://github.com/your-org/capturemoment.git
 cd capturemoment
+
+# 2. Install dependencies in manifest mode
+# Run the terminal on your root project and execute the following commands
+.\vcpkg install
 
 # 5. Configure with vcpkg preset
 cmake --preset=debug-vcpkg -Ddesktop_ui=ON
