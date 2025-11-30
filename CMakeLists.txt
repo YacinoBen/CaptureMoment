@@ -58,9 +58,21 @@ else()
         "  - Linux (apt) : sudo apt install libopenimageio-dev\n"
         "  - macOS (brew) : brew install openimageio\n"
         "  - Windows (vcpkg) : vcpkg install openimageio\n"
+        "  - Windows (Manifest vcpkg) : vcpkg install\n"
         "  - Or manual compilation : https://github.com/AcademySoftwareFoundation/OpenImageIO")
 endif()
 
+
+if(Halide_FOUND)
+    message(STATUS "Halide found : ${Halide_VERSION}")
+else()
+    message(FATAL_ERROR "Halide not found. Please install it with :\n"
+        "  - Linux (apt) : sudo apt install libhalide-dev\n"
+        "  - macOS (brew) : brew install halide\n"
+        "  - Windows (vcpkg) : vcpkg install halide\n"
+        "  - Windows (Manifest vcpkg) : vcpkg install\n"
+        "  - Or manual compilation : https://github.com/AcademySoftwareFoundation/OpenImageIO")
+endif()
 # ============================================================
 # Global Configuration
 # ============================================================
