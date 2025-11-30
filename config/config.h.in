@@ -1,0 +1,27 @@
+// This file is a template used by configure_file() in CMakeLists.txt
+
+#pragma once
+
+// --- Project version ---
+#define CAPTUREMOMENT_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define CAPTUREMOMENT_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define CAPTUREMOMENT_VERSION_PATCH @PROJECT_VERSION_PATCH@
+
+// --- Detected features ---
+#cmakedefine HAVE_OPENIMAGEIO
+#cmakedefine HAVE_HALIDE
+#cmakedefine HAVE_OCIO
+#cmakedefine HAVE_SQLITE 
+
+// --- Macros for C++ code ---
+#ifdef HAVE_HALIDE
+    #define CAPTUREMOMENT_USE_HALIDE 1
+#else
+    #define CAPTUREMOMENT_USE_HALIDE 0
+#endif
+
+#ifdef HAVE_OCIO
+    #define CAPTUREMOMENT_USE_OCIO 1
+#else
+    #define CAPTUREMOMENT_USE_OCIO 0
+#endif
