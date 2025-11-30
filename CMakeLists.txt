@@ -43,6 +43,35 @@ if(DEFINED desktop_ui OR DEFINED mobile_ui OR DEFINED tests OR DEFINED benchmark
 endif()
 
 # ============================================================
+# Package manager configuration
+# ============================================================
+
+# Vcpkg specific configuration
+if(DEFINED CMAKE_TOOLCHAIN_FILE AND "${CMAKE_TOOLCHAIN_FILE}" MATCHES "vcpkg.cmake$")
+    # --- Compliator detection ---
+    # Visual Studio (MSVC)
+    if(MSVC)
+    # If we are in an MSVC environment *and* vcpkg is used
+    # AND VCPKG_TARGET_TRIPLET is not already defined (for example, via a preset),
+    # then we force the x64-windows (MSVC) triplet
+        if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+            set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "Vcpkg target triplet for MSVC")
+            message(STATUS "Detected MSVC environment. Setting VCPKG_TARGET_TRIPLET to '${VCPKG_TARGET_TRIPLET}'")
+        else()
+            message(STATUS "VCPKG_TARGET_TRIPLET already defined as '${VCPKG_TARGET_TRIPLET}'. Using existing value.")
+        endif()
+    else()
+        # If we are NOT in an MSVC environment, we keep x64-mingw-dynamic as default
+        if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+            set(VCPKG_TARGET_TRIPLET "x64-mingw-dynamic" CACHE STRING "Vcpkg target triplet for MinGW")
+            message(STATUS "Detected MinGW/GCC environment. Setting VCPKG_TARGET_TRIPLET to '${VCPKG_TARGET_TRIPLET}'")
+        else()
+            message(STATUS "VCPKG_TARGET_TRIPLET already defined as '${VCPKG_TARGET_TRIPLET}'. Using existing value.")
+        endif()
+    endif()
+endif()
+
+# ============================================================
 # Research dependencis with fallback
 # ============================================================
 
@@ -62,7 +91,7 @@ else()
         "  - Or manual compilation : https://github.com/AcademySoftwareFoundation/OpenImageIO")
 endif()
 
-
+find_package(Halide CONFIG QUIET)
 if(Halide_FOUND)
     message(STATUS "Halide found : ${Halide_VERSION}")
 else()
