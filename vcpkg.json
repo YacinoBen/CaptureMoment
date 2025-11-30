@@ -2,6 +2,7 @@
   "name": "capturemoment",
   "version-string": "0.1.0",
   "dependencies": [
-    "openimageio"
+    "openimageio",
+    "halide"
   ]
 }
