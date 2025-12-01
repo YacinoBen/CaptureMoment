@@ -154,7 +154,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic"
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
             }
         },
         {
@@ -165,7 +165,7 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic"
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
             }
         },
         {
@@ -265,12 +265,12 @@
         {
             "name": "debug-vcpkg",
             "configurePreset": "debug-vcpkg",
-            "displayName": "Build Debug (vcpkg)"
+            "displayName": "Build Debug (vcpkg - MSVC)"
         },
         {
             "name": "release-vcpkg",
             "configurePreset": "release-vcpkg",
-            "displayName": "Build Release (vcpkg)"
+            "displayName": "Build Release (vcpkg - MSVC)"
         },
         {
             "name": "debug-homebrew",

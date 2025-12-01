@@ -48,25 +48,17 @@ endif()
 
 # Vcpkg specific configuration
 if(DEFINED CMAKE_TOOLCHAIN_FILE AND "${CMAKE_TOOLCHAIN_FILE}" MATCHES "vcpkg.cmake$")
-    # --- Compliator detection ---
-    # Visual Studio (MSVC)
-    if(MSVC)
-    # If we are in an MSVC environment *and* vcpkg is used
-    # AND VCPKG_TARGET_TRIPLET is not already defined (for example, via a preset),
-    # then we force the x64-windows (MSVC) triplet
-        if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-            set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "Vcpkg target triplet for MSVC")
-            message(STATUS "Detected MSVC environment. Setting VCPKG_TARGET_TRIPLET to '${VCPKG_TARGET_TRIPLET}'")
-        else()
-            message(STATUS "VCPKG_TARGET_TRIPLET already defined as '${VCPKG_TARGET_TRIPLET}'. Using existing value.")
-        endif()
+    # force the triplet x64-windows (MSVC)
+    if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+        set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "Vcpkg target triplet for MSVC (forced by CMakeLists.txt)")
+        message(STATUS "Using vcpkg. Forced VCPKG_TARGET_TRIPLET to '${VCPKG_TARGET_TRIPLET}' (MSVC)")
     else()
-        # If we are NOT in an MSVC environment, we keep x64-mingw-dynamic as default
-        if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-            set(VCPKG_TARGET_TRIPLET "x64-mingw-dynamic" CACHE STRING "Vcpkg target triplet for MinGW")
-            message(STATUS "Detected MinGW/GCC environment. Setting VCPKG_TARGET_TRIPLET to '${VCPKG_TARGET_TRIPLET}'")
+        # If VCPKG_TARGET_TRIPLET is already defined (for example via a CMake preset),
+        # we check if it matches x64-windows, otherwise we display a warning
+        if(NOT VCPKG_TARGET_TRIPLET STREQUAL "x64-windows")
+            message(WARNING "CMAKE_TOOLCHAIN_FILE points to vcpkg.cmake, but VCPKG_TARGET_TRIPLET is set to '${VCPKG_TARGET_TRIPLET}'. This might cause build issues if dependencies were not compiled for this triplet. Consider using 'x64-windows'.")
         else()
-            message(STATUS "VCPKG_TARGET_TRIPLET already defined as '${VCPKG_TARGET_TRIPLET}'. Using existing value.")
+            message(STATUS "Using vcpkg with VCPKG_TARGET_TRIPLET: '${VCPKG_TARGET_TRIPLET}' (MSVC)")
         endif()
     endif()
 endif()
