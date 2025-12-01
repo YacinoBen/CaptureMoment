@@ -147,25 +147,78 @@
             }
         },
         {
-            "name": "debug-vcpkg",
-            "displayName": "Debug (vcpkg)",
-            "description": "Debug with vcpkg",
+            "name": "vcpkg-base",
+            "hidden": true,
             "inherits": "base",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "VCPKG_TARGET_TRIPLET": "x64-windows"
+                "VCPKG_INSTALLED_DIR": "${sourceDir}/build/vcpkg_installed"
             }
         },
         {
-            "name": "release-vcpkg",
-            "displayName": "Release (vcpkg)",
-            "description": "Release with vcpkg",
-            "inherits": "base",
+            "name": "debug-vcpkg-msvc",
+            "displayName": "Debug MSVC (vcpkg)",
+            "description": "Debug with vcpkg and MSVC",
+            "inherits": "vcpkg-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "VCPKG_HOST_TRIPLET": "x64-windows",
+                "VCPKG_TARGET_TRIPLET": "x64-windows"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "release-vcpkg-msvc",
+            "displayName": "Release MSVC (vcpkg)",
+            "description": "Release with vcpkg and MSVC",
+            "inherits": "vcpkg-base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-                "VCPKG_TARGET_TRIPLET": "x64-windows"
+                "VCPKG_HOST_TRIPLET": "x64-windows",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-release"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "debug-vcpkg-mingw",
+            "displayName": "Debug MinGW (vcpkg)",
+            "description": "Debug build with MinGW and vcpkg",
+            "inherits": "vcpkg-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_COMPILER": "g++",
+                "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
+                "VCPKG_HOST_TRIPLET": "x64-mingw-dynamic"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "release-vcpkg-mingw",
+            "displayName": "Release MinGW (vcpkg)",
+            "description": "Release build with MinGW and vcpkg (optimized)",
+            "inherits": "vcpkg-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_COMPILER": "g++",
+                "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic-release",
+                "VCPKG_HOST_TRIPLET": "x64-mingw-dynamic"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
             }
         },
         {
@@ -263,14 +316,24 @@
             "displayName": "Build Release (VS)"
         },
         {
-            "name": "debug-vcpkg",
-            "configurePreset": "debug-vcpkg",
-            "displayName": "Build Debug (vcpkg - MSVC)"
+            "name": "debug-vcpkg-msvc",
+            "configurePreset": "debug-vcpkg-msvc",
+            "displayName": "Build Debug MSVC (vcpkg)"
         },
         {
-            "name": "release-vcpkg",
-            "configurePreset": "release-vcpkg",
-            "displayName": "Build Release (vcpkg - MSVC)"
+            "name": "release-vcpkg-msvc",
+            "configurePreset": "release-vcpkg-msvc",
+            "displayName": "Build Release MSVC (vcpkg)"
+        },
+        {
+            "name": "debug-vcpkg-mingw",
+            "configurePreset": "debug-vcpkg-mingw",
+            "displayName": "Build Debug MinGW (vcpkg)"
+        },
+        {
+            "name": "release-vcpkg-mingw",
+            "configurePreset": "release-vcpkg-mingw",
+            "displayName": "Build Release MinGW (vcpkg)"
         },
         {
             "name": "debug-homebrew",
