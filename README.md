@@ -14,7 +14,7 @@ Capture Moment aims to become a **performant and modular open-source alternative
 
 ---
 
-## ✨ Features
+## ✨ Core Features
 
 - **Advanced RAW Processing**: Supports major RAW formats via **OpenImageIO**.
 - **Non-Destructive Pipeline**: Adjustments saved in **XMP sidecar files**.
@@ -30,32 +30,42 @@ Capture Moment aims to become a **performant and modular open-source alternative
 
 ## 🛠️ Technologies
 
-- **Language**: C++20 / C++23
-- **Build System**: CMake 3.21+
-- **I/O & Cache**: [OpenImageIO](https://openimageio.readthedocs.io/)
-- **Processing**: [Halide](https://halide-lang.org/)
-- **UI**: [Qt 6 Quick/QML](https://doc.qt.io/qt-6/qtquick-index.html)
-- **Color Management**: [OpenColorIO](https://opencolorio.readthedocs.io/)
-- **Cataloging**: SQLite
-- **Serialization**: XMP (sidecar), JSON
+Capture Moment is built for performance and modularity, using best-in-class libraries for each technical challenge.
+
+|     Component    |      Technology     |                              Role                             |
+|:----------------:|:-------------------:|:-------------------------------------------------------------:|
+| Language         | C++20 / C++23       | Core Logic, Speed, and Control.                               |
+| Build System     | CMake 3.21+         | Cross-platform build configuration.                           |
+| I/O & Cache      | OpenImageIO         | Read/Write all image formats, Tile-based caching.             |
+| Processing       | Halide              | High-performance image processing pipeline optimization.      |
+| UI               | Qt 6 Quick/QML      | Modern, declarative, and hardware-accelerated user interface. |
+| Color Management | OpenColorIO         | Industry-standard color space handling (Planned).             |
+| Cataloging       | SQLite              | Fast, embeddable database for photo indexing.                 |
+| Serialization    | XMP (sidecar), JSON | Storing non-destructive edits and application settings.       |
 
 ---
 
-## 📋 Technical Specifications
+## 📋 Documentation & Specs
 
-For a detailed view of the architecture, technical choices, roadmap, and planned features, see the [Technical Specifications Document](./docs/TechnicalSpecs.md) (link to be created or integrated).
+For a detailed view of the architecture, technical choices, roadmap, and planned features:  
+
+[➡️ Read the General Architecture Document](./docs/GENERAL_ARCHITECTURE.md).
 
 ---
 
 ## 🚀 Installation & Build
 
-For detailed build instructions for each platform and using various package managers, see the [Build Guide](./docs/Build.md).
+For detailed build instructions for each platform (Windows, macOS, Linux) and using various package managers (Vcpkg, Homebrew, apt/dnf):
+
+[➡️ Read the full Build Guide](./docs/BUILDING_MAIN.md).
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read the [Contribution Guide](./docs/CONTRIBUTING.md) (link to be created) for details.
+Contributions are welcome! Whether you are a C++ developer, a designer, a tester, or a technical writer, your help is appreciated:
+
+[➡️ Please read the Contribution Guide ](./docs/CONTRIBUTING.md) for details on setting up your environment and submitting changes.
 
 ---
 
