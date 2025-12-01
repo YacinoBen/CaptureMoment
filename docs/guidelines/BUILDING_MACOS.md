@@ -43,3 +43,4 @@ cmake --build build/debug-homebrew -j$(sysctl -n hw.ncpu)
 | release-homebrew | Ninja       | Release    | /opt/homebrew;/usr/local | Optimized final build.                                           |
 | debug            | Auto-detect | Debug      | N/A                      | Generic preset (may require manually defining dependency paths). |
 | release-ninja    | Ninja       | Release    | N/A                      | Alternative for the optimized build.                             |
+| debug-ninja      | Ninja       | Debug      | N/A                      | N/A                                                              |                           |
