@@ -43,9 +43,9 @@ Binary Caching : To avoid recompiling LLVM (a huge Halide dependency) on every c
 
 Click the link for your OS for detailed instructions:
 
-* [🟦 **Windows**](build/BUILDING_WINDOWS.md).
-* [🐧 **Linux**](build/BUILDING_LINUX.md) (Ubuntu, Fedora, Arch).
-* [🍎 **macOS**](build/BUILDING_MACOS.md) (Homebrew and Xcode).
+* [🟦 **Windows**](guidelines/BUILDING_WINDOWS.md).
+* [🐧 **Linux**](guidelines/BUILDING_LINUX.md) (Ubuntu, Fedora, Arch).
+* [🍎 **macOS**](guidelines/BUILDING_MACOS.md) (Homebrew and Xcode).
 
 ## ⚡ Quick Start (Standard Machines)
 
