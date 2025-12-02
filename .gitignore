@@ -36,6 +36,9 @@ Makefile.*
 conanbuildinfo*.txt
 conaninfo.txt
 *.cmake
+# Exception for triplet files
+!/triplets/*.cmake
+!/cmake/*.cmake
 # CMake temporary files
 CMakeDoxygenDefaults.cpp
 Testing/
