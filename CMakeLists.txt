@@ -14,7 +14,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CompilerDetection)
 include(VcpkgHelpers)
 include(PackageHelpers)
-# PrebuiltDownload.cmake supprimé ✅
 
 # ============================================================
 # Verify C++23 support
@@ -96,7 +95,7 @@ get_compiler_name(COMPILER_NAME) # From CompilerDetection.cmake
 
 message(STATUS "")
 message(STATUS "╔════════════════════════════════════════════════════════════╗")
-message(STATUS "║  CaptureMoment ${PROJECT_VERSION} Configuration             ║")
+message(STATUS "║  CaptureMoment ${PROJECT_VERSION} Configuration             ")
 message(STATUS "╠════════════════════════════════════════════════════════════╣")
 message(STATUS "║  Compiler        : ${COMPILER_NAME}")
 message(STATUS "║  Build Type      : ${CMAKE_BUILD_TYPE}")
@@ -110,9 +109,5 @@ message(STATUS "║    Desktop UI    : ${BUILD_DESKTOP_UI}")
 message(STATUS "║    Mobile UI     : ${BUILD_MOBILE_UI}")
 message(STATUS "║    Tests         : ${BUILD_TESTS}")
 message(STATUS "║    Benchmarks    : ${BUILD_BENCHMARKS}")
-message(STATUS "╠════════════════════════════════════════════════════════════╣")
-message(STATUS "║  Dependencies:                                             ║")
-message(STATUS "║    OpenImageIO   : ${OpenImageIO_VERSION}")
-message(STATUS "║    Halide        : ${Halide_VERSION}")
 message(STATUS "╚════════════════════════════════════════════════════════════╝")
 message(STATUS "")

@@ -12,7 +12,7 @@ function(configure_vcpkg_if_present)
         return() # not using vcpkg
     endif()
 
-    message(STATUS "📦 vcpkg detected: ${CMAKE_TOOLCHAIN_FILE}")
+    message(STATUS "vcpkg detected: ${CMAKE_TOOLCHAIN_FILE}")
 
     # Auto-detection of triplet if requested
     if(AUTO_DETECT_TOOLCHAIN)
@@ -86,9 +86,9 @@ endfunction()
 function(validate_vcpkg_triplet)
 
     if(DETECTED_COMPILER STREQUAL "MSVC" AND NOT VCPKG_TARGET_TRIPLET MATCHES "x64-windows")
-        message(WARNING "⚠️  Inconsistency: MSVC compiler but triplet '${VCPKG_TARGET_TRIPLET}'. Build issues may occur.")
+        message(WARNING "Inconsistency: MSVC compiler but triplet '${VCPKG_TARGET_TRIPLET}'. Build issues may occur.")
     elseif(DETECTED_COMPILER STREQUAL "MinGW" AND NOT VCPKG_TARGET_TRIPLET MATCHES "mingw")
-        message(WARNING "⚠️  Inconsistency: MinGW compiler but triplet '${VCPKG_TARGET_TRIPLET}'. Build issues may occur.")
+        message(WARNING "Inconsistency: MinGW compiler but triplet '${VCPKG_TARGET_TRIPLET}'. Build issues may occur.")
     endif()
 endfunction()
 
