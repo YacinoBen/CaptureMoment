@@ -39,31 +39,28 @@ function(detect_and_set_vcpkg_triplet)
         return() # Already defined by the user
     endif()
 
-    # Compiler detection (external function)
-    detect_compiler()
-
-    # DDetermination of triplet based on compiler and build type
+    # Determination of triplet based on compiler and build type
     if(DETECTED_COMPILER STREQUAL "MSVC")
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg triplet (auto-detected)")
-            message(STATUS "✅ Triplet auto-selected: x64-windows (MSVC Debug)")
+            message(STATUS "Triplet auto-selected: x64-windows (MSVC Debug)")
         else()
             set(VCPKG_TARGET_TRIPLET "x64-windows-release" CACHE STRING "vcpkg triplet (auto-detected)")
-            message(STATUS "✅ Triplet auto-selected: x64-windows-release (MSVC Release)")
+            message(STATUS "Triplet auto-selected: x64-windows-release (MSVC Release)")
         endif()
     elseif(DETECTED_COMPILER STREQUAL "MinGW")
         if(CMAKE_BUILD_TYPE STREQUAL "Debug")
             set(VCPKG_TARGET_TRIPLET "x64-mingw-dynamic" CACHE STRING "vcpkg triplet (auto-detected)")
-            message(STATUS "✅ Triplet auto-selected: x64-mingw-dynamic (MinGW Debug)")
+            message(STATUS "Triplet auto-selected: x64-mingw-dynamic (MinGW Debug)")
         else()
             set(VCPKG_TARGET_TRIPLET "x64-mingw-dynamic-release" CACHE STRING "vcpkg triplet (auto-detected)")
-            message(STATUS "✅ Triplet auto-selected: x64-mingw-dynamic-release (MinGW Release)")
+            message(STATUS "Triplet auto-selected: x64-mingw-dynamic-release (MinGW Release)")
         endif()
     elseif(DETECTED_COMPILER STREQUAL "Clang")
         set(VCPKG_TARGET_TRIPLET "x64-windows-llvm" CACHE STRING "vcpkg triplet (auto-detected)")
-        message(STATUS "✅ Triplet auto-selected: x64-windows-llvm (Clang)")
+        message(STATUS "Triplet auto-selected: x64-windows-llvm (Clang)")
     else()
-        message(WARNING "⚠️  Compiler not supported for auto-detection, using x64-windows by default")
+        message(WARNING "Compiler not supported for auto-detection, using x64-windows by default")
         set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg triplet (default)")
     endif()
     
@@ -77,9 +74,9 @@ function(ensure_vcpkg_triplet_is_set)
     if(NOT DEFINED VCPKG_TARGET_TRIPLET)
         # Default value if not specified
         set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg triplet (forced default)")
-        message(STATUS "⚙️  VCPKG_TARGET_TRIPLET not defined, using '${VCPKG_TARGET_TRIPLET}' by default")
+        message(STATUS "VCPKG_TARGET_TRIPLET not defined, using '${VCPKG_TARGET_TRIPLET}' by default")
     else()
-        message(STATUS "⚙️  Using specified VCPKG_TARGET_TRIPLET: '${VCPKG_TARGET_TRIPLET}'")
+        message(STATUS "Using specified VCPKG_TARGET_TRIPLET: '${VCPKG_TARGET_TRIPLET}'")
     endif()
 endfunction()
 
@@ -87,7 +84,6 @@ endfunction()
 # Validate vcpkg triplet consistency
 # ============================================================
 function(validate_vcpkg_triplet)
-    detect_compiler()
 
     if(DETECTED_COMPILER STREQUAL "MSVC" AND NOT VCPKG_TARGET_TRIPLET MATCHES "x64-windows")
         message(WARNING "⚠️  Inconsistency: MSVC compiler but triplet '${VCPKG_TARGET_TRIPLET}'. Build issues may occur.")
@@ -106,13 +102,13 @@ function(configure_vcpkg_binary_cache)
     # - vcpkg-configuration.json file
     # - CLI option
     if(DEFINED ENV{VCPKG_BINARY_SOURCES})
-        message(STATUS "📥 vcpkg binary cache configured via environment variable")
+        message(STATUS "vcpkg binary cache configured via environment variable")
     elseif(EXISTS "${CMAKE_SOURCE_DIR}/vcpkg-configuration.json")
-        message(STATUS "📥 vcpkg binary cache configured via vcpkg-configuration.json")
+        message(STATUS "vcpkg binary cache configured via vcpkg-configuration.json")
     else()
-        message(STATUS "💡 Tip: Enable vcpkg binary cache to speed up builds:")
-        message(STATUS "   export VCPKG_BINARY_SOURCES=\"clear;default,readwrite\"")
-        message(STATUS "   Or use: --binarysource=clear;default,readwrite")
+        message(STATUS "Tip: Enable vcpkg binary cache to speed up builds:")
+        message(STATUS "export VCPKG_BINARY_SOURCES=\"clear;default,readwrite\"")
+        message(STATUS "Or use: --binarysource=clear;default,readwrite")
     endif()
 endfunction()
 
@@ -120,8 +116,7 @@ endfunction()
 # Print vcpkg configuration
 # ============================================================
 function(print_vcpkg_configuration)
-    detect_compiler()
-    
+
     message(STATUS "")
     message(STATUS "╔════════════════════════════════════════════════════════════╗")
     message(STATUS "║  vcpkg Configuration                                       ║")
