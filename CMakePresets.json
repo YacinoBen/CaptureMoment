@@ -158,7 +158,7 @@
         },
         {
             "name": "debug-vcpkg-msvc",
-            "displayName": "Debug MSVC (vcpkg)",
+            "displayName": "Debug MSVC (vcpkg-core)",
             "description": "Debug with vcpkg and MSVC",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -174,7 +174,7 @@
         },
         {
             "name": "release-vcpkg-msvc",
-            "displayName": "Release MSVC (vcpkg)",
+            "displayName": "Release MSVC (vcpkg-core)",
             "description": "Release with vcpkg and MSVC",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -190,7 +190,7 @@
         },
         {
             "name": "release-vcpkg-msvc-desktop",
-            "displayName": "Release MSVC (vcpkg)",
+            "displayName": "Release MSVC (vcpkg-Qt)",
             "description": "Release with vcpkg and MSVC for Desktop UI",
             "inherits": "release-vcpkg-msvc",
             "cacheVariables": {
@@ -200,7 +200,7 @@
         },
         {
             "name": "debug-vcpkg-msvc-desktop",
-            "displayName": "Debug MSVC (vcpkg)",
+            "displayName": "Debug MSVC (vcpkg-Qt)",
             "description": "Debug with vcpkg and MSVC for Desktop UI",
             "inherits": "debug-vcpkg-msvc",
             "cacheVariables": {
@@ -210,7 +210,7 @@
         },
         {
             "name": "debug-vcpkg-mingw",
-            "displayName": "Debug MinGW (vcpkg)",
+            "displayName": "Debug MinGW (vcpkg-core)",
             "description": "Debug build with MinGW and vcpkg",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -227,7 +227,7 @@
         },
         {
             "name": "debug-vcpkg-mingw-desktop",
-            "displayName": "Debug MinGW (vcpkg)",
+            "displayName": "Debug MinGW (vcpkg-Qt)",
             "description": "Debug build with MinGW and vcpkg for Desktop UI",
             "inherits": "debug-vcpkg-mingw",
             "cacheVariables": {
@@ -237,7 +237,7 @@
         },
         {
             "name": "release-vcpkg-mingw",
-            "displayName": "Release MinGW (vcpkg)",
+            "displayName": "Release MinGW (vcpkg-core)",
             "description": "Release build with MinGW and vcpkg (optimized)",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -254,7 +254,7 @@
         },
         {
             "name": "release-vcpkg-mingw-desktop",
-            "displayName": "Release MinGW (vcpkg)",
+            "displayName": "Release MinGW (vcpkg-Qt)",
             "description": "Release build with MinGW and vcpkg for Desktop UI",
             "inherits": "release-vcpkg-mingw",
             "cacheVariables": {
