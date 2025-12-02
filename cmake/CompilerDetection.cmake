@@ -1,84 +1,62 @@
-# CompilerDetection.cmake - Detect and verify compiler capabilities
-
-# global variable to hold detected compiler type
-set(DETECTED_COMPILER "Unknown" CACHE INTERNAL "Detected compiler type")
+# CompilerDetection.cmake - Optimized compiler detection
 
 # ============================================================
-# Detect compiler
+# Compiler requirements (C++23)
 # ============================================================
-function(detect_compiler)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-        set(DETECTED_COMPILER "MSVC" CACHE INTERNAL "Detected compiler")
-        message(STATUS "🔍 Compiler detected: MSVC ${CMAKE_CXX_COMPILER_VERSION}")
-        
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        set(DETECTED_COMPILER "MinGW" CACHE INTERNAL "Detected compiler")
-        message(STATUS "🔍 Compiler detected: MinGW/GCC ${CMAKE_CXX_COMPILER_VERSION}")
-        
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        set(DETECTED_COMPILER "Clang" CACHE INTERNAL "Detected compiler")
-        message(STATUS "🔍 Compiler detected: Clang ${CMAKE_CXX_COMPILER_VERSION}")
-        
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
-        set(DETECTED_COMPILER "AppleClang" CACHE INTERNAL "Detected compiler")
-        message(STATUS "🔍 Compiler detected: Apple Clang ${CMAKE_CXX_COMPILER_VERSION}")
-        
-    else()
-        set(DETECTED_COMPILER "Unknown" CACHE INTERNAL "Detected compiler")
-        message(WARNING "⚠️  Compiler not recognized: ${CMAKE_CXX_COMPILER_ID}")
-    endif()
-endfunction()
+# Format: COMPILER_ID|MIN_VERSION|NAME
+set(SUPPORTED_COMPILERS
+    "MSVC|19.30|MSVC (Visual Studio 2022 17.0+)"
+    "GNU|13.0|GCC"
+    "Clang|16.0|Clang"
+    "AppleClang|15.0|Apple Clang (Xcode 15+)"
+    "Intel|2023.0|Intel oneAPI"
+    "IntelLLVM|2023.0|Intel LLVM"
+    "ARMClang|16.0|ARM Clang"
+)
 
-# ============================================================
-# Verify C++23 support
-# ============================================================
 function(verify_cpp23_support)
-    detect_compiler()
+    set(COMPILER_FOUND FALSE)
     
-    set(MIN_VERSION_MSVC "19.30")      # Visual Studio 2022 17.0+
-    set(MIN_VERSION_GCC "13.0")        # GCC 13+
-    set(MIN_VERSION_CLANG "16.0")      # Clang 16+
-    set(MIN_VERSION_APPLECLANG "15.0") # Xcode 15+
+    foreach(ENTRY ${SUPPORTED_COMPILERS})
+        # Split the entry using the pipe '|' delimiter into a CMake list.
+        string(REPLACE "|" ";" ENTRY_LIST "${ENTRY}")
+        
+        list(GET ENTRY_LIST 0 COMPILER_ID)
+        list(GET ENTRY_LIST 1 MIN_VERSION)
+        list(GET ENTRY_LIST 2 NAME)
+        
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "${COMPILER_ID}") # STREQUAL is safer than MATCHES for exact ID check
+            set(COMPILER_FOUND TRUE)
+            
+            if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS MIN_VERSION)
+                message(FATAL_ERROR 
+                    "${NAME} ${CMAKE_CXX_COMPILER_VERSION} < ${MIN_VERSION} (required for C++23).")
+            endif()
+            
+            message(STATUS "C++23 support verified (${NAME} ${CMAKE_CXX_COMPILER_VERSION})")
+            return()
+        endif()
+    endforeach()
     
-    if(DETECTED_COMPILER STREQUAL "MSVC")
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS MIN_VERSION_MSVC)
-            message(FATAL_ERROR "❌ MSVC ${CMAKE_CXX_COMPILER_VERSION} does not support C++23. Minimum required: ${MIN_VERSION_MSVC}")
-        endif()
-        
-    elseif(DETECTED_COMPILER STREQUAL "MinGW")
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS MIN_VERSION_GCC)
-            message(FATAL_ERROR "❌ GCC ${CMAKE_CXX_COMPILER_VERSION} does not support C++23. Minimum required: ${MIN_VERSION_GCC}")
-        endif()
-        
-    elseif(DETECTED_COMPILER STREQUAL "Clang")
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS MIN_VERSION_CLANG)
-            message(FATAL_ERROR "❌ Clang ${CMAKE_CXX_COMPILER_VERSION} does not support C++23. Minimum required: ${MIN_VERSION_CLANG}")
-        endif()
-        
-    elseif(DETECTED_COMPILER STREQUAL "AppleClang")
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS MIN_VERSION_APPLECLANG)
-            message(FATAL_ERROR "❌ Apple Clang ${CMAKE_CXX_COMPILER_VERSION} does not support C++23. Minimum required: ${MIN_VERSION_APPLECLANG}")
-        endif()
+    if(NOT COMPILER_FOUND)
+        message(WARNING "Compiler '${CMAKE_CXX_COMPILER_ID}' not officially tested. Build may fail.")
     endif()
-    
-    message(STATUS "✅ C++23 support verified")
 endfunction()
 
-# ============================================================
-# Get compiler name (user-friendly)
-# ============================================================
 function(get_compiler_name OUTPUT_VAR)
-    detect_compiler()
+    set(RESULT "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
     
-    if(DETECTED_COMPILER STREQUAL "MSVC")
-        set(${OUTPUT_VAR} "MSVC ${CMAKE_CXX_COMPILER_VERSION}" PARENT_SCOPE)
-    elseif(DETECTED_COMPILER STREQUAL "MinGW")
-        set(${OUTPUT_VAR} "MinGW/GCC ${CMAKE_CXX_COMPILER_VERSION}" PARENT_SCOPE)
-    elseif(DETECTED_COMPILER STREQUAL "Clang")
-        set(${OUTPUT_VAR} "Clang ${CMAKE_CXX_COMPILER_VERSION}" PARENT_SCOPE)
-    elseif(DETECTED_COMPILER STREQUAL "AppleClang")
-        set(${OUTPUT_VAR} "Apple Clang ${CMAKE_CXX_COMPILER_VERSION}" PARENT_SCOPE)
-    else()
-        set(${OUTPUT_VAR} "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}" PARENT_SCOPE)
-    endif()
+    foreach(ENTRY ${SUPPORTED_COMPILERS})
+        string(REPLACE "|" ";" ENTRY_LIST "${ENTRY}")
+        
+        list(GET ENTRY_LIST 0 COMPILER_ID)
+        list(GET ENTRY_LIST 2 NAME)
+        
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "${COMPILER_ID}")
+            set(RESULT "${NAME} ${CMAKE_CXX_COMPILER_VERSION}")
+            break()
+        endif()
+    endforeach()
+    
+    set(${OUTPUT_VAR} "${RESULT}" PARENT_SCOPE)
 endfunction()
