@@ -8,7 +8,7 @@ function(find_required_packages)
     find_openimageio_package()
     
     # Halide (mandatory)
- #   find_halide_package()
+     find_halide_package()
     
     # Qt6 will be searched by the sub-projects ui/desktop, ui/mobile
 endfunction()
