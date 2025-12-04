@@ -153,6 +153,7 @@
             "cacheVariables": {
                 "VCPKG_INSTALLED_DIR": "${sourceDir}/build/vcpkg_installed",
                 "VCPKG_MANIFEST_MODE": "ON",
+                "QT_CREATOR_SKIP_MAINTENANCE_TOOL_PROVIDER": "ON",
 
                 "CMAKE_TOOLCHAIN_FILE": {
                     "type": "FILEPATH",
