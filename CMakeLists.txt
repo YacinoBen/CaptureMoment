@@ -71,6 +71,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 # ============================================================
 # Subprojects
 # ============================================================
+
+add_subdirectory(core)
+
 if(BUILD_DESKTOP_UI)
     add_subdirectory(ui/desktop)
 endif()
