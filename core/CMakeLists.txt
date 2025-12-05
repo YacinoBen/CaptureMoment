@@ -1,4 +1,6 @@
 add_library(capturemoment_core STATIC
+    # Headers
+    include/pixel_format.h
 )
 
 target_link_libraries(capturemoment_core
