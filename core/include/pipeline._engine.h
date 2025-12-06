@@ -1,6 +1,6 @@
 /**
- * @file image_pipeline.h
- * @brief Orchestration layer - coordinates SourceManager and Operations
+ * @file pipeline_engine.h
+ * @brief Core processing engine - orchestrates tile extraction and operations
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -19,24 +19,24 @@ class ImageRegion;
 class OperationDescriptor;
 
 /**
- * @class ImagePipeline
- * @brief Orchestrates tile extraction and operation execution
+ * @class PipelineEngine
+ * @brief Core execution engine for processing image regions
  *
  * Responsibilities:
  * - Extract tiles from SourceManager
  * - Apply sequence of operations (Strategy Pattern via factory)
- * - Handle error propagation
+ * - Handle error propagation and logging
  *
- * The pipeline is agnostic to operation types - it delegates to factory.
+ * The engine is agnostic to operation types - it delegates to factory.
  */
-class ImagePipeline {
+class PipelineEngine {
 public:
     /**
-     * @brief Construct pipeline with SourceManager and OperationFactory
+     * @brief Construct engine with SourceManager and OperationFactory
      * @param source Reference to SourceManager
      * @param factory Reference to OperationFactory (pre-configured with all operations)
      */
-    explicit ImagePipeline(SourceManager& source, const OperationFactory& factory);
+    explicit PipelineEngine(SourceManager& source, const OperationFactory& factory);
 
     /**
      * @brief Process a rectangular region with a sequence of operations
