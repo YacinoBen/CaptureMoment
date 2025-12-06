@@ -9,6 +9,7 @@
 #include "types.h"
 #include <string>
 #include <memory>
+#include <optional>
 #include "image_region.h"
 
 namespace CaptureMoment {
