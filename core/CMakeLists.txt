@@ -11,6 +11,7 @@ add_library(capturemoment_core STATIC
     include/operations/i_operation.h
     include/operations/operation_type.h
     include/operations/operation_descriptor.h
+    include/operations/operation_factory.h
 
     # Sources
     src/image_region.cpp
