@@ -23,6 +23,9 @@ add_library(capturemoment_core STATIC
     # Source operations
     src/operations/operation_factory.cpp
     src/operations/operation_brightness.cpp
+
+    # Examples
+    examples/basic_brightness.cpp
 )
 
 target_link_libraries(capturemoment_core
