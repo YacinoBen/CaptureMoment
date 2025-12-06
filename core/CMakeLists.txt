@@ -21,6 +21,7 @@ add_library(capturemoment_core STATIC
     src/image_pipeline.cpp
 
     # Source operations
+    src/operations/operation_factory.cpp
     src/operations/operation_brightness.cpp
 )
 
