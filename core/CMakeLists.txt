@@ -3,6 +3,8 @@ add_library(capturemoment_core STATIC
     include/pixel_format.h
     include/image_region.h
 
+    include/types.h
+
     # Sources
     src/image_region.cpp
 )
