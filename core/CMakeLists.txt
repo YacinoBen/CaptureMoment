@@ -2,7 +2,7 @@ add_library(capturemoment_core STATIC
     # Headers
     include/pixel_format.h
     include/image_region.h
-    include/types.h
+    include/common/types.h
 
     include/i_source_manager.h
     include/source_manager.h
