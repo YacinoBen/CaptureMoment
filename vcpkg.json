@@ -9,6 +9,10 @@
     {
       "name": "halide",
       "default-features": false
+    },
+    {
+      "name": "spdlog",
+      "default-features": false
     }
   ],
     "features": {

@@ -4,13 +4,40 @@
 # Find all required packages
 # ============================================================
 function(find_required_packages)
+    # spdlog (mandatory)
+    find_spdlog_package()
+
     # OpenImageIO (mandatory)
     find_openimageio_package()
     
     # Halide (mandatory)
-     find_halide_package()
+    find_halide_package()
     
     # Qt6 will be searched by the sub-projects ui/desktop, ui/mobile
+endfunction()
+
+
+# ============================================================
+# Find spdlog
+# ============================================================
+function(find_spdlog_package)
+    message(STATUS "Searching for spdlog...")
+
+    # Attempt CONFIG (vcpkg, Conan)
+    find_package(spdlog CONFIG QUIET)
+
+    if(NOT spdlog_FOUND)
+        message(STATUS "spdlog not found via CONFIG, trying MODULE...")
+        # Attempt MODULE (Findspdlog.cmake)
+        find_package(spdlog MODULE QUIET)
+    endif()
+    
+    if(spdlog_FOUND)
+        message(STATUS "spdlog found: ${spdlog_VERSION}")
+        set(HAVE_SPDLOG TRUE PARENT_SCOPE)
+    else()
+        message(FATAL_ERROR "spdlog not found. Please install it via your package manager or vcpkg/conan.")
+    endif()
 endfunction()
 
 # ============================================================
