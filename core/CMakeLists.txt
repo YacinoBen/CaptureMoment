@@ -13,11 +13,15 @@ add_library(capturemoment_core STATIC
     include/operations/operation_type.h
     include/operations/operation_descriptor.h
     include/operations/operation_factory.h
+    include/operations/operation_brightness.h
 
     # Sources
     src/image_region.cpp
     src/source_manager.cpp
     src/image_pipeline.cpp
+
+    # Source operations
+    src/operations/operation_brightness.cpp
 )
 
 target_link_libraries(capturemoment_core
