@@ -6,6 +6,7 @@ add_library(capturemoment_core STATIC
 
     include/i_source_manager.h
     include/source_manager.h
+    include/image_pipeline.h
 
     # Operations
     include/operations/i_operation.h
@@ -16,6 +17,7 @@ add_library(capturemoment_core STATIC
     # Sources
     src/image_region.cpp
     src/source_manager.cpp
+    src/image_pipeline.cpp
 )
 
 target_link_libraries(capturemoment_core
