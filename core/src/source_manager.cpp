@@ -5,7 +5,7 @@
  * @date 2025
  */
 
-#include "spdlog/spdlog.h"
+#include <spdlog/spdlog.h>
 
 #include "source_manager.h"
 #include <OpenImageIO/imageio.h>
