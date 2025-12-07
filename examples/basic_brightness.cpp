@@ -26,10 +26,10 @@
  */
 
 #include "types.h"
-#include "source_manager.h"
-#include "operation_factory.h"
-#include "pipeline_engine.h"
-#include "operations/brightness_operation.h"
+#include "managers/source_manager.h"
+#include "operations/operation_factory.h"
+#include "engine/pipeline_engine.h"
+#include "operations/operation_brightness.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <iostream>
