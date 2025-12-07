@@ -92,6 +92,11 @@ if(BUILD_BENCHMARKS)
 endif()
 
 # ============================================================
+# Apply compiler flags to ALL targets globally
+# ============================================================
+apply_compiler_flags_recursive(${CMAKE_CURRENT_SOURCE_DIR}) # From CompilerDetection.cmake
+
+# ============================================================
 # Configuration summary
 # ============================================================
 get_compiler_name(COMPILER_NAME) # From CompilerDetection.cmake
