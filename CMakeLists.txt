@@ -27,12 +27,14 @@ option(BUILD_DESKTOP_UI "Build desktop UI" OFF)
 option(BUILD_MOBILE_UI "Build mobile UI" OFF)
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(BUILD_EXAMPLES "Build examples" OFF)
 
 # Aliases
 option(desktop_ui "Alias for BUILD_DESKTOP_UI" OFF)
 option(mobile_ui "Alias for BUILD_MOBILE_UI" OFF)
 option(tests "Alias for BUILD_TESTS" OFF)
 option(benchmarks "Alias for BUILD_BENCHMARKS" OFF)
+option(examples "Alias for BUILD_EXAMPLES" OFF)
 
 # Synchronize aliases
 if(desktop_ui)
@@ -46,6 +48,9 @@ if(tests)
 endif()
 if(benchmarks)
     set(BUILD_BENCHMARKS ON)
+endif()
+if(examples)
+    set(BUILD_EXAMPLES ON)
 endif()
 
 # ============================================================
@@ -89,6 +94,10 @@ endif()
 
 if(BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
+endif()
+
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
 # ============================================================
