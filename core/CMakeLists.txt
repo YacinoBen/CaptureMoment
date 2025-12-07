@@ -5,6 +5,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 # Debug: Show current directory
+message(STATUS "Starting configuration of capturemoment_core...")
 message(STATUS "[core] CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Source files (only .cpp files that get compiled)
