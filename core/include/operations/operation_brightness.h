@@ -24,7 +24,7 @@ namespace CaptureMoment {
  * - > 0: Brighter
  * - < 0: Darker
  */
-class BrightnessOperation : public IOperation {
+class OperationBrightness : public IOperation {
 public:
     // --- Metadata ---
     OperationType type() const override { return OperationType::Brightness; }

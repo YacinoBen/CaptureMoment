@@ -5,21 +5,21 @@
  * @date 2025
  */
 
-#include "operations/brightness_operation.h"
+#include "operations/operation_brightness.h"
 #include <spdlog/spdlog.h>
 #include <Halide.h>
 
 namespace CaptureMoment {
 
-bool BrightnessOperation::execute(ImageRegion& input, const OperationDescriptor& descriptor) {
+bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor& descriptor) {
     // 1. Validation
     if (!input.isValid()) {
-        spdlog::warn("BrightnessOperation::execute: Invalid input region");
+        spdlog::warn("OperationBrightness::execute: Invalid input region");
         return false;
     }
 
     if (!descriptor.enabled) {
-        spdlog::trace("BrightnessOperation::execute: Operation disabled, skipping");
+        spdlog::trace("OperationBrightness::execute: Operation disabled, skipping");
         return true;
     }
 
@@ -29,11 +29,11 @@ bool BrightnessOperation::execute(ImageRegion& input, const OperationDescriptor&
 
     // No-op optimization
     if (brightnessValue == 0.0f) {
-        spdlog::trace("BrightnessOperation::execute: Brightness value is 0, skipping");
+        spdlog::trace("OperationBrightness::execute: Brightness value is 0, skipping");
         return true;
     }
 
-    spdlog::debug("BrightnessOperation::execute: value={:.2f} on {}x{} ({}ch) region",
+    spdlog::debug("OperationBrightness::execute: value={:.2f} on {}x{} ({}ch) region",
                   brightnessValue, input.m_width, input.m_height, input.m_channels);
 
     // 3. Halide pipeline
@@ -63,11 +63,11 @@ bool BrightnessOperation::execute(ImageRegion& input, const OperationDescriptor&
         // Realize back into the original buffer
         brightness.realize(inputBuf);
 
-        spdlog::trace("BrightnessOperation::execute: Halide pipeline completed successfully");
+        spdlog::trace("OperationBrightness::execute: Halide pipeline completed successfully");
         return true;
 
     } catch (const std::exception& e) {
-        spdlog::critical("BrightnessOperation::execute: Halide exception: {}", e.what());
+        spdlog::critical("OperationBrightness::execute: Halide exception: {}", e.what());
         return false;
     }
 }

@@ -13,7 +13,7 @@ set(CORE_SOURCES
     src/source_manager.cpp
     src/pipeline_engine.cpp
     src/operations/operation_factory.cpp
-    src/operations/brightness_operation.cpp
+    src/operations/operation_brightness.cpp
 )
 
 # Verify sources exist
