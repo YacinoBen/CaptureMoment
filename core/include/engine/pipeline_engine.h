@@ -15,7 +15,7 @@ namespace CaptureMoment {
 // Forward declarations
 class SourceManager;
 class OperationFactory;
-class ImageRegion;
+struct ImageRegion;
 class OperationDescriptor;
 
 /**

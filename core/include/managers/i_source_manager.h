@@ -11,12 +11,12 @@
 #include <string>
 #include <memory>
 #include <optional>
-#include "image_region.h"
+#include "common/image_region.h"
 
 namespace CaptureMoment {
 
 // Forward declaration to avoid full dependency on ImageRegion in the interface
-class ImageRegion; 
+struct ImageRegion; 
 
 /**
  * @brief interface for for managing image sources
