@@ -5,12 +5,12 @@
  * @date 2025
  */
 
-#include "pipeline_engine.h"
-#include "source_manager.h"
-#include "operation_factory.h"
-#include "i_operation.h"
-#include "image_region.h"
-#include "operation_descriptor.h"
+#include "engine/pipeline_engine.h"
+#include "managers/source_manager.h"
+#include "operations/operation_factory.h"
+#include "operations/i_operation.h"
+#include "common/image_region.h"
+#include "operations/operation_descriptor.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment {

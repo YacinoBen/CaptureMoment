@@ -17,22 +17,22 @@
 // ============================================================================
 // Core Types
 // ============================================================================
-#include "pixel_format.h"
-#include "image_region.h"
-#include "operation_type.h"
-#include "operation_descriptor.h"
+#include "common/pixel_format.h"
+#include "common/image_region.h"
+#include "operations/operation_type.h"
+#include "operations/operation_descriptor.h"
 
 // ============================================================================
 // Core Interfaces
 // ============================================================================
-#include "i_operation.h"
+#include "operations/i_operation.h"
 
 // ============================================================================
 // Core Components
 // ============================================================================
-#include "operation_factory.h"
-#include "source_manager.h"
-#include "pipeline_engine.h"
+#include "operations/operation_factory.h"
+#include "managers/source_manager.h"
+#include "engine/pipeline_engine.h"
 
 /**
  * @namespace CaptureMoment

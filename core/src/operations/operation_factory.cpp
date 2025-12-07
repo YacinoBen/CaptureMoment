@@ -5,9 +5,9 @@
  * @date 2025
  */
 
-#include "operation_factory.h"
-#include "i_operation.h"
-#include "operation_descriptor.h"
+#include "operations/operation_factory.h"
+#include "operations/i_operation.h"
+#include "operations/operation_descriptor.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment {
