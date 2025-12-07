@@ -7,6 +7,13 @@ option(AUTO_DETECT_TOOLCHAIN "Auto-detect compiler for vcpkg triplet" OFF)
 # Configure vcpkg if present
 # ============================================================
 function(configure_vcpkg_if_present)
+
+    # Set default binary cache if not defined
+    if(NOT DEFINED VCPKG_BINARY_SOURCES)
+    set(VCPKG_BINARY_SOURCES "clear;files,${VCPKG_ROOT}/download_cache" CACHE STRING "Vcpkg binary sources")
+    message(STATUS "Binary cache for Vcpkg enabled and configured locally.")
+    endif()
+
     # vevify vcpkg toolchain file is used
     if(NOT DEFINED CMAKE_TOOLCHAIN_FILE OR NOT "${CMAKE_TOOLCHAIN_FILE}" MATCHES "vcpkg.cmake$")
         return() # not using vcpkg

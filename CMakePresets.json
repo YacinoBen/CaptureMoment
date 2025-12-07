@@ -17,7 +17,8 @@
                 "BUILD_DESKTOP_UI": "OFF",
                 "BUILD_MOBILE_UI": "OFF",
                 "BUILD_TESTS": "OFF",
-                "BUILD_BENCHMARKS": "OFF"
+                "BUILD_BENCHMARKS": "OFF",
+                "BUILD_EXAMPLES": "OFF"
             }
         },
         {
