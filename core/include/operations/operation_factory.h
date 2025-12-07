@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "operation_type.h"
+#include "operations/operation_type.h"
 #include <memory>
 #include <unordered_map>
 #include <functional>
@@ -16,7 +16,7 @@ namespace CaptureMoment {
 
 // Forward declarations
 class IOperation;
-class OperationDescriptor;
+struct OperationDescriptor;
 
 /**
  * @class OperationFactory
@@ -34,7 +34,7 @@ public:
      */
     template <typename T>
     void registerOperation(OperationType type) {
-        m_creators[type] = []() -> std::unique_ptr<Operation> {
+        m_creators[type] = []() -> std::unique_ptr<IOperation> {
             return std::make_unique<T>();
         };
     }

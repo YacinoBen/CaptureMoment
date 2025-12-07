@@ -16,7 +16,7 @@ namespace CaptureMoment {
 class SourceManager;
 class OperationFactory;
 struct ImageRegion;
-class OperationDescriptor;
+struct OperationDescriptor;
 
 /**
  * @class PipelineEngine
