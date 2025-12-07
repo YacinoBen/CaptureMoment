@@ -10,9 +10,9 @@ message(STATUS "[core] CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Source files (only .cpp files that get compiled)
 set(CORE_SOURCES
-    src/image_region.cpp
-    src/source_manager.cpp
-    src/pipeline_engine.cpp
+    src/common/image_region.cpp
+    src/managers/source_manager.cpp
+    src/engine/pipeline_engine.cpp
     src/operations/operation_factory.cpp
     src/operations/operation_brightness.cpp
 )
