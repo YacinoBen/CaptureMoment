@@ -105,7 +105,17 @@ struct ImageRegion {
      * }
      * @endcode
      */
-    [[nodiscard]] constexpr bool isValid() const noexcept;
+    [[nodiscard]] constexpr bool isValid() const noexcept {
+    // 1. Check for positive dimensions (including channels)
+    if (m_width <= 0 || m_height <= 0 || m_channels <= 0) {
+        return false;
+    }
+
+    // 2. Check if the vector size matches the calculated size
+    // This is crucial to detect corrupted or incorrectly resized regions.
+    const size_t expected_size = static_cast<size_t>(m_width) * m_height * m_channels;
+    return m_data.size() == expected_size;
+    }
     
     /**
      * @brief Calculates the size in bytes of the data buffer
