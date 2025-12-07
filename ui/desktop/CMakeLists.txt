@@ -1,6 +1,14 @@
 project(CaptureMomentUIDesktop LANGUAGES CXX)
 
+message(STATUS "Configuring CaptureMoment Desktop UI...")
 find_package(Qt6 REQUIRED COMPONENTS Core Quick)
+
+if(TARGET Qt6::Core AND TARGET Qt6::Quick)
+    message(STATUS "Qt6 found: ${Qt6_VERSION} (Core, Quick)")
+else()
+    message(FATAL_ERROR "Qt6 Core or Quick not found. Please install Qt6 with these components.")
+endif()
+
 qt_standard_project_setup(REQUIRES 6.8)
 
 set(CAPTUREMOMENT_DESKTOP_TARGET capturemoment_desktop)
@@ -40,3 +48,9 @@ install(TARGETS capturemoment_desktop
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
+
+message(STATUS "CaptureMoment Desktop UI configured successfully.")
+message(STATUS "   - Target: ${CAPTUREMOMENT_DESKTOP_TARGET}")
+message(STATUS "   - Qt Version: ${Qt6_VERSION}")
+message(STATUS "   - QML URI: CaptureMoment.desktop")
+message(STATUS "")

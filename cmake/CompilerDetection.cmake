@@ -60,3 +60,38 @@ function(get_compiler_name OUTPUT_VAR)
     
     set(${OUTPUT_VAR} "${RESULT}" PARENT_SCOPE)
 endfunction()
+
+# ============================================================
+# Apply compiler-specific flags to a target
+# ============================================================
+function(apply_compiler_flags TARGET_NAME)
+    if(MSVC)
+        target_compile_options(${TARGET_NAME} PRIVATE
+            /W4                    # Warning level 4
+            /std:c++latest         # C++23
+            /permissive-           # Standards conformance
+            /Zc:inline             # Remove unreferenced COMDAT
+        )
+    else()
+        target_compile_options(${TARGET_NAME} PRIVATE
+            -Wall                  # All warnings
+            -Wextra                # Extra warnings
+            -pedantic              # Pedantic warnings
+            -fPIC                  # Position independent code
+        )
+    endif()
+endfunction()
+
+
+# ============================================================
+# Apply compiler flags to all targets in a directory
+# ============================================================
+function(apply_compiler_flags_recursive DIRECTORY)
+    # Get all targets in the specified directory
+    get_property(TARGETS DIRECTORY ${DIRECTORY} PROPERTY BUILDSYSTEM_TARGETS)
+    
+    foreach(TARGET ${TARGETS})
+        apply_compiler_flags(${TARGET})
+        message(STATUS "[CompilerDetection] Applied flags to target: ${TARGET}")
+    endforeach()
+endfunction()

@@ -17,7 +17,8 @@
                 "BUILD_DESKTOP_UI": "OFF",
                 "BUILD_MOBILE_UI": "OFF",
                 "BUILD_TESTS": "OFF",
-                "BUILD_BENCHMARKS": "OFF"
+                "BUILD_BENCHMARKS": "OFF",
+                "BUILD_EXAMPLES": "OFF"
             }
         },
         {
@@ -151,14 +152,19 @@
             "hidden": true,
             "inherits": "base",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
                 "VCPKG_INSTALLED_DIR": "${sourceDir}/build/vcpkg_installed",
-                "VCPKG_MANIFEST_MODE": "ON"
+                "VCPKG_MANIFEST_MODE": "ON",
+                "QT_CREATOR_SKIP_MAINTENANCE_TOOL_PROVIDER": "ON",
+
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+                }
             }
         },
         {
             "name": "debug-vcpkg-msvc",
-            "displayName": "Debug MSVC (vcpkg)",
+            "displayName": "Debug MSVC (vcpkg-core)",
             "description": "Debug with vcpkg and MSVC",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -174,7 +180,7 @@
         },
         {
             "name": "release-vcpkg-msvc",
-            "displayName": "Release MSVC (vcpkg)",
+            "displayName": "Release MSVC (vcpkg-core)",
             "description": "Release with vcpkg and MSVC",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -189,8 +195,28 @@
             }
         },
         {
+            "name": "release-vcpkg-msvc-desktop",
+            "displayName": "Release MSVC (vcpkg-Qt)",
+            "description": "Release with vcpkg and MSVC for Desktop UI",
+            "inherits": "release-vcpkg-msvc",
+            "cacheVariables": {
+                "VCPKG_MANIFEST_FEATURES": "desktop-ui",
+                "BUILD_DESKTOP_UI": "ON"
+            }
+        },
+        {
+            "name": "debug-vcpkg-msvc-desktop",
+            "displayName": "Debug MSVC (vcpkg-Qt)",
+            "description": "Debug with vcpkg and MSVC for Desktop UI",
+            "inherits": "debug-vcpkg-msvc",
+            "cacheVariables": {
+                "VCPKG_MANIFEST_FEATURES": "desktop-ui",
+                "BUILD_DESKTOP_UI": "ON"
+            }
+        },
+        {
             "name": "debug-vcpkg-mingw",
-            "displayName": "Debug MinGW (vcpkg)",
+            "displayName": "Debug MinGW (vcpkg-core)",
             "description": "Debug build with MinGW and vcpkg",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -206,8 +232,18 @@
             }
         },
         {
+            "name": "debug-vcpkg-mingw-desktop",
+            "displayName": "Debug MinGW (vcpkg-Qt)",
+            "description": "Debug build with MinGW and vcpkg for Desktop UI",
+            "inherits": "debug-vcpkg-mingw",
+            "cacheVariables": {
+                "VCPKG_MANIFEST_FEATURES": "desktop-ui",
+                "BUILD_DESKTOP_UI": "ON"
+            }
+        },
+        {
             "name": "release-vcpkg-mingw",
-            "displayName": "Release MinGW (vcpkg)",
+            "displayName": "Release MinGW (vcpkg-core)",
             "description": "Release build with MinGW and vcpkg (optimized)",
             "inherits": "vcpkg-base",
             "cacheVariables": {
@@ -220,6 +256,16 @@
                 "type": "equals",
                 "lhs": "${hostSystemName}",
                 "rhs": "Windows"
+            }
+        },
+        {
+            "name": "release-vcpkg-mingw-desktop",
+            "displayName": "Release MinGW (vcpkg-Qt)",
+            "description": "Release build with MinGW and vcpkg for Desktop UI",
+            "inherits": "release-vcpkg-mingw",
+            "cacheVariables": {
+                "VCPKG_MANIFEST_FEATURES": "desktop-ui",
+                "BUILD_DESKTOP_UI": "ON"
             }
         },
         {
@@ -322,14 +368,34 @@
             "displayName": "Build Debug MSVC (vcpkg)"
         },
         {
+            "name": "debug-vcpkg-msvc-desktop",
+            "configurePreset": "debug-vcpkg-msvc-desktop",
+            "displayName": "Build Debug MSVC (vcpkg Desktop UI)"
+        },
+        {
             "name": "release-vcpkg-msvc",
             "configurePreset": "release-vcpkg-msvc",
             "displayName": "Build Release MSVC (vcpkg)"
         },
         {
+            "name": "release-vcpkg-msvc-desktop",
+            "configurePreset": "release-vcpkg-msvc-desktop",
+            "displayName": "Build Release MSVC (vcpkg Desktop UI)"
+        },
+        {
             "name": "debug-vcpkg-mingw",
             "configurePreset": "debug-vcpkg-mingw",
             "displayName": "Build Debug MinGW (vcpkg)"
+        },
+        {
+            "name": "debug-vcpkg-mingw-desktop",
+            "configurePreset": "debug-vcpkg-mingw-desktop",
+            "displayName": "Build Debug MinGW (vcpkg Desktop UI)"
+        },
+        {
+            "name": "release-vcpkg-mingw-desktop",
+            "configurePreset": "release-vcpkg-mingw-desktop",
+            "displayName": "Build Release MinGW (vcpkg Desktop UI)"
         },
         {
             "name": "release-vcpkg-mingw",

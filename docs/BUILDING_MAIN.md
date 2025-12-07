@@ -22,12 +22,24 @@ Before selecting your platform, ensure you have these tools:
 
 ---
 ## ⚙️ Global Build Configuration
+
+### CMake Build
 |  Component | Default Status |     CMake Variable (Alias)    |                  Description                  |
 |:----------:|:--------------:|:-----------------------------:|:---------------------------------------------:|
 | Desktop UI | OFF            | BUILD_DESKTOP_UI (desktop_ui) | Builds the Qt Quick/QML desktop application.  |
 | Mobile UI  | OFF            | BUILD_MOBILE_UI (mobile_ui)   | Builds the mobile application (future phase). |
 | Tests      | OFF            | BUILD_TESTS (tests)           | Builds unit and integration tests.            |
 | Benchmarks | OFF            | BUILD_BENCHMARKS (benchmarks) | Builds performance benchmarks.                |
+
+### Libraries
+
+| Library     | Mandatory        | Link                                                     |
+|-------------|:------------------:|----------------------------------------------------------|
+| OpenImageIO | Yes              | https://github.com/AcademySoftwareFoundation/OpenImageIO |
+| OpenColorIO | Yes              | https://github.com/AcademySoftwareFoundation/OpenColorIO |
+| Halide      | Yes              | https://github.com/halide/Halide                         |
+| spdlog      | Yes              | https://github.com/gabime/spdlog                         |
+| Qt6         | No (only for UI) | https://doc.qt.io/qt-6/                                  |
 
 ---
 ## 📦 Vcpkg Configuration (General)
@@ -65,3 +77,7 @@ cmake --build build/debug-vcpkg
 cmake --preset=release-vcpkg
 cmake --build build/release-vcpkg
 ```
+
+## Understood the core 
+
+* [**The Core**](CORE_DESIGN.md) (You can see the design patterns used for the core).

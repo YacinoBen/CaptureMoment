@@ -11,8 +11,10 @@ Compiling dependencies (especially LLVM via Halide) is resource-intensive.
 * **Standard Build** (Debug + Release): Requires ~80-100 GB. Can take 2h+.
 * **Optimized Build** (Release only): Requires ~40 GB. ~40% faster.
 
+You can build with vcpkg, it's better or you can use your own toolchains compilation
+
 ---
-## 🛠️ Environment Setup
+## 🛠️ Environment Setup with vcpkg
 
 ### 1. Install Vcpkg
 ```powershell
@@ -36,28 +38,34 @@ $env:VCPKG_BINARY_SOURCES = "clear;files,C:\vcpkg_cache"
 We recommend using CMake Presets which automatically configure the correct generators and Vcpkg triplets. Don't forget to enable the UI with **-Ddesktop_ui=ON** if you want to compile also the ui
 You can check [**The Main building**](../BUILDING_MAIN.md) to see all options
 
-### Option A: Visual Studio (MSVC) - Recommended
+### Option A: Terminal - CMD
 **Optimized Mode (Release only) :** (Uses the custom x64-windows-release triplet for time/space saving)
 
 ```PowerShell
-cmake --preset release-vcpkg-msvc -Ddesktop_ui=ON
+cmake --preset release-vcpkg-msvc-desktop
+cmake --build build/release-vcpkg-msvc-desktop
+# or
+cmake --preset release-vcpkg-msvc
 cmake --build build/release-vcpkg-msvc
 ```
 For Full Development (Debug):
 =
 
 ```PowerShell
-cmake --preset debug-vcpkg-msvc -Ddesktop_ui=ON
-cmake --build build/debug-vcpkg-msvc
+cmake --preset debug-vcpkg-msvc-desktop
+cmake --build build/debug-vcpkg-msvc-desktop
+# or
+cmake --preset release-vcpkg-msvc
+cmake --build build/release-vcpkg-msvc
 ```
-### Option B: MinGW
 
-**Optimized Mode (Release only) :** If you prefer GCC/MinGW and use an IDE like QtCreator for the UI. (Uses the custom x64-mingw-dynamic-release triplet)
+### Option B: Qt Creator
+**Optimized Mode (Release only) :** (Uses the custom x64-windows-release or x64-mingw-dynamic)
 
-```PowerShell
-cmake --preset debug-vcpkg-mingw
-cmake --build build/debug-vcpkg-mingw
-```
+Open the root CMakeLists.txt with Qt Creator and choose the build you want. Espacially if you want to use the UI. choose msvc-qt or mingw-qt
+
+### Option C: Visual Studio
+Not configured at yet
 
 ---
 ## 🔍 Available Windows Presets
