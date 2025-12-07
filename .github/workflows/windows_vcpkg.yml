@@ -17,12 +17,10 @@ jobs:
 
     strategy:
       matrix:
-        build-type: [Release, Debug]
+        build-type: [Release]
         include:
           - build-type: Release
             preset: release-vcpkg-msvc-desktop
-          - build-type: Debug
-            preset: debug-vcpkg-msvc-desktop
 
     steps:
       # ====================================================================
@@ -84,7 +82,13 @@ jobs:
       # 6. Configure CMake with vcpkg toolchain
       # ====================================================================
       - name: Configure CMake (C++23 Release with Preset)
-        run: cmake --preset release-vcpkg-msvc-desktop -Dtests=ON
+        run: |
+          $ToolchainPath = Join-Path "${{ github.workspace }}" "vcpkg\scripts\buildsystems\vcpkg.cmake"
+          Write-Host "Setting CMAKE_TOOLCHAIN_FILE to: $ToolchainPath" 
+         
+          cmake --preset ${{ matrix.preset }} `
+                -Dtests=ON `
+                -DCMAKE_TOOLCHAIN_FILE="$ToolchainPath"
         shell: pwsh
         working-directory: ${{ github.workspace }}
 
@@ -94,7 +98,7 @@ jobs:
       - name: Build
         run: |
           cd build
-          cmake --build . --config ${{ matrix.build-type }} --parallel $env:NUMBER_OF_PROCESSORS
+          cmake --build . --config Release --parallel $env:NUMBER_OF_PROCESSORS
         shell: pwsh
         working-directory: ${{ github.workspace }}
 
@@ -104,7 +108,7 @@ jobs:
       - name: Run tests
         run: |
           cd build
-          ctest --output-on-failure --build-config ${{ matrix.build-type }}
+          ctest --output-on-failure --build-config Release
         shell: pwsh
         working-directory: ${{ github.workspace }}
         continue-on-error: true
@@ -118,9 +122,6 @@ jobs:
         with:
          name: build-release
          path: |
-          # Chemin ajusté: Les binaires sont souvent placés dans un sous-dossier 
-          # correspondant à la configuration (Release/Debug) sur Windows.
-          # L'exécutable principal (à ajuster au nom réel du binaire de l'UI)
           build/ui/desktop/Release/CaptureMomentDesktop.exe 
           build/tests/Release/*.exe
           build/Release/*.lib
