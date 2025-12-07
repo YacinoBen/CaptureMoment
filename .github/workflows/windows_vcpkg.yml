@@ -4,23 +4,22 @@ on:
   push:
     branches: ["main", "develop"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "develop"]
 
 env:
-  CMAKE_GENERATOR_PLATFORM: x64
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 300
 
     strategy:
       matrix:
         build-type: [Release]
         include:
           - build-type: Release
-            preset: release-vcpkg-msvc-desktop
+            preset: release-vcpkg-msvc
 
     steps:
       # ====================================================================
@@ -33,88 +32,38 @@ jobs:
           fetch-depth: 0
 
       # ====================================================================
-      # 2. Export GitHub Actions cache as vcpkg binary source
-      # ====================================================================
-      - name: Export GitHub Actions cache environment
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
-
-      # ====================================================================
-      # 3. Setup MSBuild
+      # 2. Setup MSBuild
       # ====================================================================
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
       # ====================================================================
-      # 4. Cache vcpkg packages (optimisation majeure)
+      # 3. Setup vcpkg  
       # ====================================================================
-      - name: Cache vcpkg packages
-        uses: actions/cache@v4
+
+      - name: Setup vcpkg (and does not build any package)
+        uses: lukka/run-vcpkg@v11 
         with:
-          path: |
-            ${{ github.workspace }}/vcpkg
-            ${{ github.workspace }}/build/vcpkg_installed
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}-${{ matrix.build-type }}
-          restore-keys: |
-            ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}-
-            ${{ runner.os }}-vcpkg-
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          vcpkgJsonGlob: 'vcpkg.json'
+
+          appendedCacheKey: ${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       # ====================================================================
-      # 5. Setup vcpkg (only if not cached)
+      # 4. Configure & Build with CMake
       # ====================================================================
-      - name: Setup vcpkg
-        run: |
-          if (-not (Test-Path "${{ github.workspace }}\vcpkg\vcpkg.exe")) {
-            Write-Host "vcpkg not found, cloning..."
-            git clone https://github.com/Microsoft/vcpkg.git ${{ github.workspace }}\vcpkg
-            cd ${{ github.workspace }}\vcpkg
-            .\bootstrap-vcpkg.bat -disableMetrics
-            Write-Host "vcpkg bootstrap completed"
-          } else {
-            Write-Host "vcpkg already cached"
-          }
-        shell: pwsh
+      - name: Run CMake consuming CMakePreset.json and run vcpkg to build packages
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: '${{ matrix.preset }}'
+          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=ON']"
+          buildPreset: '${{ matrix.preset }}'
+          buildPresetAdditionalArgs: "['--config ${{ matrix.build-type }}']"
+          testPreset: '${{ matrix.preset }}'
+          testPresetAdditionalArgs: "['--config ${{ matrix.build-type }}', '--output-on-failure']"
 
       # ====================================================================
-      # 6. Configure CMake with vcpkg toolchain
-      # ====================================================================
-      - name: Configure CMake (C++23 Release with Preset)
-        run: |
-          $ToolchainPath = Join-Path "${{ github.workspace }}" "vcpkg\scripts\buildsystems\vcpkg.cmake"
-          Write-Host "Setting CMAKE_TOOLCHAIN_FILE to: $ToolchainPath" 
-         
-          cmake --preset ${{ matrix.preset }} `
-                -Dtests=ON `
-                -DCMAKE_TOOLCHAIN_FILE="$ToolchainPath"
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-
-      # ====================================================================
-      # 7. Build
-      # ====================================================================
-      - name: Build
-        run: |
-          cd build
-          cmake --build . --config Release --parallel $env:NUMBER_OF_PROCESSORS
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-
-      # ====================================================================
-      # 8. Run tests (optionnel)
-      # ====================================================================
-      - name: Run tests
-        run: |
-          cd build
-          ctest --output-on-failure --build-config Release
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        continue-on-error: true
-
-      # ====================================================================
-      # 9. Upload build artifacts
+      # 5. Upload build artifacts
       # ====================================================================
       - name: Upload build artifacts
         if: always()
@@ -131,7 +80,7 @@ jobs:
 
 
       # ====================================================================
-      # 10. Cleanup (optionnel pour économiser de l'espace)
+      # 6. Cleanup (optionnel pour économiser de l'espace)
       # ====================================================================
       - name: Cleanup vcpkg buildtrees
         if: always()
