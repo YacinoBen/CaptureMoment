@@ -1,0 +1,140 @@
+name: CI Windows (vcpkg + MSVC)
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CMAKE_GENERATOR_PLATFORM: x64
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        build-type: [Release, Debug]
+        include:
+          - build-type: Release
+            preset: release-vcpkg-msvc-desktop
+          - build-type: Debug
+            preset: debug-vcpkg-msvc-desktop
+
+    steps:
+      # ====================================================================
+      # 1. Checkout
+      # ====================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # ====================================================================
+      # 2. Export GitHub Actions cache as vcpkg binary source
+      # ====================================================================
+      - name: Export GitHub Actions cache environment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      # ====================================================================
+      # 3. Setup MSBuild
+      # ====================================================================
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      # ====================================================================
+      # 4. Cache vcpkg packages (optimisation majeure)
+      # ====================================================================
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/vcpkg
+            ${{ github.workspace }}/build/vcpkg_installed
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}-${{ matrix.build-type }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}-
+            ${{ runner.os }}-vcpkg-
+
+      # ====================================================================
+      # 5. Setup vcpkg (only if not cached)
+      # ====================================================================
+      - name: Setup vcpkg
+        run: |
+          if (-not (Test-Path "${{ github.workspace }}\vcpkg\vcpkg.exe")) {
+            Write-Host "vcpkg not found, cloning..."
+            git clone https://github.com/Microsoft/vcpkg.git ${{ github.workspace }}\vcpkg
+            cd ${{ github.workspace }}\vcpkg
+            .\bootstrap-vcpkg.bat -disableMetrics
+            Write-Host "vcpkg bootstrap completed"
+          } else {
+            Write-Host "vcpkg already cached"
+          }
+        shell: pwsh
+
+      # ====================================================================
+      # 6. Configure CMake with vcpkg toolchain
+      # ====================================================================
+      - name: Configure CMake (C++23 Release with Preset)
+        run: cmake --preset release-vcpkg-msvc-desktop -Dtests=ON
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+
+      # ====================================================================
+      # 7. Build
+      # ====================================================================
+      - name: Build
+        run: |
+          cd build
+          cmake --build . --config ${{ matrix.build-type }} --parallel $env:NUMBER_OF_PROCESSORS
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+
+      # ====================================================================
+      # 8. Run tests (optionnel)
+      # ====================================================================
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --build-config ${{ matrix.build-type }}
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        continue-on-error: true
+
+      # ====================================================================
+      # 9. Upload build artifacts
+      # ====================================================================
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+         name: build-release
+         path: |
+          # Chemin ajusté: Les binaires sont souvent placés dans un sous-dossier 
+          # correspondant à la configuration (Release/Debug) sur Windows.
+          # L'exécutable principal (à ajuster au nom réel du binaire de l'UI)
+          build/ui/desktop/Release/CaptureMomentDesktop.exe 
+          build/tests/Release/*.exe
+          build/Release/*.lib
+          build/Release/*.dll
+          retention-days: 7
+          if-no-files-found: ignore
+
+
+      # ====================================================================
+      # 10. Cleanup (optionnel pour économiser de l'espace)
+      # ====================================================================
+      - name: Cleanup vcpkg buildtrees
+        if: always()
+        run: |
+          Remove-Item -Recurse -Force "${{ github.workspace }}\vcpkg\buildtrees" -ErrorAction SilentlyContinue
+          Write-Host "Buildtrees cleaned up"
+        shell: pwsh
