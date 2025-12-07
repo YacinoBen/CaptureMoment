@@ -7,24 +7,30 @@
 
 #include <spdlog/spdlog.h>
 
-#include "source_manager.h"
-#include <OpenImageIO/imageio.h>
-#include <OpenImageIO/imagebuf.h>
-#include <OpenImageIO/imagecache.h>
+#include "managers/source_manager.h"
 #include <algorithm>
 
 namespace CaptureMoment {
 
-static OIIO::ImageCache* s_globalCache = nullptr;
+static std::shared_ptr<OIIO::ImageCache> s_globalCachePtr = nullptr;
 
 OIIO::ImageCache* SourceManager::getGlobalCache() {
-    if (!s_globalCache) {
-        s_globalCache = OIIO::ImageCache::create();
-        s_globalCache->attribute("max_memory_MB", 2048.0f);
-
-        spdlog::debug("OIIO ImageCache created: 2GB");
+    if (!s_globalCachePtr) {
+        // create the global ImageCache singleton
+        s_globalCachePtr = OIIO::ImageCache::create();
+        
+        // Configuration with the raw pointer obtained via get()
+        OIIO::ImageCache* cache = s_globalCachePtr.get();
+        if (cache) {
+            cache->attribute("max_memory_MB", 2048.0f);
+            spdlog::debug("OIIO ImageCache created: 2GB");
+        } else {
+             // Should be impossible if create() succeeds
+            spdlog::critical("Failed to create OIIO ImageCache.");
+        }
     }
-    return s_globalCache;
+    // Return the raw pointer for access by other classes
+    return s_globalCachePtr.get();
 }
 
 SourceManager::SourceManager()
@@ -52,7 +58,7 @@ bool SourceManager::loadFile(std::string_view path) {
         m_imageBuf = std::make_unique<OIIO::ImageBuf>(
             std::string(path),
             0, 0,  // subimage, miplevel
-            m_cache
+            s_globalCachePtr
         );
         
         if (!m_imageBuf->read()) {
@@ -163,7 +169,12 @@ std::optional<std::string> SourceManager::getMetadata(std::string_view key) cons
     const auto& spec = m_imageBuf->spec();
     auto* attr = spec.find_attribute(std::string(key));
 
-    return attr ? attr->get_string() : std::nullopt;
+   // to avoid problematic implicit conversion of the ternary operator.
+    if (attr) {
+        return attr->get_string();
+    } else {
+        // Retourne std::nullopt si l'attribut n'est pas trouvé
+        return std::nullopt;
+    }
 }
-
 } // namespace CaptureMoment

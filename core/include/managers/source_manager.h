@@ -6,15 +6,12 @@
  */
 
 #pragma once
-#include "i_source_manager.h"
+#include "managers/i_source_manager.h"
+#include <OpenImageIO/imagebuf.h>
+#include <OpenImageIO/imagecache.h>
 #include <memory>
-#include <string_view> // Included for explicit type usage in arguments
-
-// Forward declarations for the OpenImageIO library
-namespace OIIO {
-    class ImageBuf;
-    class ImageCache;
-}
+#include <string_view>
+#include <optional>
 
 namespace CaptureMoment {
 
