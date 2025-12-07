@@ -77,3 +77,7 @@ cmake --build build/debug-vcpkg
 cmake --preset=release-vcpkg
 cmake --build build/release-vcpkg
 ```
+
+## Understood the core 
+
+* [**The Core**](CORE_DESIGN.md) (You can see the design patterns used for the core).
