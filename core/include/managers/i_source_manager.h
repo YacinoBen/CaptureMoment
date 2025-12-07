@@ -91,6 +91,16 @@ public:
     virtual std::unique_ptr<ImageRegion> getTile(
         int x, int y, int width, int height
     ) = 0;
+
+    /**
+     * @brief Writes the processed pixels back into the in-memory ImageBuf.
+     * * This is the counterpart to getTile() and is used by the PipelineEngine
+     * to apply changes in-place.
+     * * @param tile The processed ImageRegion containing new pixel data.
+     * @return true on success.
+     * @note The coordinates (m_x, m_y) in the ImageRegion determine where the data is written.
+     */
+    [[nodiscard]] virtual bool setTile(const ImageRegion& tile) = 0;
     
     /**
      * @brief Retrieves a specific metadata field from the source image.

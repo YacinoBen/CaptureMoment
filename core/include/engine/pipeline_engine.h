@@ -67,7 +67,7 @@ private:
     /**
      * @brief Write processed tile back to source
      */
-    bool writeTileBack(int x, int y, const ImageRegion& tile);
+     [[nodiscard]] bool writeTileBack(const ImageRegion& tile);
 };
 
 } // namespace CaptureMoment

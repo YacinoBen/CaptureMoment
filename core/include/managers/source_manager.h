@@ -54,6 +54,8 @@ public:
     std::unique_ptr<ImageRegion> getTile(
         int x, int y, int width, int height
     ) override;
+
+    bool setTile(const ImageRegion& tile) override;
     
     std::optional<std::string> getMetadata(std::string_view key) const override;
     

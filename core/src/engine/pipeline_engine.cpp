@@ -66,7 +66,7 @@ bool PipelineEngine::processRegion(
     }
 
     // 3. Write tile back (optional: for in-place editing)
-    if (!writeTileBack(x, y, *tile)) {
+    if (!writeTileBack(*tile)) {
         spdlog::warn("PipelineEngine::processRegion: Failed to write tile back");
         return false;
     }
@@ -75,8 +75,16 @@ bool PipelineEngine::processRegion(
     return true;
 }
 
-bool PipelineEngine::writeTileBack(int x, int y, const ImageRegion& tile) {
-    spdlog::trace("PipelineEngine::writeTileBack: Tile at ({}, {}) ready for use", x, y);
+bool PipelineEngine::writeTileBack(const ImageRegion& tile) {
+    // the sourcemanager knows how to write the tile
+
+    // The SourceManager::setTile is the method we updated to write pixels.
+    if (!m_source.setTile(tile)) {
+        spdlog::error("PipelineEngine::writeTileBack: SourceManager failed to set/persist tile.");
+        return false;
+    }
+    
+    spdlog::trace("PipelineEngine::writeTileBack: Tile successfully persisted.");
     return true;
 }
 

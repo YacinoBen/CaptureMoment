@@ -161,6 +161,38 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
     return region;
 }
 
+bool SourceManager::setTile(const ImageRegion& tile) {
+    if (!isLoaded()) {
+        spdlog::warn("setTile() called but no image loaded");
+        return false;
+    }
+
+    if (!tile.isValid() || tile.m_format != PixelFormat::RGBA_F32 || tile.m_channels != 4) {
+        spdlog::error("setTile() received an invalid or unsupported ImageRegion (must be RGBA_F32, 4 channels).");
+        return false;
+    }
+
+    // 1. Definition of the OIIO ROI for writing
+    OIIO::ROI roi(
+        tile.m_x, tile.m_x + tile.m_width,
+        tile.m_y, tile.m_y + tile.m_height,
+        0, 1, // Zmin, Zmax
+        0, 4 // Cmin, Cmax (4 channels for writing)
+    );
+
+    // 2. writing pixels back into the ImageBuf
+    // The ImageBuf is updated using TypeDesc::FLOAT (corresponding to std::vector<float>).
+    if (!m_imageBuf->set_pixels(roi, OIIO::TypeDesc::FLOAT, tile.m_data.data())) {
+        spdlog::error("Failed to write tile back at ({}, {}). OIIO Error: {}",
+                      tile.m_x, tile.m_y, m_imageBuf->geterror());
+        return false;
+    }
+
+    spdlog::trace("SourceManager: Tile written back: ({}, {}) {}x{} (RGBA_F32).",
+                  tile.m_x, tile.m_y, tile.m_width, tile.m_height);
+    return true;
+}
+
 std::optional<std::string> SourceManager::getMetadata(std::string_view key) const {
     if (!isLoaded()) {
         return std::nullopt;
