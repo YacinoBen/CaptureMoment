@@ -1,0 +1,114 @@
+name: CI Ubuntu (Ninja + APT)
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+  workflow_dispatch:
+
+env:
+  CMAKE_GENERATOR: Ninja
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      matrix:
+        build-type: [Release, Debug] # Ajout de Debug pour couvrir les deux presets
+        include:
+          # --- UTILISATION DES PRESETS NINJA GÉNÉRIQUES ---
+          - build-type: Release
+            preset: release-ninja-linux
+          - build-type: Debug
+            preset: debug-ninja-linux
+
+    steps:
+      # ====================================================================
+      # Checkout
+      # ====================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+         
+      - name: Install  PIP
+        run: |
+          # Installation/mise à jour de pip
+          python -m pip install --upgrade pip
+          pip install halide
+      # ====================================================================
+      # Install dependencies via APT (standard Linux package manager)
+      #          pip install halide
+
+      # ====================================================================
+      - name: Install APT dependencies (C++ tools, Qt, Libraries)
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential
+
+          sudo apt install -y libspdlog-dev 
+          sudo apt install -y libopenimageio-dev openimageio-tools
+          sudo apt install -y qt6-base-dev qt6-declarative-dev
+          pip uninstall halide -y halide || true
+          sudo apt install -y libhalide17-1 libhalide17-1-dev python3-halide
+          sudo apt install -y libcurl4-openssl-dev
+          sudo apt install -y libxkbcommon-dev
+
+
+
+
+        
+      # ====================================================================
+      # Configure cmake environment
+      # ====================================================================
+      - name: Configure CMake
+        run: |
+          
+          TESTS_FLAG=""
+          
+          if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
+            TESTS_FLAG="-DBUILD_TESTS=ON"
+            echo "::notice file=tests::the directory 'tests' exists and is not empty. Tests enabled."
+          else
+            echo "::warning file=tests::the directory 'tests' is empty or missing. Tests disabled"
+          fi
+
+          cmake --preset ${{ matrix.preset }} \
+          -DBUILD_DESKTOP_UI:BOOL=ON \
+          ${TESTS_FLAG} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} .
+        shell: bash
+
+      # ====================================================================
+      # Build
+      # ====================================================================
+      - name: Build Project
+        run: |
+          cmake --build build/${{ matrix.preset }} --config ${{ matrix.build-type }} --parallel $(nproc)
+        shell: bash
+
+      # ====================================================================
+      # Test
+      # ====================================================================
+      - name: Run Tests
+        if: ${{ always() && steps.configure.outcome == 'success' }} # S'assurer que les tests ne s'exécutent que si la configuration a réussi (facultatif mais bonne pratique)
+        run: |
+          cd build/${{ matrix.preset }}
+          ctest --output-on-failure -C ${{ matrix.build-type }}
+        shell: bash
+
+      # ====================================================================
+      # Upload build artifacts
+      # ====================================================================
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-ubuntu-${{ matrix.build-type }}
+          path: |
+            build/${{ matrix.preset }}/ui/desktop/capturemoment_desktop
+          retention-days: 7
+          if-no-files-found: warn
