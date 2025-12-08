@@ -19,7 +19,7 @@ jobs:
         build-type: [Release]
         include:
           - build-type: Release
-            preset: release-vcpkg-msvc
+            preset: release-vcpkg-msvc-desktop
 
     steps:
       # ====================================================================
@@ -56,7 +56,7 @@ jobs:
         uses: lukka/run-cmake@v10
         with:
           configurePreset: '${{ matrix.preset }}'
-          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=ON']"
+          configurePresetAdditionalArgs: "['-Dtests=ON']"
           buildPreset: '${{ matrix.preset }}'
           buildPresetAdditionalArgs: "['--config ${{ matrix.build-type }}']"
           testPreset: '${{ matrix.preset }}'
