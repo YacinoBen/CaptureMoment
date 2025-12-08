@@ -185,6 +185,7 @@
             "inherits": "vcpkg-base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "VCPKG_BUILD_TYPE": "release",
                 "VCPKG_HOST_TRIPLET": "x64-windows",
                 "VCPKG_TARGET_TRIPLET": "x64-windows-release"
             },
