@@ -21,11 +21,11 @@
       "dependencies": [
         {
           "name": "qtbase",
-          "features": ["core", "gui"]
+          "default-features": false,
         },
         {
           "name": "qtdeclarative",
-          "features": ["qml"]
+          "default-features": false
         }
       ]
     }
