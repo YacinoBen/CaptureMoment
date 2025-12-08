@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 300
+    timeout-minutes: 360
 
     strategy:
       matrix:
@@ -44,10 +44,7 @@ jobs:
       - name: Setup vcpkg (and does not build any package)
         uses: lukka/run-vcpkg@v11 
         with:
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           vcpkgJsonGlob: 'vcpkg.json'
-
-          appendedCacheKey: ${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
 
       # ====================================================================
       # 4. Configure & Build with CMake
@@ -77,14 +74,3 @@ jobs:
           build/Release/*.dll
           retention-days: 7
           if-no-files-found: ignore
-
-
-      # ====================================================================
-      # 6. Cleanup (optionnel pour économiser de l'espace)
-      # ====================================================================
-      - name: Cleanup vcpkg buildtrees
-        if: always()
-        run: |
-          Remove-Item -Recurse -Force "${{ github.workspace }}\vcpkg\buildtrees" -ErrorAction SilentlyContinue
-          Write-Host "Buildtrees cleaned up"
-        shell: pwsh

@@ -21,7 +21,7 @@
       "dependencies": [
         {
           "name": "qtbase",
-          "default-features": false,
+          "default-features": false
         },
         {
           "name": "qtdeclarative",
