@@ -11,18 +11,19 @@ For macOS, we recommend using Homebrew to manage dependencies (Qt, OpenImageIO, 
 
 ## 📦Installing Dependencies
 
+make sure you have cmake, ninja installed
+
 ```powershell
 brew update
-brew install cmake ninja git
-brew install qt@6
 brew install openimageio
+brew install spdlog
 brew install halide
-
+brew install qt6
 ```
 
 
 ## 🚀 Build Instructions
-We use custom Homebrew presets that configure the necessary paths (CMAKE_PREFIX_PATH). Don't forget to enable the UI!
+We use custom Homebrew presets that configure the necessary paths (CMAKE_PREFIX_PATH). Don't forget to enable the UI if you want!
 
 **Compilation**
 ```powershell

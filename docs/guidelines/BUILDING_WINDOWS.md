@@ -38,33 +38,50 @@ $env:VCPKG_BINARY_SOURCES = "clear;files,C:\vcpkg_cache"
 We recommend using CMake Presets which automatically configure the correct generators and Vcpkg triplets. Don't forget to enable the UI with **-Ddesktop_ui=ON** if you want to compile also the ui
 You can check [**The Main building**](../BUILDING_MAIN.md) to see all options
 
-### Option A: Terminal - CMD
+### Option A: Only the Core
 **Optimized Mode (Release only) :** (Uses the custom x64-windows-release triplet for time/space saving)
 
 ```PowerShell
-cmake --preset release-vcpkg-msvc-desktop
-cmake --build build/release-vcpkg-msvc-desktop
-# or
 cmake --preset release-vcpkg-msvc
 cmake --build build/release-vcpkg-msvc
+# or
+cmake --preset release-vcpkg-mingw
+cmake --build build/release-vcpkg-mingw
 ```
 For Full Development (Debug):
 =
 
 ```PowerShell
-cmake --preset debug-vcpkg-msvc-desktop
-cmake --build build/debug-vcpkg-msvc-desktop
-# or
-cmake --preset release-vcpkg-msvc
-cmake --build build/release-vcpkg-msvc
+cmake --preset debug-vcpkg-msvc
+cmake --build build/debug-vcpkg-msvc
 ```
 
-### Option B: Qt Creator
-**Optimized Mode (Release only) :** (Uses the custom x64-windows-release or x64-mingw-dynamic)
+### Option B: With Qt Desktop
 
-Open the root CMakeLists.txt with Qt Creator and choose the build you want. Espacially if you want to use the UI. choose msvc-qt or mingw-qt
+#### If you have Qt and you don't want to recompile again
+```PowerShell
+cmake --preset release-vcpkg-msvc -Ddesktop-ui="ON"
+cmake --build build/release-vcpkg-msvc
+# or
+cmake --preset release-vcpkg-mingw -Ddesktop-ui="ON"
+cmake --build build/release-vcpkg-mingw
+```
 
-### Option C: Visual Studio
+#### If you don't have Qt
+```PowerShell
+cmake --preset release-vcpkg-msvc-desktop
+cmake --build build/release-vcpkg-msvc-desktop
+# or
+cmake --preset release-vcpkg-mingw-desktop
+cmake --build build/release-vcpkg-mingw
+```
+
+### Option C: IDE
+
+#### Qt Creator
+Open the root CMakeLists.txt with Qt Creator and choose the build vcpkg core msvc or mingw (with no desktop). And when you are in the pannel of the configuration, activate BUILD_UIBUILD_DESKTOP_UI to ON
+
+#### Visual Studio
 Not configured at yet
 
 ---
