@@ -33,13 +33,12 @@ Before selecting your platform, ensure you have these tools:
 
 ### Libraries
 
-| Library     | Mandatory        | Link                                                     |
+| Library     | Version      | Link                                                     |
 |-------------|:------------------:|----------------------------------------------------------|
-| OpenImageIO | Yes              | https://github.com/AcademySoftwareFoundation/OpenImageIO |
-| OpenColorIO | Yes              | https://github.com/AcademySoftwareFoundation/OpenColorIO |
-| Halide      | Yes              | https://github.com/halide/Halide                         |
-| spdlog      | Yes              | https://github.com/gabime/spdlog                         |
-| Qt6         | No (only for UI) | https://doc.qt.io/qt-6/                                  |
+| OpenImageIO | 3.1.8.0             | https://github.com/AcademySoftwareFoundation/OpenImageIO |
+| Halide      | 17.0.0 & 18.0.0             | https://github.com/halide/Halide                         |
+| spdlog      | 1.16.0             | https://github.com/gabime/spdlog                         |
+| Qt6         | 6.9.3| https://doc.qt.io/qt-6/                                  |
 
 ---
 ## 📦 Vcpkg Configuration (General)

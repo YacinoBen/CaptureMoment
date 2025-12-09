@@ -43,13 +43,23 @@
             brew install spdlog
             brew install openimageio
             brew install halide 
-            brew install qt
 
             # Optional: Halide (if available in homebrew)
             # brew install halide
             
-            brew list --versions spdlog openimageio halide qt
+            brew list --versions spdlog openimageio halide
       
+
+      # ====================================================================
+      # Installation of Qt 6.9.3 with the dedicated action
+      # ====================================================================
+        - name: Setup Qt 6.9.3 Environment
+          uses: jurplel/install-qt-action@v4 
+          with:
+           version: '6.9.3'
+           target: 'desktop'
+           host: 'mac'
+
         # ====================================================================
         # Configure cmake environment
         # ====================================================================

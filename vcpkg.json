@@ -12,7 +12,8 @@
     },
     {
       "name": "spdlog",
-      "default-features": false
+      "default-features": false,
+      "version>=": "1.16.0"
     }
   ],
     "features": {
@@ -21,11 +22,13 @@
       "dependencies": [
         {
           "name": "qtbase",
-          "default-features": false
+          "default-features": false,
+          "version>=": "6.9.3"
         },
         {
           "name": "qtdeclarative",
-          "default-features": false
+          "default-features": false,
+          "version>=": "6.9.3"
         }
       ]
     }
