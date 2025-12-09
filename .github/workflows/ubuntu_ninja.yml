@@ -29,42 +29,75 @@ jobs:
       # ====================================================================
       # Checkout
       # ====================================================================
+   
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
-         
-      - name: Install  PIP
-        run: |
-          # Installation/mise à jour de pip
-          python -m pip install --upgrade pip
-          pip install halide
-      # ====================================================================
-      # Install dependencies via APT (standard Linux package manager)
-      #          pip install halide
+         submodules: recursive
+         fetch-depth: 0
 
       # ====================================================================
-      - name: Install APT dependencies (C++ tools, Qt, Libraries)
+      # Install dependencies via APT (standard Linux package manager)
+      # ====================================================================
+      - name: Install APT dependencies
         run: |
           sudo apt update
           sudo apt install -y build-essential
 
           sudo apt install -y libspdlog-dev 
-          sudo apt install -y libopenimageio-dev openimageio-tools
-          sudo apt install -y qt6-base-dev qt6-declarative-dev
+
           pip uninstall halide -y halide || true
           sudo apt install -y libhalide17-1 libhalide17-1-dev python3-halide
+          
           sudo apt install -y libcurl4-openssl-dev
           sudo apt install -y libxkbcommon-dev
 
+      # ====================================================================
+      # Installation of Qt 6.9.3 with the dedicated action
+      # ====================================================================
+      - name: Setup Qt 6.9.3 Environment
+        uses: jurplel/install-qt-action@v4 
+        with:
+          version: '6.9.3'
+          target: 'desktop'
+          host: 'linux'
 
+      # ====================================================================
+      # BUILD AND INSTALL OpenImageIO 3.1.8 from source
+      # ====================================================================
+      - name: Install dependencies for OpenImageIO
+        run: |
+          sudo apt install -y \
+          libjpeg-dev \
+          libfreetype-dev \
+          libpng-dev \
+          libuhd-dev \
+          libraw-dev \
+          libopencv-core-dev libopencv-imgproc-dev \
+          libopenjp2-7-dev \
+          libjxl-dev \
+          libheif-dev \
+          libpystring-dev
 
-
+      - name: Build and Install OpenImageIO 3.1.8 from source
+        run: |
+          git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
+          cd /tmp/oiio-src
+          
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                 -DCMAKE_INSTALL_PREFIX=/opt/oiio \
+             
+                 ..
+          cmake --build . --parallel $(nproc)
+          sudo cmake --install .
+          
+          echo "CMAKE_PREFIX_PATH=/opt/oiio:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
         
       # ====================================================================
       # Configure cmake environment
       # ====================================================================
-      - name: Configure CMake
+      - name: Configure CMake Project
         run: |
           
           TESTS_FLAG=""
@@ -76,10 +109,11 @@ jobs:
             echo "::warning file=tests::the directory 'tests' is empty or missing. Tests disabled"
           fi
 
-          cmake --preset ${{ matrix.preset }} \
+          cmake \
+          --preset ${{ matrix.preset }} \
           -DBUILD_DESKTOP_UI:BOOL=ON \
           ${TESTS_FLAG} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} .
+          -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
         shell: bash
 
       # ====================================================================
@@ -87,14 +121,14 @@ jobs:
       # ====================================================================
       - name: Build Project
         run: |
-          cmake --build build/${{ matrix.preset }} --config ${{ matrix.build-type }} --parallel $(nproc)
+           cmake --build build/${{ matrix.preset }} --config ${{ matrix.build-type }} --parallel $(sysctl -n hw.ncpu)
         shell: bash
 
       # ====================================================================
       # Test
       # ====================================================================
       - name: Run Tests
-        if: ${{ always() && steps.configure.outcome == 'success' }} # S'assurer que les tests ne s'exécutent que si la configuration a réussi (facultatif mais bonne pratique)
+        if: ${{ always() && steps.configure.outcome == 'success' }}
         run: |
           cd build/${{ matrix.preset }}
           ctest --output-on-failure -C ${{ matrix.build-type }}
