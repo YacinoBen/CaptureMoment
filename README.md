@@ -75,7 +75,7 @@ This project is distributed under the [GNU General Public License v3 (GPLv3)](./
 
 **Redistribution Conditions:**
 - Any redistribution (modified or not) must be under the same GPLv3 license.
-- The name **CaptureMoment** and credits to the original author (Kenza ABDELGUERFI) must be preserved.
+- The name **CaptureMoment** and credits to the TEAM.
 - It is forbidden to redistribute this software (or a modified version) under a name highly similar without explicit permission from the original author.
 - Redistributions must include a link to the official repository and a clear mention of the source code origin.
 
