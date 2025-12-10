@@ -65,6 +65,19 @@ endfunction()
 # Apply compiler-specific flags to a target
 # ============================================================
 function(apply_compiler_flags TARGET_NAME)
+
+    # Skip non-compilable targets (INTERFACE_LIBRARY, generated targets, etc.)
+    get_target_property(TARGET_TYPE ${TARGET_NAME} TYPE)
+    
+    if(TARGET_TYPE STREQUAL "INTERFACE_LIBRARY")
+        return()
+    endif()
+    
+    # Skip LLVM-generated targets
+    if(TARGET_NAME MATCHES "^(intrinsics_gen|omp_gen|acc_gen|.*TableGen)$")
+        return()
+    endif()
+    
     if(MSVC)
         target_compile_options(${TARGET_NAME} PRIVATE
             /W4                    # Warning level 4

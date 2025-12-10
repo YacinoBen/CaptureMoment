@@ -72,7 +72,13 @@ endfunction()
 function(find_halide_package)
     message(STATUS "Searching for Halide...")
     
+    if(HALIDE_DIR)
+    # Path to cmake Halide. -DHALIDE_DIR=/path/to/halide
+    find_package(Halide CONFIG REQUIRED HINTS "${HALIDE_DIR}" )
+    message(STATUS "Halide Found in this dir : "${HALIDE_DIR}"")
+    else()
     find_package(Halide CONFIG QUIET)
+    endif()
     
     if(Halide_FOUND)        
         set(Halide_FOUND TRUE PARENT_SCOPE)

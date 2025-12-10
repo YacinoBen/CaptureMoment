@@ -1,0 +1,115 @@
+  name: CI macOS (Homebrew + Clang)
+
+  on:
+    push:
+      branches: ["main", "develop"]
+    pull_request:
+      branches: ["main", "develop"]
+    workflow_dispatch:
+
+  env:
+   CMAKE_GENERATOR: Ninja
+
+  jobs:
+    build:
+      runs-on: macos-latest
+      timeout-minutes: 15
+
+      strategy:
+        matrix:
+          build-type: [Release]
+          include:
+            - build-type: Release
+              preset: release-homebrew
+            - build-type: Debug
+              preset: debug-homebrew
+
+      steps:
+        # ====================================================================
+        # Checkout
+        # ====================================================================
+        - name: Checkout repository
+          uses: actions/checkout@v4
+          with:
+            submodules: recursive
+            fetch-depth: 0
+
+        # ====================================================================
+        # Install dependencies via Homebrew
+        # ====================================================================
+        - name: Install Homebrew dependencies
+          run: |
+            brew update
+            brew install spdlog
+            brew install openimageio
+            brew install halide 
+
+            # Optional: Halide (if available in homebrew)
+            # brew install halide
+            
+            brew list --versions spdlog openimageio halide
+      
+
+      # ====================================================================
+      # Installation of Qt 6.9.3 with the dedicated action
+      # ====================================================================
+        - name: Setup Qt 6.9.3 Environment
+          uses: jurplel/install-qt-action@v4 
+          with:
+           version: '6.9.3'
+           target: 'desktop'
+           host: 'mac'
+
+        # ====================================================================
+        # Configure cmake environment
+        # ====================================================================
+        - name: Configure CMake
+          run: |
+           export CMAKE_PREFIX_PATH="$(brew --prefix qt):$CMAKE_PREFIX_PATH"
+
+           TESTS_FLAG="-Dtests=OFF"
+          
+           if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
+             TESTS_FLAG="-Dtests=ON"
+             echo "::notice file=tests::the directory 'tests' exists and is not empty. Tests enabled."
+           else
+             echo "::warning file=tests::the directory 'tests' is empty or missing. Tests disabled (Tests:OFF)."
+           fi
+
+           cmake \
+           --preset ${{ matrix.preset }} \
+           -Ddesktop_ui=ON \
+           ${TESTS_FLAG} \
+           -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} 
+          shell: bash
+
+        # ====================================================================
+        # Build
+        # ====================================================================
+        - name: Build Project
+          run: |
+           cmake --build build/${{ matrix.preset }} --config ${{ matrix.build-type }} --parallel $(sysctl -n hw.ncpu)
+          shell: bash
+
+        # ====================================================================
+        # Test
+        # ====================================================================
+        - name: Run Tests
+          run: |
+           cd build/${{ matrix.preset }}
+           ctest --output-on-failure -C ${{ matrix.build-type }}
+          shell: bash
+
+        # ====================================================================
+        # Upload build artifacts
+        # ====================================================================
+        - name: Upload build artifacts
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+           name: build-macos-${{ matrix.build-type }}
+           path: |
+             build/${{ matrix.preset }}/ui/desktop/*.dmg
+             build/${{ matrix.preset }}/ui/desktop/*.app
+           retention-days: 7
+           if-no-files-found: warn

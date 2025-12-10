@@ -1,0 +1,98 @@
+name: CI Windows (vcpkg + MSVC)
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+env:
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        build-type: [Release]
+        include:
+          - build-type: Release
+            preset: release-vcpkg-msvc
+          - build-type: Debug
+            preset: debug-vcpkg-msvc
+
+    steps:
+      # ====================================================================
+      # Checkout
+      # ====================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # ====================================================================
+      # Setup MSBuild
+      # ====================================================================
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      # ====================================================================
+      # Setup Qt
+      # ====================================================================
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+         version: '6.9.3'
+         target: 'desktop'
+         arch: 'win64_msvc2022_64'
+
+      # ====================================================================
+      # Setup vcpkg
+      # ====================================================================
+
+      - name: Setup vcpkg (and does not build any package)
+        uses: lukka/run-vcpkg@v11 
+
+      # ====================================================================
+      # Setup Python and install Halide via pip
+      # ====================================================================
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          
+      - name: pip halide
+        run: |
+         pip install halide   
+    
+      # ====================================================================
+      # Configure & Build with CMake
+      # ====================================================================
+      - name: Run CMake consuming CMakePreset.json and run vcpkg to build packages
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: '${{ matrix.preset }}'
+          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=OFF']" # Turn On Tests afters
+          buildPreset: '${{ matrix.preset }}'
+          buildPresetAdditionalArgs: "['--config ${{ matrix.build-type }}']"
+        # testPreset: '${{ matrix.preset }}'
+        # testPresetAdditionalArgs: "['--config ${{ matrix.build-type }}', '--output-on-failure']"
+
+      # ====================================================================
+      # Upload build artifacts
+      # ====================================================================
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+         name: build-release
+         path: |
+          build/ui/desktop/Release/CaptureMomentDesktop.exe 
+          build/tests/Release/*.exe
+          build/Release/*.lib
+          build/Release/*.dll
+          retention-days: 7
+          if-no-files-found: ignore

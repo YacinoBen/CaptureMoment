@@ -52,5 +52,6 @@ install(TARGETS capturemoment_desktop
 message(STATUS "CaptureMoment Desktop UI configured successfully.")
 message(STATUS "   - Target: ${CAPTUREMOMENT_DESKTOP_TARGET}")
 message(STATUS "   - Qt Version: ${Qt6_VERSION}")
+message(STATUS "   - Qt Preferred Version: 6.9.3")
 message(STATUS "   - QML URI: CaptureMoment.desktop")
 message(STATUS "")

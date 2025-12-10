@@ -185,6 +185,7 @@
             "inherits": "vcpkg-base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "VCPKG_BUILD_TYPE": "release",
                 "VCPKG_HOST_TRIPLET": "x64-windows",
                 "VCPKG_TARGET_TRIPLET": "x64-windows-release"
             },
@@ -299,6 +300,37 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_PREFIX_PATH": "/opt/homebrew;/usr/local"
             }
+        },
+
+        {
+            "name": "release-ninja-linux",
+            "displayName": "Release (Ninja - Linux)",
+            "description": "Release build with Ninja generator, using system-installed dependencies (apt/dnf/pacman)",
+            "inherits": "base",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "debug-ninja-linux",
+            "displayName": "Debug (Ninja - Linux)",
+            "description": "Debug build with Ninja generator, using system-installed dependencies (apt/dnf/pacman)",
+            "inherits": "base",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
         }
     ],
     "buildPresets": [
@@ -411,6 +443,16 @@
             "name": "release-homebrew",
             "configurePreset": "release-homebrew",
             "displayName": "Build Release (Homebrew)"
+        },
+        {
+            "name": "release-ninja-linux",
+            "configurePreset": "release-ninja-linux",
+            "displayName": "Build Release (Ninja - Linux)"
+        },
+        {
+            "name": "debug-ninja-linux",
+            "configurePreset": "debug-ninja-linux",
+            "displayName": "Build Debug (Ninja - Linux)"
         }
     ],
     "testPresets": [

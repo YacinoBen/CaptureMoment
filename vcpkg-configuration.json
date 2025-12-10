@@ -1,5 +1,9 @@
 {
     "overlay-triplets": [
     " ./cmake/triplets"
-    ]
+    ],
+    "default-registry": {
+        "kind": "builtin",
+        "baseline": "5bf0c55239da398b8c6f450818c9e28d36bf9966"
+    }
 }
