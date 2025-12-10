@@ -73,26 +73,38 @@ jobs:
           libuhd-dev \
           libraw-dev \
           libopencv-core-dev libopencv-imgproc-dev \
-          libopenjp2-7-dev \
           libjxl-dev \
           libheif-dev \
-          libpystring-dev
-
-      - name: Build and Install OpenImageIO 3.1.8 from source
+          libpystring-dev \
+          libtiff-dev \
+          libimath-dev \
+          libopenexr-dev \
+          libopencolorio-dev \
+          zlib1g-dev \
+          libjpeg-turbo8-dev
+        shell: bash
+        
+      - name: Build and Install OpenImageIO 3.1.8.0
         run: |
           git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
           cd /tmp/oiio-src
+          git checkout v3.1.8.0
           
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
                  -DCMAKE_INSTALL_PREFIX=/opt/oiio \
-             
+                 -DOpenImageIO_BUILD_MISSING_DEPS=required \
+                 -DSTOP_ON_WARNING=0 \
+                 -DOIIO_BUILD_TOOLS=OFF \
+                 -DOIIO_BUILD_TESTS=OFF \
+                 -DUSE_PYTHON=OFF \
                  ..
+
           cmake --build . --parallel $(nproc)
           sudo cmake --install .
           
           echo "CMAKE_PREFIX_PATH=/opt/oiio:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
-        
+        shell: bash
       # ====================================================================
       # Configure cmake environment
       # ====================================================================
@@ -120,7 +132,7 @@ jobs:
       # ====================================================================
       - name: Build Project
         run: |
-           cmake --build build/${{ matrix.preset }} --config ${{ matrix.build-type }} --parallel $(sysctl -n hw.ncpu)
+           cmake --build build/${{ matrix.preset }} --config ${{ matrix.build-type }} --parallel $(nproc)
         shell: bash
 
       # ====================================================================
