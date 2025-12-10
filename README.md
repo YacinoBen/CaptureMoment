@@ -10,7 +10,7 @@
 
 ## 🎯 Goal
 
-Capture Moment aims to become a **performant and modular open-source alternative** to software like **Adobe Lightroom** or **Capture One**. Designed for **professional and advanced amateur photographers**, it offers a **modern**, **non-destructive**, and **color-accurate** photo workflow.
+Capture Moment aims to become a **performant and modular open-source alternative** software. Designed for **professional and advanced amateur photographers**, it offers a **modern**, **non-destructive**, and **color-accurate** photo workflow.
 
 ---
 
@@ -39,7 +39,7 @@ Capture Moment is built for performance and modularity, using best-in-class libr
 | I/O & Cache      | OpenImageIO         | Read/Write all image formats, Tile-based caching.             |
 | Processing       | Halide              | High-performance image processing pipeline optimization.      |
 | UI               | Qt 6 Quick/QML      | Modern, declarative, and hardware-accelerated user interface. |
-| Color Management | OpenColorIO         | Industry-standard color space handling (Planned).             |
+| Color Management | OpenColorIO (already included in OpenImageIO)       | Industry-standard color space handling (Planned).             |
 | Cataloging       | SQLite              | Fast, embeddable database for photo indexing.                 |
 | Serialization    | XMP (sidecar), JSON | Storing non-destructive edits and application settings.       |
 
