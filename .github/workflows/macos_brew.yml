@@ -101,24 +101,6 @@
           shell: bash
 
         # ====================================================================
-        # Create DMG (optional - for distribution)
-        # ====================================================================
-        - name: Create DMG Bundle
-          if: success()
-          run: |
-           BUILD_DIR="build/${{ matrix.preset }}/ui/desktop"
-           APP_BUNDLE="$BUILD_DIR/capturemoment_desktop.app"
-           MACDEPLOYQT="$(brew --prefix qt)/bin/macdeployqt"
-
-           if [ -d "$APP_BUNDLE" ]; then
-             echo "Deploying Qt dependencies to $APP_BUNDLE..."
-             "$MACDEPLOYQT" "$APP_BUNDLE" -dmg
-           else
-             echo "Warning: App Bundle not found at $APP_BUNDLE"
-           fi
-          shell: bash
-
-        # ====================================================================
         # Upload build artifacts
         # ====================================================================
         - name: Upload build artifacts
