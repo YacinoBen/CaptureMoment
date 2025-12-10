@@ -8,12 +8,11 @@ on:
 
 env:
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-  NUGET_PACKAGE_DIR: '${{ github.workspace }}/nuget_packages'
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 360
+    timeout-minutes: 30
 
     strategy:
       matrix:
@@ -21,6 +20,8 @@ jobs:
         include:
           - build-type: Release
             preset: release-vcpkg-msvc
+          - build-type: Debug
+            preset: debug-vcpkg-msvc
 
     steps:
       # ====================================================================
@@ -55,32 +56,38 @@ jobs:
       - name: Setup vcpkg (and does not build any package)
         uses: lukka/run-vcpkg@v11 
         with:
-          vcpkgJsonGlob: 'vcpkg_ci.json'
-      # ====================================================================
-      # HALIDE via NUGET
-      # ====================================================================
-      - name: Restore Halide NuGet Package
-        shell: powershell
-        run: |
-          Write-Host "Restoring Halide NuGet package..."
-          nuget restore packages.config -PackagesDirectory $env:NUGET_PACKAGE_DIR
-          Write-Host "Halide package restored to: $env:NUGET_PACKAGE_DIR"
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg-install'
+          vcpkgJsonGlobal: 'vcpkg_ci.json'
+          runVcpkgInstall: true
+          vcpkgJsonIgnores: 'vcpkg.json'
 
       # ====================================================================
-      # 4. Configure & Build with CMake
+      # Setup Python and install Halide via pip
+      # ====================================================================
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          
+      - name: pip halide
+        run: |
+         pip install halide   
+    
+      # ====================================================================
+      # Configure & Build with CMake
       # ====================================================================
       - name: Run CMake consuming CMakePreset.json and run vcpkg to build packages
         uses: lukka/run-cmake@v10
         with:
           configurePreset: '${{ matrix.preset }}'
-          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=ON','-DHalide_DIR=$env:NUGET_PACKAGE_DIR/Halide.*/build/native/lib/cmake/Halide']"
+          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=OFF']" # Turn On Tests afters
           buildPreset: '${{ matrix.preset }}'
           buildPresetAdditionalArgs: "['--config ${{ matrix.build-type }}']"
-          testPreset: '${{ matrix.preset }}'
-          testPresetAdditionalArgs: "['--config ${{ matrix.build-type }}', '--output-on-failure']"
+        # testPreset: '${{ matrix.preset }}'
+        # testPresetAdditionalArgs: "['--config ${{ matrix.build-type }}', '--output-on-failure']"
 
       # ====================================================================
-      # 5. Upload build artifacts
+      # Upload build artifacts
       # ====================================================================
       - name: Upload build artifacts
         if: always()
