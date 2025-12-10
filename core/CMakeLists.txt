@@ -18,6 +18,7 @@ set(CORE_SOURCES
     src/operations/operation_brightness.cpp
 
     # Engine
+    src/engine/photo_engine.cpp
     src/engine/photo_task.cpp
     src/engine/pipeline_engine.cpp
 )
