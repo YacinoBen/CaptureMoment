@@ -1,73 +1,53 @@
 /**
  * @file pipeline_engine.h
- * @brief Core processing engine - orchestrates tile extraction and operations
+ * @brief Declaration of the PipelineEngine class.
  * @author CaptureMoment Team
  * @date 2025
  */
 
 #pragma once
 
-#include <vector>
-#include <memory>
+#include <vector> // Required for std::vector
 
 namespace CaptureMoment {
 
 // Forward declarations
-class SourceManager;
 class OperationFactory;
 struct ImageRegion;
 struct OperationDescriptor;
 
 /**
- * @class PipelineEngine
- * @brief Core execution engine for processing image regions
+ * @brief Static class responsible for applying a sequence of operations to an image region.
  *
- * Responsibilities:
- * - Extract tiles from SourceManager
- * - Apply sequence of operations (Strategy Pattern via factory)
- * - Handle error propagation and logging
- *
- * The engine is agnostic to operation types - it delegates to factory.
+ * The PipelineEngine provides a pure, stateless function (`applyOperations`)
+ * to execute a list of image processing operations on a given tile of image data.
+ * It uses an OperationFactory to create instances of the required operations.
+ * This class is designed to be independent of SourceManager or other high-level
+ * state managers, focusing solely on the execution logic of the operation pipeline.
  */
 class PipelineEngine {
 public:
     /**
-     * @brief Construct engine with SourceManager and OperationFactory
-     * @param source Reference to SourceManager
-     * @param factory Reference to OperationFactory (pre-configured with all operations)
-     */
-    explicit PipelineEngine(SourceManager& source, const OperationFactory& factory);
-
-    /**
-     * @brief Process a rectangular region with a sequence of operations
+     * @brief Applies a sequence of operations to an image region.
      *
-     * Flow:
-     * 1. Get tile from SourceManager (handles clamping, format conversion, HDR/SDR)
-     * 2. For each operation:
-     *    a. Factory creates concrete operation instance
-     *    b. Execute operation on tile (Strategy Pattern)
-     * 3. Write tile back (optional)
+     * Iterates through the provided list of OperationDescriptors, uses the
+     * given OperationFactory to create the corresponding operation instances,
+     * and executes them sequentially on the input/output ImageRegion tile.
+     * The tile is modified in-place.
      *
-     * @param x Top-left X coordinate
-     * @param y Top-left Y coordinate
-     * @param width Tile width
-     * @param height Tile height
-     * @param operations Vector of operation descriptors
-     * @return true if all succeed, false on first failure
+     * @param[in,out] tile The ImageRegion to process. This object is modified
+     *                     by the operations.
+     * @param[in] operations A vector of OperationDescriptor objects defining
+     *                       the sequence of operations to apply.
+     * @param[in] factory The OperationFactory instance used to create the
+     *                    concrete operation objects.
+     * @return true if all operations were applied successfully, false otherwise.
      */
-    bool processRegion(
-        int x, int y, int width, int height,
-        const std::vector<OperationDescriptor>& operations
+    [[no_discard]] static bool applyOperations(
+        ImageRegion& tile,
+        const std::vector<OperationDescriptor>& operations,
+        const OperationFactory& factory
     );
-
-private:
-    SourceManager& m_source;
-    const OperationFactory& m_factory;
-
-    /**
-     * @brief Write processed tile back to source
-     */
-     [[nodiscard]] bool writeTileBack(const ImageRegion& tile);
 };
 
 } // namespace CaptureMoment

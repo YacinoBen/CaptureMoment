@@ -6,7 +6,6 @@
  */
 
 #include "engine/pipeline_engine.h"
-#include "managers/source_manager.h"
 #include "operations/operation_factory.h"
 #include "operations/i_operation.h"
 #include "common/image_region.h"
@@ -15,77 +14,38 @@
 
 namespace CaptureMoment {
 
-PipelineEngine::PipelineEngine(SourceManager& source, const OperationFactory& factory)
-    : m_source(source), m_factory(factory)
-{
-    spdlog::debug("PipelineEngine: Instance created");
-}
+    // Implementation of the static applyOperations function.
+    // Applies a sequence of operations to an image region.
+    bool PipelineEngine::applyOperations(
+        ImageRegion& tile,                                  // The image region to process (modified in-place).
+        const std::vector<OperationDescriptor>& operations, // The list of operations to apply.
+        const OperationFactory& factory                     // The factory to create operation instances.
+    ) {
+        // Iterate through each operation descriptor in the list.
+        for (const auto& descriptor : operations) {
+            // Skip operations that are not enabled.
+            if (!descriptor.enabled) {
+                spdlog::trace("PipelineEngine::applyOperations: Skipping disabled operation '{}'", descriptor.name);
+                continue;
+            }
 
-bool PipelineEngine::processRegion(
-    int x, int y, int width, int height,
-    const std::vector<OperationDescriptor>& operations
-) {
-    // 1. Get tile from SourceManager (all preprocessing done here)
-    auto tile = m_source.getTile(x, y, width, height);
-    
-    if (!tile) {
-        spdlog::warn("PipelineEngine::processRegion: Failed to get tile at ({}, {}) size {}x{}",
-                     x, y, width, height);
-        return false;
-    }
+            // Use the factory to create an instance of the concrete operation.
+            auto operation = factory.create(descriptor);
+            if (!operation) {
+                spdlog::error("PipelineEngine::applyOperations: Failed to create operation '{}'", descriptor.name);
+                return false; // Stop processing if operation creation fails.
+            }
 
-    spdlog::info("PipelineEngine::processRegion: Processing tile at ({}, {}) {}x{} with {} operations",
-                 x, y, width, height, operations.size());
+            spdlog::debug("PipelineEngine::applyOperations: Executing operation '{}'", descriptor.name);
 
-    // 2. Apply each operation sequentially (Strategy Pattern)
-    for (const auto& descriptor : operations) {
-        if (!descriptor.enabled) {
-            spdlog::trace("PipelineEngine::processRegion: Skipping disabled operation '{}'",
-                          descriptor.name);
-            continue;
+            // Execute the operation on the tile.
+            if (!operation->execute(tile, descriptor)) {
+                spdlog::error("PipelineEngine::applyOperations: Operation '{}' failed", descriptor.name);
+                return false; // Stop processing if operation execution fails.
+            }
         }
-
-        // Factory creates the concrete operation (Dependency Injection)
-        auto operation = m_factory.create(descriptor);
-        
-        if (!operation) {
-            spdlog::error("PipelineEngine::processRegion: Failed to create operation '{}'",
-                          descriptor.name);
-            return false;
-        }
-
-        spdlog::debug("PipelineEngine::processRegion: Executing operation '{}'",
-                      descriptor.name);
-
-        // Execute operation on tile (Strategy Pattern - polymorphism)
-        if (!operation->execute(*tile, descriptor)) {
-            spdlog::error("PipelineEngine::processRegion: Operation '{}' failed",
-                          descriptor.name);
-            return false;
-        }
-    }
-
-    // 3. Write tile back (optional: for in-place editing)
-    if (!writeTileBack(*tile)) {
-        spdlog::warn("PipelineEngine::processRegion: Failed to write tile back");
-        return false;
-    }
-
-    spdlog::trace("PipelineEngine::processRegion: Tile processing completed");
-    return true;
-}
-
-bool PipelineEngine::writeTileBack(const ImageRegion& tile) {
-    // the sourcemanager knows how to write the tile
-
-    // The SourceManager::setTile is the method we updated to write pixels.
-    if (!m_source.setTile(tile)) {
-        spdlog::error("PipelineEngine::writeTileBack: SourceManager failed to set/persist tile.");
-        return false;
+        // All operations completed successfully.
+        return true;
     }
     
-    spdlog::trace("PipelineEngine::writeTileBack: Tile successfully persisted.");
-    return true;
-}
-
 } // namespace CaptureMoment
