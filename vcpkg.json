@@ -7,10 +7,6 @@
       "default-features": false
     },
     {
-      "name": "halide",
-      "default-features": false
-    },
-    {
       "name": "spdlog",
       "default-features": false,
       "version>=": "1.16.0"

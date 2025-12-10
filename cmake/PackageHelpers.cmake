@@ -73,8 +73,8 @@ function(find_halide_package)
     message(STATUS "Searching for Halide...")
     
     if(HALIDE_DIR)
-    # if HALIDE_DIR is set, use it as a hint. -DHALIDE_DIR=/path/to/halide
-    find_package(Halide CONFIG REQUIRED HINTS "${HALIDE_DIR}/build/cmake" )
+    # Path to cmake Halide. -DHALIDE_DIR=/path/to/halide
+    find_package(Halide CONFIG REQUIRED HINTS "${HALIDE_DIR}" )
     else()
     find_package(Halide CONFIG QUIET)
     endif()
@@ -82,6 +82,8 @@ function(find_halide_package)
     if(Halide_FOUND)        
         set(Halide_FOUND TRUE PARENT_SCOPE)
         set(Halide_VERSION "${Halide_VERSION}" PARENT_SCOPE)
+
+        message(STATUS "Halide Found in this dir : "${HALIDE_DIR}"")
     else()
         message(FATAL_ERROR "Halide not found. Please install it via your package manager or vcpkg/conan.")
     endif()

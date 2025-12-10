@@ -55,11 +55,6 @@ jobs:
 
       - name: Setup vcpkg (and does not build any package)
         uses: lukka/run-vcpkg@v11 
-        with:
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg-install'
-          vcpkgJsonGlobal: 'vcpkg_ci.json'
-          runVcpkgInstall: true
-          vcpkgJsonIgnores: 'vcpkg.json'
 
       # ====================================================================
       # Setup Python and install Halide via pip
