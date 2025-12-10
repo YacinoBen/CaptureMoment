@@ -72,7 +72,12 @@ endfunction()
 function(find_halide_package)
     message(STATUS "Searching for Halide...")
     
+    if(HALIDE_DIR)
+    # if HALIDE_DIR is set, use it as a hint. -DHALIDE_DIR=/path/to/halide
+    find_package(Halide CONFIG REQUIRED HINTS "${HALIDE_DIR}/build/cmake" )
+    else()
     find_package(Halide CONFIG QUIET)
+    endif()
     
     if(Halide_FOUND)        
         set(Halide_FOUND TRUE PARENT_SCOPE)
