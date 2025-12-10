@@ -57,7 +57,7 @@ public:
      * @pre isLoaded() must be true.
      * @return The image width, or 0 if no image is loaded.
      */
-    virtual int width() const = 0;
+    virtual int width() const noexcept = 0;
 
         
 
@@ -66,7 +66,7 @@ public:
      * @pre isLoaded() must be true.
      * @return The image height, or 0 if no image is loaded.
      */
-    virtual int height() const = 0;
+    virtual int height() const noexcept = 0;
 
         
     /**
@@ -74,7 +74,7 @@ public:
      * @pre isLoaded() must be true.
      * @return The number of channels.
      */
-    virtual int channels() const = 0;
+    virtual int channels() const noexcept = 0;
     
         
     /**
