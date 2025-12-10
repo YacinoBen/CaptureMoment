@@ -19,11 +19,11 @@ jobs:
         build-type: [Release]
         include:
           - build-type: Release
-            preset: release-vcpkg-msvc-desktop
+            preset: release-vcpkg-msvc
 
     steps:
       # ====================================================================
-      # 1. Checkout
+      # Checkout
       # ====================================================================
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,13 +32,23 @@ jobs:
           fetch-depth: 0
 
       # ====================================================================
-      # 2. Setup MSBuild
+      # Setup MSBuild
       # ====================================================================
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
       # ====================================================================
-      # 3. Setup vcpkg  
+      # Setup Qt
+      # ====================================================================
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+         version: '6.9.3'
+         target: 'desktop'
+         arch: 'win64_msvc2022_64'
+
+      # ====================================================================
+      # Setup vcpkg
       # ====================================================================
 
       - name: Setup vcpkg (and does not build any package)
@@ -53,7 +63,7 @@ jobs:
         uses: lukka/run-cmake@v10
         with:
           configurePreset: '${{ matrix.preset }}'
-          configurePresetAdditionalArgs: "['-Dtests=ON']"
+          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=ON']"
           buildPreset: '${{ matrix.preset }}'
           buildPresetAdditionalArgs: "['--config ${{ matrix.build-type }}']"
           testPreset: '${{ matrix.preset }}'
