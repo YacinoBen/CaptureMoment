@@ -10,10 +10,17 @@ message(STATUS "[core] CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Source files (only .cpp files that get compiled)
 set(CORE_SOURCES
+    # Manager
     src/managers/source_manager.cpp
-    src/engine/pipeline_engine.cpp
+
+    # Operations
     src/operations/operation_factory.cpp
     src/operations/operation_brightness.cpp
+    src/operations/operation_pipeline.cpp
+
+    # Engine
+    src/engine/photo_engine.cpp
+    src/engine/photo_task.cpp
 )
 
 # Verify sources exist

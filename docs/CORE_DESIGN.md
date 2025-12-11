@@ -31,30 +31,54 @@ The ISourceManager defines the contract for handling the image source namely, th
 
 * **Implementation (SourceManager):** The concrete implementation uses industry-standard tools like OpenImageIO (OIIO) to handle diverse file formats and efficient caching via OIIO::ImageBuf and OIIO::ImageCache. This shields the rest of the application from OIIO's specific complexities.
 
-### PipelineEngine (Orchestrator)
+---
 
-The PipelineEngine is the central control unit that governs the entire processing workflow.
+## 3. Task-Based Processing Architecture: Abstraction and Orchestration
+To manage the processing workflow effectively, especially in a potentially concurrent or sequential context, we introduce a layer of abstraction using interfaces and a central orchestrator.
 
-* **Responsibility:** Implement the Tile Processing Loop:
+### IProcessingTask & PhotoTask (Command Pattern / Task Abstraction)
+The **IProcessingTask** interface defines a unit of work encapsulating the processing of an image region with a specific sequence of operations.
 
-**1. READ:** Requests a tile from the SourceManager via getTile().
+* **Responsibility:** Encapsulate the data (input tile, operations, factory), the execution logic (**execute**), and provide access to the result (**result**) and progress (**progress**).
+* **Decoupling:** The interface abstracts the how of processing, allowing for different implementations (e.g., CPU-based, GPU-based in the future) or different types of tasks (e.g., loading, saving).
+* **Implementation (PhotoTask):** A concrete implementation that applies a sequence of operations defined by **OperationDescriptors** to an **ImageRegion** using the static
+**PipelineEngine::applyOperations method.** It receives an **std::shared_ptr<ImageRegion>** as input, processes it in-place, and stores the result internally.
 
-**2. PROCESS:** Iterates through the list of OperationDescriptors, using the OperationFactory to execute each step.
+### IProcessingBackend & PhotoEngine (Orchestrator / Facade)
 
-**3. WRITE:** Persists the modified tile data back to the SourceManager via setTile().
+The **IProcessingBackend** interface defines the contract for creating and submitting **IProcessingTasks**.
 
-**Benefit:** The engine focuses purely on the flow control and coordination, ensuring operations are applied in the correct sequence without needing to know how each operation works or how the data is loaded/saved.
+* **Responsibility**: Orchestrate the overall processing flow. This includes managing the state of the loaded image (**SourceManager**), maintaining the list of active operations, creating **IProcessingTasks** via **createTask**, and handling their execution via **submit**. It also manages committing the final result back to the source via **commitResult**.
+* **Implementation (PhotoEngine):** The main concrete orchestrator. It uses the **SourceManager** to load images and provide initial data (**tiles**). It creates **PhotoTasks** via **createTask** by first calling **SourceManager::getTile** (which returns an **std::unique_ptr<ImageRegion>**), converting it to **std::shared_ptr<ImageRegion>**, and then passing it to **std::make_shared<PhotoTask>**. It executes tasks (synchronously in v1 via **submit**) and provides a method **commitResult** to write the processed tile (retrieved via **task->result()**) back to the **SourceManager** using **SourceManager::setTile**.
+
+**Benefit:** This centralizes the high-level logic (when to process, what operations are active, how to handle results) away from the low-level pipeline execution.
 
 ---
-## 3. Operation Management: The Factory Patter
-To ensure the pipeline can be easily extended with new image filters (operations), we employ the Factory Design Pattern.
+## 4. Low-Level Pipeline Execution: Statelessness and Utility
+
+The core logic for applying a sequence of operations to a data unit is encapsulated in a stateless utility located within the `operation` directory.
+
+### OperationPipeline (Stateless Utility)
+The `OperationPipeline` class (formerly `PipelineEngine`) is refactored into a stateless class containing only a static method (`apply` or `applyOperations`).
+
+* **Responsibility:** Execute a sequence of operations on a given `ImageRegion`. It iterates through the `OperationDescriptor`s, uses the `OperationFactory` to create instances of the required operations, and executes them sequentially on the provided tile.
+
+* **Decoupling:** It is independent of `SourceManager`, `PhotoEngine`, or any task management. It only knows about `ImageRegion`, `OperationDescriptor`, and `OperationFactory`.
+
+* **Location:** This class resides in the `operation` folder, centralizing the low-level processing logic within the operation domain.
+
+**Benefit:** High reusability and testability. It's a pure function-like component that performs the core processing step. It also allows for `[[nodiscard]]` attribute on its return value (`bool`) to ensure callers check for success/failure.
+
+---
+## 5. Operation Management: The Factory Patter
+This pattern remains crucial for creating operation instances within the processing pipeline.
 
 ### Components
 
-* **IOperation:** The base interface for all operations (e.g., BrightnessOperation, ContrastOperation). It defines a single execute(ImageRegion& tile, const OperationDescriptor& descriptor) method.
+* **IOperation:** The base interface for all operations (e.g., BrightnessOperation, ContrastOperation). It defines a single **execute(ImageRegion& tile, const OperationDescriptor& descriptor)**    method.
 
-**Benefit:** Polymorphism. The PipelineEngine can treat every operation the same way, regardless of whether it performs a simple brightness adjustment or a complex convolution.
+**Benefit:** Polymorphism. The **PipelineEngine** can treat every operation the same way, regardless of whether it performs a simple brightness adjustment or a complex convolution.
 
-* **OperationFactory:** This component is responsible for knowing how to construct concrete implementations of IOperation based on an OperationType defined in the OperationDescriptor.
+* **OperationFactory:** This component is responsible for knowing how to construct concrete implementations of **IOperation** based on an **OperationType** defined in the **OperationDescriptor**.
 
-**Benefit:** Adding a new operation (e.g., SaturationOperation) only requires defining the new class and registering it in the factory setup (setupFactory()), without modifying the PipelineEngine's core logic. This promotes high maintainability and scalability.
+**Benefit:** Adding a new operation (e.g., **SaturationOperation**) only requires defining the new class and registering it in the factory setup, without modifying the **PipelineEngine**'s core logic. This promotes high maintainability and scalability.

@@ -99,15 +99,15 @@ bool SourceManager::isLoaded() const {
     return m_imageBuf && m_imageBuf->initialized();
 }
 
-int SourceManager::width() const {
+int SourceManager::width() const noexcept {
     return isLoaded() ? m_imageBuf->spec().width : 0;
 }
 
-int SourceManager::height() const {
+int SourceManager::height() const noexcept {
     return isLoaded() ? m_imageBuf->spec().height : 0;
 }
 
-int SourceManager::channels() const {
+int SourceManager::channels() const noexcept {
     return isLoaded() ? m_imageBuf->spec().nchannels : 0;
 }
 
