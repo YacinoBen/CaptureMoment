@@ -43,7 +43,7 @@ public:
      *                    concrete operation objects.
      * @return true if all operations were applied successfully, false otherwise.
      */
-    [[no_discard]] static bool applyOperations(
+    [[nodiscard]] static bool applyOperations(
         ImageRegion& tile,
         const std::vector<OperationDescriptor>& operations,
         const OperationFactory& factory

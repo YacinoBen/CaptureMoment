@@ -63,7 +63,7 @@ public:
      * @return true if the task was successfully submitted for execution or
      *         completed successfully, false otherwise.
      */
-    [[no_discard]] virtual bool submit(std::shared_ptr<IProcessingTask> task) = 0;
+    [[nodiscard]] virtual bool submit(std::shared_ptr<IProcessingTask> task) = 0;
 };
 
 } // namespace CaptureMoment
