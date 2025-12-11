@@ -108,4 +108,5 @@ public:
      */
     virtual std::optional<std::string> getMetadata(std::string_view key) const = 0;
 };
+
 } // namespace CaptureMoment

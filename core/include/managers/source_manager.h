@@ -6,6 +6,7 @@
  */
 
 #pragma once
+
 #include "managers/i_source_manager.h"
 #include <OpenImageIO/imagebuf.h>
 #include <OpenImageIO/imagecache.h>
