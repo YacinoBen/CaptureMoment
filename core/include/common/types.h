@@ -32,7 +32,7 @@
 // ============================================================================
 #include "operations/operation_factory.h"
 #include "managers/source_manager.h"
-#include "engine/pipeline_engine.h"
+#include "operations/operation_pipeline.h"
 
 /**
  * @namespace CaptureMoment

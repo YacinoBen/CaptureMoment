@@ -16,11 +16,11 @@ set(CORE_SOURCES
     # Operations
     src/operations/operation_factory.cpp
     src/operations/operation_brightness.cpp
+    src/operations/operation_pipeline.cpp
 
     # Engine
     src/engine/photo_engine.cpp
     src/engine/photo_task.cpp
-    src/engine/pipeline_engine.cpp
 )
 
 # Verify sources exist

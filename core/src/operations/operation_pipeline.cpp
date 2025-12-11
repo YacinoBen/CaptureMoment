@@ -1,11 +1,11 @@
 /**
- * @file pipeline_engine.cpp
- * @brief Implementation of PipelineEngine
+ * @file operation_pipeline.cpp
+ * @brief Implementation of OperationPipeline
  * @author CaptureMoment Team
  * @date 2025
  */
 
-#include "engine/pipeline_engine.h"
+#include "operations/operation_pipeline.h"
 #include "operations/operation_factory.h"
 #include "operations/i_operation.h"
 #include "common/image_region.h"
@@ -16,7 +16,7 @@ namespace CaptureMoment {
 
     // Implementation of the static applyOperations function.
     // Applies a sequence of operations to an image region.
-    bool PipelineEngine::applyOperations(
+    bool OperationPipeline::applyOperations(
         ImageRegion& tile,                                  // The image region to process (modified in-place).
         const std::vector<OperationDescriptor>& operations, // The list of operations to apply.
         const OperationFactory& factory                     // The factory to create operation instances.

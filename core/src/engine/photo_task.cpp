@@ -13,7 +13,7 @@
 #include <chrono>  // for generate ID
 
 #include "engine/photo_task.h"
-#include "engine/pipeline_engine.h"
+#include "operations/operation_pipeline.h"
 
 namespace CaptureMoment {
 
@@ -54,7 +54,7 @@ namespace CaptureMoment {
         }
 
         // Apply the sequence of operations to the input tile using the static PipelineEngine.
-        bool success = PipelineEngine::applyOperations(*m_input_tile, m_operation_descriptors, *m_operation_factory);
+        bool success = OperationPipeline::applyOperations(*m_input_tile, m_operation_descriptors, *m_operation_factory);
 
         if (success) {
             // If processing was successful, the result is the modified input tile.

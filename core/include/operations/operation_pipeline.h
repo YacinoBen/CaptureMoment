@@ -1,6 +1,6 @@
 /**
- * @file pipeline_engine.h
- * @brief Declaration of the PipelineEngine class.
+ * @file operation_pipeline.h
+ * @brief Declaration of the OperationPipeline class.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -25,7 +25,7 @@ struct OperationDescriptor;
  * This class is designed to be independent of SourceManager or other high-level
  * state managers, focusing solely on the execution logic of the operation pipeline.
  */
-class PipelineEngine {
+class OperationPipeline {
 public:
     /**
      * @brief Applies a sequence of operations to an image region.
