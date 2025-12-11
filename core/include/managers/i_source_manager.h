@@ -6,7 +6,6 @@
  */
 
 #pragma once
-#include "common/types.h"
 
 #include <string>
 #include <memory>
@@ -109,5 +108,4 @@ public:
      */
     virtual std::optional<std::string> getMetadata(std::string_view key) const = 0;
 };
-
 } // namespace CaptureMoment
