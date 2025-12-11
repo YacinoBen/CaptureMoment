@@ -46,6 +46,7 @@ target_link_libraries(${CAPTUREMOMENT_DESKTOP_TARGET}
     PRIVATE
         Qt6::Core
         Qt6::Quick
+        capturemoment_qt_core_lib
 )
 
 
