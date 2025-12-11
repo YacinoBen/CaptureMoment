@@ -9,10 +9,22 @@
 
 #include <memory>
 #include <string>
+#include <atomic>
+#include <format>
 
 #include "common/image_region.h"
 
 namespace CaptureMoment {
+
+/**
+ * @brief Global atomic counter for generating unique task identifiers.
+ * * This static variable serves as a monotonic generator for task IDs.
+ * @note Uses `std::uint64_t` to prevent overflow even with heavy usage..
+ */
+
+static std::atomic<std::uint64_t> s_task_id_generator{0};
+
+
 
 /**
  * @brief Abstract base class defining the interface for an image processing task.
@@ -67,6 +79,16 @@ public:
     virtual std::string id() const = 0;
 
 protected:
+
+    /**
+     * @brief Generates a unique identifier string for a task instance.
+     * This method is defined inline within the class declaration.
+     * @return A string in the format "task_<number>".
+     */
+    static inline std::string generateId() {
+        return std::format("task_{}", s_task_id_generator.fetch_add(1, std::memory_order_relaxed));
+    }
+
     /**
      * @brief Current progress of the task, from 0.0f to 1.0f.
      */
