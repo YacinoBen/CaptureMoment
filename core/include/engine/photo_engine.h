@@ -57,7 +57,7 @@ public:
      * @param[in] path The path to the image file to be loaded.
      * @return true if the image was loaded successfully, false otherwise.
      */
-    bool loadPhoto(std::string_view path);
+    bool loadImage(std::string_view path);
 
     /**
      * @brief Creates a new processing task.

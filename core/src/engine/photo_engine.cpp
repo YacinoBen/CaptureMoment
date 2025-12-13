@@ -16,7 +16,7 @@ namespace CaptureMoment {
         : m_source_manager(source_manager), m_operation_factory(operation_factory) {}
 
     // Loads a photo file using the SourceManager.
-    bool PhotoEngine::loadPhoto(std::string_view path) {
+    bool PhotoEngine::loadImage(std::string_view path) {
         // Check if the source manager is valid before attempting to load.
         if (!m_source_manager) {
             // Error handling: SourceManager is required.
