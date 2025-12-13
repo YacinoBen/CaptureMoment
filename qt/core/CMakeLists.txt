@@ -24,6 +24,10 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
         src/rendering/rhi_image_node.cpp
         src/image_controller.cpp
 
+        # Operations
+        src/models/operations/brightness_model.cpp
+
+
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
@@ -32,7 +36,8 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
 
         #Operations
         capturemoment/qt/core/domain/operation_parameters.h
-        capturemoment/qt/core/models/i_operation_model.h
+        capturemoment/qt/core/models/operations/i_operation_model.h
+        capturemoment/qt/core/models/operations/brightness_model.h
 )
 
 # --- Configuration---
