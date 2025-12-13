@@ -12,7 +12,7 @@
 #include <QThread>
 #include "engine/photo_engine.h"
 #include "rendering/rhi_image_item.h"
-
+#include "models/operations/i_operation_model.h"
 namespace CaptureMoment::UI {
 
 /**
@@ -55,7 +55,12 @@ private:
      */
     int m_image_width{0};
     int m_image_height{0};
-    
+
+    /**
+     * @brief Registered operation models for notifications
+     * These models will receive operationCompleted/operationFailed signals
+     */  
+    std::vector<IOperationModel*> m_registered_models;
 public:
     /**
      * @brief Constructs ImageController
@@ -89,6 +94,18 @@ public:
      */
     std::shared_ptr<ImageRegion> currentImage() const { return m_current_image; }
     
+
+    /**
+     * @brief Register an operation model for notifications
+     * 
+     * Called by IOperationModel::setImageController()
+     * The model will receive operationCompleted/operationFailed signals
+     * after operations are processed.
+     * 
+     * @param model Pointer to IOperationModel
+     */
+    void registerModel(IOperationModel* model);
+
 slots
     /**
      * @brief Load image from file path (non-blocking)
