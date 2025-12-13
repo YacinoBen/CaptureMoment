@@ -11,9 +11,8 @@
 #include <memory>
 #include <string>
 #include "operations/operation_descriptor.h"
-
+#include "image_controller.h"
 namespace CaptureMoment::UI {
-
 class ImageController;
     /**
      * @brief Abstract base class defining the common interface for image operation models.
@@ -41,6 +40,13 @@ class IOperationModel : public QObject {
     Q_PROPERTY(bool active READ isActive NOTIFY isActiveChanged)
 
 public:
+
+    /**
+     * @brief Constructor for IOperationModel.
+     * @param parent Optional parent QObject.
+     */
+    explicit IOperationModel(QObject* parent = nullptr) : QObject(parent) {}
+
     /**
      * @brief Virtual destructor for safe inheritance.
      */
@@ -86,12 +92,12 @@ public slots:
      */
     virtual void reset() = 0;
 
-signals:
-    /**
-     * @brief Signal emitted when the operation's activity state changes.
-     * QML can listen to this to update UI elements reflecting if the operation is active.
-     */
-    void isActiveChanged();
+    signals:
+        /**
+         * @brief Signal emitted when the operation's activity state changes.
+         * QML can listen to this to update UI elements reflecting if the operation is active.
+         */
+        void isActiveChanged();
 
     /**
      * @brief Signal emitted when the operation has been successfully applied to the image.
@@ -114,6 +120,20 @@ protected:
      * This allows the operation model to communicate back to the central controller.
      */
     ImageController* m_image_controller{nullptr};
-    };
+
+protected slots:
+    /**
+     * @brief Internal slot to handle successful operation completion from ImageController.
+     * Overrides the base class method to provide specific feedback handling for brightness.
+     */
+    virtual void onOperationApplied() = 0;
+
+    /**
+     * @brief Internal slot to handle operation failure from ImageController.
+     * Overrides the base class method to provide specific error handling for brightness.
+     * @param error Error message received from the ImageController.
+     */
+    virtual void onOperationFailed(const QString& error) = 0;
+};
 
 } // namespace CaptureMoment::UI
