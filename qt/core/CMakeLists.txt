@@ -23,15 +23,16 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
     PRIVATE
         src/rendering/rhi_image_node.cpp
         src/image_controller.cpp
+
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
         capturemoment/qt/core/rendering/rhi_image_node.h
         capturemoment/qt/core/image_controller.h
-        
+
         #Operations
         capturemoment/qt/core/domain/operation_parameters.h
-        capturemoment/qt/core/model/ioperation_model.h
+        capturemoment/qt/core/models/i_operation_model.h
 )
 
 # --- Configuration---
