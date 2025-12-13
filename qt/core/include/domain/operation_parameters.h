@@ -35,15 +35,15 @@ namespace CaptureMoment::UI {
              * Typically ranges from MIN_VALUE to MAX_VALUE (e.g., -1.0 to 1.0).
              * A value of 0.0 often represents no change.
              */
-            float value = 0.0f;
+            float value {0.0f};
             /**
              * @brief The minimum allowed value for the adjustment.
              */
-            static constexpr float MIN_VALUE = -1.0f;
+            static constexpr float MIN_VALUE {-1.0f};
             /**
              * @brief The maximum allowed value for the adjustment.
              */
-            static constexpr float MAX_VALUE = 1.0f;
+            static constexpr float MAX_VALUE {1.0f};
             /**
              * @brief Optional identifier for the specific operation instance.
              */
@@ -85,15 +85,15 @@ namespace CaptureMoment::UI {
              * Typically ranges from MIN_VALUE (0.0) to MAX_VALUE (e.g., 0.0 to 100.0).
              * A value of 0.0 often represents no effect.
              */
-            float value = 0.0f;
+            float value {0.0f};
             /**
              * @brief The minimum allowed value (usually 0.0).
              */
-            static constexpr float MIN_VALUE = 0.0f;
+            static constexpr float MIN_VALUE {0.0f};
             /**
              * @brief The maximum allowed value.
              */
-            static constexpr float MAX_VALUE = 100.0f; // Adjust according to plausible maximum
+            static constexpr float MAX_VALUE {100.0f}; // Adjust according to plausible maximum
             /**
              * @brief Optional identifier for the specific operation instance.
              */
@@ -134,15 +134,15 @@ namespace CaptureMoment::UI {
              * Typically ranges from MIN_VALUE (-360.0) to MAX_VALUE (360.0).
              * A value of 0.0 represents no rotation.
              */
-            float degrees = 0.0f;
+            float degrees {0.0f};
             /**
              * @brief The minimum allowed angle value.
              */
-            static constexpr float MIN_VALUE = -360.0f;
+            static constexpr float MIN_VALUE {-360.0f};
             /**
              * @brief The maximum allowed angle value.
              */
-            static constexpr float MAX_VALUE = 360.0f;
+            static constexpr float MAX_VALUE {360.0f};
             /**
              * @brief Optional identifier for the specific operation instance.
              */
@@ -180,19 +180,19 @@ namespace CaptureMoment::UI {
             /**
              * @brief X coordinate of the top-left corner of the rectangle.
              */
-            int x = 0;
+            int x {0};
             /**
              * @brief Y coordinate of the top-left corner of the rectangle.
              */
-            int y = 0;
+            int y {0};
             /**
              * @brief Width of the rectangle.
              */
-            int width = 0;
+            int width {0};
             /**
              * @brief Height of the rectangle.
              */
-            int height = 0;
+            int height {0};
             /**
              * @brief Optional identifier for the specific operation instance.
              */
@@ -233,18 +233,18 @@ namespace CaptureMoment::UI {
              * Must be within [minIndex, maxIndex] to be valid.
              * Often, index 0 might represent "no change" or "default".
              */
-            int index = 0;
+            int index {0};
             /**
              * @brief The minimum allowed index value.
              */
-            int min_index = 0;
+            int min_index {0};
             /**
              * @brief The maximum allowed index value.
              * 
              * This should be set appropriately based on the number of available options
              * (e.g., number of color profiles - 1).
              */
-            int max_index = 0; // Must be set according to context (e.g., number of available profiles - 1)
+            int max_index {0}; // Must be set according to context (e.g., number of available profiles - 1)
             /**
              * @brief Optional identifier for the specific operation instance.
              */
