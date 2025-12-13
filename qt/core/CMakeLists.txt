@@ -22,10 +22,12 @@ qt_add_library(${CAPTUREMOMENT_QT_CORE_LIB} STATIC)
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
     PRIVATE
         src/rendering/rhi_image_node.cpp
+        src/image_controller.cpp
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
         capturemoment/qt/core/rendering/rhi_image_node.h
+        capturemoment/qt/core/image_controller.h
 )
 
 # --- Configuration---
