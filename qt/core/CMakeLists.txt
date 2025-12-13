@@ -4,12 +4,12 @@ project(CaptureMomentQtCore LANGUAGES CXX)
 
 message(STATUS "Configuring CaptureMoment Qt Core Library...")
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui)
+find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui GuiPrivate)
 
-if(TARGET Qt6::Core AND TARGET Qt6::Quick AND TARGET Qt6::Gui)
-    message(STATUS "Qt6 found: ${Qt6_VERSION} (Core, Quick, Gui)")
+if(TARGET Qt6::Core AND TARGET Qt6::Quick AND TARGET Qt6::Gui AND TARGET Qt6::GuiPrivate)
+    message(STATUS "Qt6 found (core): ${Qt6_VERSION} (Core, Quick, Gui, Gui Private)")
 else()
-    message(FATAL_ERROR "Required Qt6 components (Core, Quick, Gui) not found.")
+    message(FATAL_ERROR "Required Qt6 components (Core, Quick, Gui, Gui Private) not found.")
 endif()
 
 qt_standard_project_setup(REQUIRES 6.9.3)
@@ -17,13 +17,15 @@ qt_standard_project_setup(REQUIRES 6.9.3)
 set(CAPTUREMOMENT_QT_CORE_LIB capturemoment_qt_core_lib)
 
 # --- Creation of the library ---
-qt_add_library(${CAPTUREMOMENT_QT_CORE_LIB} STATIC) # ou SHARED selon votre préférence
+qt_add_library(${CAPTUREMOMENT_QT_CORE_LIB} STATIC)
 
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
     PRIVATE
+        src/rendering/rhi_image_node.cpp
     PUBLIC
         FILE_SET HEADERS
-        BASE_DIRS include 
+        BASE_DIRS include
+        capturemoment/qt/core/rendering/rhi_image_node.h
 )
 
 # --- Configuration---
@@ -33,6 +35,7 @@ target_link_libraries(${CAPTUREMOMENT_QT_CORE_LIB}
         Qt6::Quick
         Qt6::Gui 
     PRIVATE
+        Qt6::GuiPrivate
         capturemoment_core
 )
 
