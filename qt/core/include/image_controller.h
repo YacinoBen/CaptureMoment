@@ -14,7 +14,7 @@
 #include "rendering/rhi_image_item.h"
 #include "models/operations/i_operation_model.h"
 namespace CaptureMoment::UI {
-
+class IOperationModel;
 /**
  * @class ImageController
  * @brief Orchestrates Core processing and Qt UI updates
