@@ -28,6 +28,7 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
         BASE_DIRS include
         capturemoment/qt/core/rendering/rhi_image_node.h
         capturemoment/qt/core/image_controller.h
+        capturemoment/qt/core/domain/operation_parameters.h
 )
 
 # --- Configuration---
