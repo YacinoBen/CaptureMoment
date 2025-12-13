@@ -26,10 +26,10 @@ void OperationRegistry::registerAll(OperationFactory& factory) {
     spdlog::info("OperationRegistry: Registering all operations");
     
     registerToneAdjustments(factory);
-    registerColorOperations(factory);
-    registerColorProfiles(factory);
-    registerDetailOperations(factory);
-    registerEffects(factory);
+   // registerColorOperations(factory);
+   // registerColorProfiles(factory);
+   // registerDetailOperations(factory);
+   // registerEffects(factory);
     
     spdlog::info("OperationRegistry: All operations registered");
 }
