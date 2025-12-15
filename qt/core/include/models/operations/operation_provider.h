@@ -9,6 +9,7 @@
 
 #include <QObject>
 #include "image_controller.h"
+#include "models/operations/i_operation_model.h"
 
 namespace CaptureMoment::UI {
 class ImageController;
@@ -25,7 +26,7 @@ class ImageController;
  * Parameter-specific methods (setValue, setAngle, setRadius, etc.)
  * are defined in each derived class
  */
-class OperationProvider : public QObject {
+class OperationProvider : public QObject, public IOperationModel {
     Q_OBJECT
 
 public:
