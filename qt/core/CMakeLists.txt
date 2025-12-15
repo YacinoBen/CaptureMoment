@@ -18,21 +18,25 @@ set(CAPTUREMOMENT_QT_CORE_LIB capturemoment_qt_core_lib)
 
 # --- Creation of the library ---
 qt_add_library(${CAPTUREMOMENT_QT_CORE_LIB} STATIC)
+# Explicitly ensure AUTOMOC runs on this target
+set_target_properties(${CAPTUREMOMENT_QT_CORE_LIB} PROPERTIES AUTOMOC TRUE)
 
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
     PRIVATE
         src/rendering/rhi_image_node.cpp
+        src/rendering/rhi_image_item.cpp
         src/image_controller.cpp
 
         # Operations
         src/models/operations/brightness_model.cpp
 
-
+      #  ${MOC_HEADERS}
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
         capturemoment/qt/core/rendering/rhi_image_node.h
-        capturemoment/qt/core/image_controller.h
+        capturemoment/qt/core/rendering/rhi_image_item.h
+        image_controller.h
 
         #Operations
         capturemoment/qt/core/domain/operation_parameters.h
@@ -45,10 +49,9 @@ target_link_libraries(${CAPTUREMOMENT_QT_CORE_LIB}
     PUBLIC
         Qt6::Core
         Qt6::Quick
-        Qt6::Gui 
-    PRIVATE
+        Qt6::Gui
         Qt6::GuiPrivate
-        capturemoment_core
+        capturemoment_core        
 )
 
 target_include_directories(${CAPTUREMOMENT_QT_CORE_LIB}
