@@ -106,7 +106,7 @@ public:
      */
     void registerModel(IOperationModel* model);
 
-slots
+public slots:
     /**
      * @brief Load image from file path (non-blocking)
      * @param filePath Path to image file
@@ -118,6 +118,19 @@ slots
      * @param operations Vector of operation descriptors
      */
     void applyOperations(const std::vector<OperationDescriptor>& operations);
+    /**
+     * @brief Internal: Handle load image result
+     * @param success Whether load succeeded
+     * @param errorMsg Error message if failed
+     */
+    void onImageLoadResult(bool success, const QString& errorMsg);
+
+    /**
+     * @brief Internal: Handle operation result
+     * @param success Whether operation succeeded
+     * @param errorMsg Error message if failed
+     */
+    void onOperationResult(bool success, const QString& errorMsg);
 
 signals:
     /**
@@ -143,21 +156,6 @@ signals:
      * @param error Error message
      */
     void operationFailed(QString error);
-
-private slots:
-    /**
-     * @brief Internal: Handle load image result
-     * @param success Whether load succeeded
-     * @param errorMsg Error message if failed
-     */
-    void onImageLoadResult(bool success, const QString& errorMsg);
-    
-    /**
-     * @brief Internal: Handle operation result
-     * @param success Whether operation succeeded
-     * @param errorMsg Error message if failed
-     */
-    void onOperationResult(bool success, const QString& errorMsg);
     
 private:
     /**
