@@ -80,7 +80,7 @@ public:
      * from the default/no-op state (e.g., brightness value is not zero).
      * @return true if the operation is active, false otherwise.
      */
-    bool isActive() const override { return m_params.isActive(); } 
+    [[no_discard]] bool isActive() const override { return m_params.isActive(); } 
 
     /**
      * @brief Gets the type of this operation.

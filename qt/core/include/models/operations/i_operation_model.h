@@ -32,7 +32,7 @@ public:
     /**
      * @brief Check if operation is active (non-default)
      */
-    virtual bool isActive() const = 0;
+    [[no_discard]] virtual bool isActive() const = 0;
 
     /**
      * @brief Get operation type
