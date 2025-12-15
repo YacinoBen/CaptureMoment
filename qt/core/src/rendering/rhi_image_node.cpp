@@ -98,6 +98,11 @@ namespace CaptureMoment::UI::Rendering {
     }
 
     void RHIImageNode::initialize() {
+
+        if (!m_rhi) {
+        spdlog::error("RHIImageNode::initialize: QRhi is null, cannot initialize resources.");
+        return; // Échec d'initialisation
+        }
         createGeometry();
         createPipeline();
         
