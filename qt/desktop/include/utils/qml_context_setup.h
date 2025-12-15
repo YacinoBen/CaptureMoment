@@ -10,67 +10,95 @@
 #include <QQmlContext>
 #include <memory>
 
-#include "image_controller.h"
-#include "models/operations/brightness_model.h"
+// Forward declarations
+namespace CaptureMoment::UI {
+    class ImageController;
+    class BrightnessModel;
+    namespace Rendering {
+        class RHIImageItem;
+    }
+}
 
 namespace CaptureMoment::UI {
 
-// Forward declarations
-class ImageController;
-class BrightnessModel;
-class IOperationModel;
-
-/**
- * @brief Central manager for QML context setup
- * 
- * Responsibilities:
- * - Creates and manages all C++ objects (controller, models)
- * - Connects models to controller
- * - Registers objects to QML context
- * - Lifetime management via shared_ptr
- * 
- * QML doesn't know about models, it only calls controller methods
- */
+    /**
+     * @brief Central manager for QML context setup
+     *
+     * Responsibilities:
+     * - Creates and manages all C++ objects (controller, models, display item)
+     * - Connects models to controller and display item to controller
+     * - Registers necessary objects to QML context
+     * - Lifetime management via shared_ptr
+     * - Ensures objects are correctly initialized before use
+     *
+     * QML doesn't know about internal models directly, it calls controller methods.
+     * The display item (RhiImageItem) is also registered to QML for image rendering.
+     */
 class QmlContextSetup {
 public:
     /**
      * @brief Setup complete QML context with all objects
-     * 
+     *
      * Creates:
      * - ImageController (main orchestrator)
+     * - RHIImageItem (image display component)
      * - BrightnessModel (image adjustment model)
-     * - All other operation models
-     * 
+     * - All other operation models (TODO)
+     *
      * Registers to QML:
      * - "controller" → ImageController
-     * 
+     * - "rhiImageItem" → RHIImageItem (for display)
+     *
      * Models stay internal and are managed here
-     * 
+     *
      * @param context The QML context to setup
+     * @return true if setup was successful, false otherwise.
      */
-    static void setupContext(QQmlContext* context);
+    static bool setupContext(QQmlContext* context);
 
 private:
     // Shared pointers for lifetime management
     static std::shared_ptr<ImageController> m_controller;
-    static std::shared_ptr<BrightnessModel> m_brightnessModel;
-    
+    static std::shared_ptr<BrightnessModel> m_brightness_model;
+    static std::shared_ptr<Rendering::RHIImageItem> m_rhi_image_item;
+
     /**
-     * @brief Create all C++ objects
+     * @brief Create the central ImageController orchestrator.
+     * @return true if the controller was created successfully, false otherwise.
      */
-    static void createObjects();
-    
+    static bool createController();
+
     /**
-     * @brief Connect models to controller
+     * @brief Create the RHI-based image display item (RhiImageItem).
+     * @return true if the item was created successfully, false otherwise.
      */
-    static void connectModels();
-    
+    static bool createRenderingComponents();
+
     /**
-     * @brief Register controller to QML
+     * @brief Create the operation model objects (e.g., BrightnessModel).
+     * @return true if all models were created successfully, false otherwise.
+     */
+    static bool createOperationModels();
+
+    /**
+     * @brief Connect models and display item to controller
+     * @return true if all connections were successful, false otherwise.
+     */
+    static bool connectObjects();
+
+    /**
+     * @brief Register necessary objects to QML context
      * @param context The QML context
+     * @return true if registration was successful, false otherwise.
      */
-    static void registerToQml(QQmlContext* context);
-};
+    static bool registerToQml(QQmlContext* context);
+
+    /**
+     * @brief Register necessary Models  to QML context
+     * @param context The QML context
+     * @return true if registration was successful, false otherwise.
+     */
+    static bool registerModelsToQml(QQmlContext* context);
+    };
 
 } // namespace CaptureMoment::UI
-
