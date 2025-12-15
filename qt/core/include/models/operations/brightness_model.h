@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include "models/operations/i_operation_model.h"
 #include "models/operations/operation_provider.h"
 #include "domain/operation_parameters.h"
 
@@ -27,7 +26,7 @@ namespace CaptureMoment::UI {
  * - BrightnessModel defines its OWN setValue() and valueChanged()
  */
 
-class BrightnessModel : public IOperationModel, public OperationProvider{
+class BrightnessModel :  public OperationProvider{
     Q_OBJECT
     
     // Expose the 'value' property to QML, allowing two-way binding.
@@ -114,19 +113,19 @@ public:
      * @brief Gets the current brightness value.
      * @return The current brightness value.
      */
-    float value() const { return m_params.value; } // Access the value from the structure
+    float value() const { return m_params.value; }
     
     /**
      * @brief Gets the minimum allowed brightness value.
      * @return float -1.0f, as defined by RelativeAdjustmentParams::MIN_VALUE.
      */
-    float minimum() consteval const { return Domain::RelativeAdjustmentParams::MIN_VALUE; }
+    constexpr float minimum() const { return Domain::RelativeAdjustmentParams::MIN_VALUE; }
 
     /**
      * @brief Gets the maximum allowed brightness value.
      * @return float 1.0f, as defined by RelativeAdjustmentParams::MAX_VALUE.
      */
-    float maximum() consteval const { return Domain::RelativeAdjustmentParams::MAX_VALUE; }
+    constexpr float maximum() const { return Domain::RelativeAdjustmentParams::MAX_VALUE; }
 
 public slots:
     /**
@@ -140,6 +139,8 @@ public slots:
      */
     void setValue(float value);
 
+    void onOperationCompleted() override;
+    void onOperationFailed(const QString& error) override;
 signals:
 
     /**
@@ -149,10 +150,6 @@ signals:
      * @param value The new value of the brightness parameter.
     */
     void valueChanged(float value); 
-
-protected slots:
-    void onOperationCompleted() override;
-    void onOperationFailed(const QString& error) override;
 };
 
 } // namespace CaptureMoment::UI
