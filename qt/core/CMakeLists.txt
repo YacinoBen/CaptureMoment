@@ -41,6 +41,7 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
         #Operations
         capturemoment/qt/core/domain/operation_parameters.h
         capturemoment/qt/core/models/operations/i_operation_model.h
+        capturemoment/qt/core/models/operations/operation_provider.h
         capturemoment/qt/core/models/operations/brightness_model.h
 )
 

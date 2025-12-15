@@ -7,23 +7,27 @@
 
 #pragma once
 
-#include <QObject>
 #include "models/operations/i_operation_model.h"
+#include "models/operations/operation_provider.h"
 #include "domain/operation_parameters.h"
 
 namespace CaptureMoment::UI {
 
 /**
- * @brief IOperationModel implementation for adjusting image brightness.
- *
- * This class provides a QML-compatible interface for controlling the brightness
- * of an image. It inherits from IOperationModel, implementing the specific
- * logic for brightness adjustment (name, value range, communication with the controller).
- * It uses the RelativeAdjustmentParams structure to manage its specific parameters.
- * It manages its own value internally and communicates changes to the ImageController.
+ * @brief Brightness operation model
+ * 
+ * DOUBLE INHERITANCE:
+ * - IOperationModel : Pure interface contract (non-QObject)
+ * - OperationProvider : Qt infrastructure (QObject with signals/slots)
+ * 
+ * KEY POINTS:
+ * - ONLY OperationProvider is a QObject
+ * - IOperationModel is pure interface (no Q_OBJECT needed)
+ * - BrightnessModel ONLY has Q_OBJECT from OperationProvider
+ * - BrightnessModel defines its OWN setValue() and valueChanged()
  */
 
-class BrightnessModel : public IOperationModel {
+class BrightnessModel : public IOperationModel, public OperationProvider{
     Q_OBJECT
     
     // Expose the 'value' property to QML, allowing two-way binding.
@@ -55,6 +59,8 @@ private:
     */
     Domain::RelativeAdjustmentParams m_params;
 
+protected:
+    ImageController* m_image_controller{nullptr};
 public:
     /**
      * @brief Constructs a BrightnessModel.
@@ -95,6 +101,14 @@ public:
      * @param controller Pointer to the ImageController instance.
      */
     void setImageController(ImageController* controller) override;
+    
+    /**
+     * @brief Resets the brightness value to its default (0.0).
+     *
+     * This slot resets the brightness to its neutral state (no adjustment).
+     * It triggers an update via the ImageController.
+     */
+    void reset() override;
 
     /**
      * @brief Gets the current brightness value.
@@ -126,15 +140,6 @@ public slots:
      */
     void setValue(float value);
 
-    /**
-     * @brief Resets the brightness value to its default (0.0).
-     *
-     * This slot resets the brightness to its neutral state (no adjustment).
-     * It triggers an update via the ImageController.
-     */
-    void reset() override;
-
-
 signals:
 
     /**
@@ -146,8 +151,7 @@ signals:
     void valueChanged(float value); 
 
 protected slots:
-
-    void onOperationApplied() override;
+    void onOperationCompleted() override;
     void onOperationFailed(const QString& error) override;
 };
 

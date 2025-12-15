@@ -13,35 +13,45 @@ namespace CaptureMoment::UI {
 
     // Constructor: Initializes the model with a default value of 0.0.
     BrightnessModel::BrightnessModel(QObject* parent)
-        : IOperationModel(parent),m_params{} 
+        : OperationProvider(parent),m_params{} 
     {
         // Initialize the parameter structure's value.
         m_params.value = 0.0f; // Default: no brightness adjustment
         spdlog::debug("BrightnessModel: Created with default value {}", m_params.value);
     }
-
+    
+    OperationDescriptor BrightnessModel::getDescriptor() const 
+    {
+        OperationDescriptor descriptor;
+        descriptor.type = OperationType::Brightness;
+        descriptor.name = "Brightness (" + std::to_string(static_cast<int>(m_params.value * 100)) + "%)";
+        descriptor.enabled = true;
+        descriptor.setParam<float>("value", m_params.value);
+        return descriptor;
+    }
     // Sets the ImageController reference used for applying operations.
     void BrightnessModel::setImageController(ImageController* controller) 
     {
-        m_image_controller = controller; // Store the controller pointer
-
-        if (m_image_controller) {
-            spdlog::debug("BrightnessModel: ImageController set");
-
-            // Connect to the controller's feedback signals to update this model's state or UI feedback.
-            connect(m_image_controller, &ImageController::operationCompleted,
-                    this, &BrightnessModel::onOperationApplied,
-                    Qt::UniqueConnection); // Prevent duplicate connections
-
-            connect(m_image_controller, &ImageController::operationFailed,
-                    this, &BrightnessModel::onOperationFailed,
-                    Qt::UniqueConnection); // Prevent duplicate connections
-
-            // Register this model with the controller
-            m_image_controller->registerModel(this); 
-        } else {
+        m_image_controller = controller;
+        if (!m_image_controller) 
+        {
             spdlog::warn("BrightnessModel: ImageController set to nullptr");
+            return;
         }
+        spdlog::debug("BrightnessModel: ImageController set");
+        
+        // Register this model with the controller
+        m_image_controller->registerModel(this);
+        
+        // Connect to controller's feedback signal
+        connect(m_image_controller, &ImageController::operationCompleted,
+            this, &BrightnessModel::onOperationCompleted,
+            Qt::UniqueConnection);
+            connect(m_image_controller, &ImageController::operationFailed,
+            this, [this](const QString& error) {
+                this->onOperationFailed(error);
+            }, Qt::UniqueConnection);
+            spdlog::debug("BrightnessModel: Connected to ImageController signals");
     }
 
     // Sets the brightness value and triggers an update.
@@ -55,33 +65,21 @@ namespace CaptureMoment::UI {
         if (qFuzzyCompare(m_params.value, clampedValue)) {
             return; // No change, exit early.
         }
-        bool was_active = m_params.isActive();
+        bool was_active  = m_params.isActive();
 
         // Update the internal parameter structure.
         m_params.value = clampedValue;
         m_params.clampValue(); // Ensure it's within [-1, 1] using the struct's method
-
-        spdlog::debug("BrightnessModel::setValue: New value = {}", m_params.value);
-
-       bool is_active_now = m_params.isActive();
-        // --- Create OperationDescriptor for PhotoEngine ---
-        OperationDescriptor descriptor;
-        descriptor.type = OperationType::Brightness; // Set the operation type
-        descriptor.name = "Brightness (" + std::to_string(static_cast<int>(m_params.value * 100)) + "%)"; // Set a readable name
-        descriptor.enabled = true; // Enable the operation
-        descriptor.setParam<float>("value", m_params.value); // Set the specific parameter using the correct method
-
-        spdlog::debug("BrightnessModel: Created descriptor - name='{}', value={}",
-                      descriptor.name, m_params.value);
-
-
-        // Emit the signal to notify QML that the value has changed.
+        
+        bool is_now_active = isActive();
         emit valueChanged(m_params.value);
 
-        if (was_active != is_active_now) {
+        if (was_active != is_now_active) {
             emit isActiveChanged(); // Pass the new active state
-            spdlog::debug("BrightnessModel::setValue: Activity state changed to {}", is_active_now);
+            spdlog::debug("BrightnessModel::setValue: Activity state changed to {}", is_now_active);
         }
+        OperationDescriptor descriptor = getDescriptor();
+
 
         // --- Trigger processing via ImageController ---
         if (m_image_controller) {
@@ -102,9 +100,9 @@ namespace CaptureMoment::UI {
     }
 
     // Handles successful operation completion from ImageController.
-    void BrightnessModel::onOperationApplied() 
+    void BrightnessModel::onOperationCompleted() 
     {
-        spdlog::debug("BrightnessModel: Operation applied successfully");
+        spdlog::debug("BrightnessModel: Operation Completed successfully");
         // Potentially update internal state if needed, or just emit a signal for UI feedback
         emit operationApplied(); // Relay the signal to QML
     }
