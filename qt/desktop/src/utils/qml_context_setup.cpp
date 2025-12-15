@@ -184,7 +184,7 @@ namespace CaptureMoment::UI {
         spdlog::debug("QmlContextSetup::registerModelsToQml: Registering objects to QML...");
 
         if (m_brightness_model) {
-            context.set->setContextProperty("brightnessModel", m_brightness_model.get());
+            context->setContextProperty("brightnessModel", m_brightness_model.get());
             spdlog::debug("  ✓ 'brightnessModel' registered to QML context.");
         } else {
             spdlog::warn("QmlContextSetup::registerToQml: BrightnessModel is null, skipping registration.");
