@@ -18,31 +18,47 @@ set(CAPTUREMOMENT_QT_CORE_LIB capturemoment_qt_core_lib)
 
 # --- Creation of the library ---
 qt_add_library(${CAPTUREMOMENT_QT_CORE_LIB} STATIC)
+
 # Explicitly ensure AUTOMOC runs on this target
-set_target_properties(${CAPTUREMOMENT_QT_CORE_LIB} PROPERTIES AUTOMOC TRUE)
+set_target_properties(${CAPTUREMOMENT_QT_CORE_LIB} PROPERTIES
+    AUTOMOC TRUE
+    AUTORCC TRUE
+    AUTOUIC TRUE
+)
+set(CORE_SOURCES
+    src/rendering/rhi_image_node.cpp
+    src/rendering/rhi_image_item.cpp
+    src/image_controller.cpp
+
+    # Operations
+    src/models/operations/brightness_model.cpp
+)
+
+set(QOBJECT_HEADERS
+    include/rendering/rhi_image_node.h
+    include/rendering/rhi_image_item.h
+    include/image_controller.h
+    include/models/operations/operation_provider.h
+    include/models/operations/brightness_model.h
+)
 
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
     PRIVATE
-        src/rendering/rhi_image_node.cpp
-        src/rendering/rhi_image_item.cpp
-        src/image_controller.cpp
+        ${CORE_SOURCES} 
+        ${QOBJECT_HEADERS}
 
-        # Operations
-        src/models/operations/brightness_model.cpp
-
-      #  ${MOC_HEADERS}
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
-        capturemoment/qt/core/rendering/rhi_image_node.h
-        capturemoment/qt/core/rendering/rhi_image_item.h
-        image_controller.h
+            rendering/rhi_image_node.h
+            rendering/rhi_image_item.h
+            image_controller.h
 
-        #Operations
-        capturemoment/qt/core/domain/operation_parameters.h
-        capturemoment/qt/core/models/operations/i_operation_model.h
-        capturemoment/qt/core/models/operations/operation_provider.h
-        capturemoment/qt/core/models/operations/brightness_model.h
+            #Operations
+            domain/operation_parameters.h
+            models/operations/i_operation_model.h
+            models/operations/operation_provider.h
+            models/operations/brightness_model.h
 )
 
 # --- Configuration---
