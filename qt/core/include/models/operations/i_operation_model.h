@@ -35,12 +35,16 @@ public:
     [[no_discard]] virtual bool isActive() const = 0;
 
     /**
-     * @brief Get operation type
+     * @brief Gets the type of this operation.
+     * @return OperationType::Brightness.
      */
     virtual OperationType getType() const = 0;
 
-    /**
-     * @brief Get descriptor for PhotoEngine
+      /**
+     * @brief Creates and returns an OperationDescriptor representing the current state of this model.
+     * This descriptor contains the operation type, name, parameters (like the brightness value),
+     * and other metadata required by the core processing engine (PipelineEngine).
+     * @return OperationDescriptor representing the current brightness state.
      */
     virtual OperationDescriptor getDescriptor() const = 0;
 
