@@ -3,7 +3,7 @@
 project(CaptureMomentUIDesktop LANGUAGES CXX)
 
 message(STATUS "Configuring CaptureMoment Desktop UI...")
-find_package(Qt6 REQUIRED COMPONENTS Qml)
+find_package(Qt6 REQUIRED COMPONENTS Qml  ShaderTools)
 
 # We have already packages installed with qt/core/CMakeLists.txt
 
@@ -12,7 +12,12 @@ if(TARGET Qt6::Qml)
 else()
     message(FATAL_ERROR "Qt6 Qml not found. Please install Qt6 with the component.")
 endif()
-
+ 
+if(TARGET Qt6::ShaderTools)
+    message(STATUS "Qt6 found ShaderTools")
+else()
+    message(FATAL_ERROR "ShaderTools not found.")
+endif()
 qt_standard_project_setup(REQUIRES 6.9.3)
 
 set(CAPTUREMOMENT_DESKTOP_TARGET capturemoment_desktop)
@@ -25,16 +30,23 @@ set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
     AUTOUIC TRUE
 )
 
+qt_add_shaders(${CAPTUREMOMENT_DESKTOP_TARGET}
+    PREFIX /shaders
+    FILES
+        shaders/glsl/image_display.vert
+        shaders/glsl/image_display.frag
+)
+
+
 qt_add_qml_module(${CAPTUREMOMENT_DESKTOP_TARGET}
     URI CaptureMoment.desktop
     VERSION 1.0
     QML_FILES
-        qml//CaptureMoment/DesktopMain.qml
+        qml/CaptureMoment/DesktopMain.qml
 )
-
 target_sources(${CAPTUREMOMENT_DESKTOP_TARGET}
     PRIVATE
-     src/main.cpp
+       src/main.cpp
        src/utils/qml_context_setup.cpp
 
     PUBLIC
@@ -56,6 +68,8 @@ set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
 )
 
 target_link_libraries(${CAPTUREMOMENT_DESKTOP_TARGET}
+    PUBLIC
+        Qt6::ShaderTools
     PRIVATE
         capturemoment_qt_core_lib
 )
