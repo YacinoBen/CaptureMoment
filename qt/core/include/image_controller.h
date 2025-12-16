@@ -13,8 +13,11 @@
 #include "engine/photo_engine.h"
 #include "rendering/rhi_image_item.h"
 #include "models/operations/i_operation_model.h"
+
 namespace CaptureMoment::UI {
 class IOperationModel;
+class Rendering::RHIImageItem;
+
 /**
  * @class ImageController
  * @brief Orchestrates Core processing and Qt UI updates
@@ -28,7 +31,7 @@ class IOperationModel;
  */
 class ImageController : public QObject {
     Q_OBJECT
-    
+
 private:
     /**
      * @brief Core processing engine
@@ -106,6 +109,45 @@ public:
      */
     void registerModel(IOperationModel* model);
 
+    /**
+     * @brief Getter for the RHI image item property exposed to QML.
+     *
+     * This function is used by the Q_PROPERTY macro to provide read access
+     * to the RHIImageItem pointer from QML.
+     *
+     * @return A pointer to the currently associated RHIImageItem, or nullptr if none is set.
+     */
+    Rendering::RHIImageItem* getRHIImageItem() const { return m_rhi_image_item; }
+
+    /**
+     * @property rhiImageItem
+     * @brief QML property exposing the RHIImageItem pointer.
+     *
+     * This property allows QML components to get and set the RHIImageItem
+     * instance used for rendering. It facilitates the connection between
+     * the UI layer (QML) and the rendering backend (QRhi via RHIImageItem/RHIImageNode).
+     *
+     * Usage in QML:
+     * @code
+     * ImageController {
+     *     id: controller
+     *     rhiImageItem: rhiImageDisplay // Link to the RHIImageItem instance in QML
+     * }
+     * @endcode
+     */
+    Q_PROPERTY(Rendering::RHIImageItem* rhiImageItem READ getRHIImageItem WRITE setRHIImageItem NOTIFY rhiImageItemChanged)
+
+    /**
+     * @brief QML-accessible method to set the RHI image item.
+     *
+     * This method can be called directly from QML code using the
+     * Component.onCompleted signal or other mechanisms to establish the
+     * connection with the RHI image display item.
+     *
+     * @param item Pointer to the RHIImageItem instance to be associated.
+     */
+    Q_INVOKABLE void setRHIImageItemFromQml(Rendering::RHIImageItem* item);
+
 public slots:
     /**
      * @brief Load image from file path (non-blocking)
@@ -156,6 +198,15 @@ signals:
      * @param error Error message
      */
     void operationFailed(QString error);
+
+    /**
+     * @brief Signal emitted when the RHI image item property changes.
+     *
+     * This signal is connected to the Q_PROPERTY 'rhiImageItem' and is emitted
+     * whenever the internal m_rhi_image_item pointer is updated via the setter.
+     * QML can use this signal to react to the change in the associated RHI item.
+    */
+    void rhiImageItemChanged();
     
 private:
     /**

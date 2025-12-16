@@ -31,18 +31,27 @@ ImageController::ImageController(QObject* parent)
     spdlog::info("ImageController: Initialized with PhotoEngine");
 }
 
-ImageController::~ImageController() {
+ImageController::~ImageController() 
+{
     m_worker_thread.quit();
     m_worker_thread.wait();
     spdlog::debug("ImageController: Destroyed, worker thread stopped");
 }
 
-void ImageController::setRHIImageItem(Rendering::RHIImageItem* item) {
+void ImageController::setRHIImageItem(Rendering::RHIImageItem* item)
+{
     m_rhi_image_item = item;
+    emit rhiImageItemChanged();
     spdlog::debug("ImageController: RHIImageItem set");
 }
 
-void ImageController::registerModel(IOperationModel* model) {
+void ImageController::setRHIImageItemFromQml(Rendering::RHIImageItem* item)
+{
+    setRHIImageItem(item);
+}
+
+void ImageController::registerModel(IOperationModel* model)
+{
     if (!model) {
         spdlog::warn("ImageController::registerModel: Attempting to register nullptr");
         return;
@@ -61,7 +70,8 @@ void ImageController::registerModel(IOperationModel* model) {
                   m_registered_models.size());
 }
 
-void ImageController::loadImage(const QString& filePath) {
+void ImageController::loadImage(const QString& filePath)
+{
     if (filePath.isEmpty()) {
         emit imageLoadFailed("Empty file path");
         spdlog::warn("ImageController::loadImage: Empty file path");
@@ -76,7 +86,8 @@ void ImageController::loadImage(const QString& filePath) {
     }, Qt::QueuedConnection);
 }
 
-void ImageController::applyOperations(const std::vector<OperationDescriptor>& operations) {
+void ImageController::applyOperations(const std::vector<OperationDescriptor>& operations)
+{
     if (!m_current_image) {
         emit operationFailed("No image loaded");
         spdlog::warn("ImageController::applyOperations: No image loaded");
@@ -97,7 +108,8 @@ void ImageController::applyOperations(const std::vector<OperationDescriptor>& op
     }, Qt::QueuedConnection);
 }
 
-void ImageController::doLoadImage(const QString& filePath) {
+void ImageController::doLoadImage(const QString& filePath)
+{
     spdlog::debug("ImageController::doLoadImage: Starting load on worker thread");
     
     // Load image via PhotoEngine
@@ -140,7 +152,8 @@ void ImageController::doLoadImage(const QString& filePath) {
     onImageLoadResult(true, "");
 }
 
-void ImageController::doApplyOperations(const std::vector<OperationDescriptor>& operations) {
+void ImageController::doApplyOperations(const std::vector<OperationDescriptor>& operations)
+{
     spdlog::debug("ImageController::doApplyOperations: Starting operation processing");
     
     if (!m_current_image || !m_engine) {
@@ -190,7 +203,8 @@ void ImageController::doApplyOperations(const std::vector<OperationDescriptor>& 
     }
 }
 
-void ImageController::onImageLoadResult(bool success, const QString& errorMsg) {
+void ImageController::onImageLoadResult(bool success, const QString& errorMsg)
+{
     spdlog::debug("ImageController::onImageLoadResult: success={}", success);
     
     if (success) {
@@ -203,7 +217,8 @@ void ImageController::onImageLoadResult(bool success, const QString& errorMsg) {
     }
 }
 
-void ImageController::onOperationResult(bool success, const QString& errorMsg) {
+void ImageController::onOperationResult(bool success, const QString& errorMsg)
+{
     spdlog::debug("ImageController::onOperationResult: success={}", success);
     
     if (success) {
