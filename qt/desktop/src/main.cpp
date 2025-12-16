@@ -9,25 +9,32 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     QQmlApplicationEngine engine;
 
-    CaptureMoment::UI::QmlContextSetup::setupContext(engine.rootContext());
-    qmlRegisterType<CaptureMoment::UI::Rendering::RHIImageItem>("CaptureMoment.Qt.Rendering", 1, 0, "RHIImageItem");
+    // Register the custom RHI image item type for QML
+    qmlRegisterType<CaptureMoment::UI::Rendering::RHIImageItem>(
+        "CaptureMoment.Qt.Rendering", 1, 0, "RHIImageItem"
+    );
 
+    // Setup QML context once
     auto context = engine.rootContext();
     if (!CaptureMoment::UI::QmlContextSetup::setupContext(context)) {
         spdlog::error("Failed to setup QML context");
         return -1;
     }
 
+    // Handle QML engine errors
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
         &app,
         []() { QCoreApplication::exit(-1); },
-        Qt::QueuedConnection);
+        Qt::QueuedConnection
+    );
 
+    // Load the main QML module
     engine.loadFromModule("CaptureMoment.desktop", "DesktopMain");
 
     if (engine.rootObjects().isEmpty()) {
+        spdlog::error("Failed to load QML module");
         return -1;
     }
 

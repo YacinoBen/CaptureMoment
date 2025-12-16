@@ -14,9 +14,6 @@
 namespace CaptureMoment::UI {
     class ImageController;
     class BrightnessModel;
-    namespace Rendering {
-        class RHIImageItem;
-    }
 }
 
 namespace CaptureMoment::UI {
@@ -60,19 +57,12 @@ private:
     // Shared pointers for lifetime management
     static std::shared_ptr<ImageController> m_controller;
     static std::shared_ptr<BrightnessModel> m_brightness_model;
-    static std::shared_ptr<Rendering::RHIImageItem> m_rhi_image_item;
 
     /**
      * @brief Create the central ImageController orchestrator.
      * @return true if the controller was created successfully, false otherwise.
      */
     static bool createController();
-
-    /**
-     * @brief Create the RHI-based image display item (RhiImageItem).
-     * @return true if the item was created successfully, false otherwise.
-     */
-    static bool createRenderingComponents();
 
     /**
      * @brief Create the operation model objects (e.g., BrightnessModel).
