@@ -173,4 +173,4 @@ private:
 
 } // namespace Rendering
 
-} // namespace CaptureMoment::Qt
+} // namespace CaptureMoment::UI::Rendering
