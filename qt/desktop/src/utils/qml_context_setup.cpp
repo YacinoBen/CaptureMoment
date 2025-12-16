@@ -6,7 +6,6 @@
  */
 
 #include "utils/qml_context_setup.h"
-#include "image_controller.h"
 #include "models/operations/brightness_model.h"
 
 #include <spdlog/spdlog.h>

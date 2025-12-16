@@ -8,6 +8,7 @@
 #include "image_controller.h"
 #include "models/operations/i_operation_model.h"
 #include "operations/operation_registry.h"
+#include "rendering/rhi_image_item.h"
 
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
@@ -31,7 +32,7 @@ ImageController::ImageController(QObject* parent)
     spdlog::info("ImageController: Initialized with PhotoEngine");
 }
 
-ImageController::~ImageController() 
+ImageController::~ImageController()
 {
     m_worker_thread.quit();
     m_worker_thread.wait();

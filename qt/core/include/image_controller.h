@@ -11,13 +11,16 @@
 #include <memory>
 #include <QThread>
 #include "engine/photo_engine.h"
+#include "common/image_region.h"
 #include "rendering/rhi_image_item.h"
 #include "models/operations/i_operation_model.h"
 
 namespace CaptureMoment::UI {
 class IOperationModel;
-class Rendering::RHIImageItem;
 
+namespace Rendering {
+  class RHIImageItem;
+}
 /**
  * @class ImageController
  * @brief Orchestrates Core processing and Qt UI updates
