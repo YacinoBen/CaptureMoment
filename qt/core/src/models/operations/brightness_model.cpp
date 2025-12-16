@@ -45,12 +45,10 @@ namespace CaptureMoment::UI {
         
         // Connect to controller's feedback signal
         connect(m_image_controller, &ImageController::operationCompleted,
-            this, &BrightnessModel::onOperationCompleted,
-            Qt::UniqueConnection);
-            connect(m_image_controller, &ImageController::operationFailed,
-            this, [this](const QString& error) {
-                this->onOperationFailed(error);
-            }, Qt::UniqueConnection);
+            this, &BrightnessModel::onOperationCompleted);
+
+        connect(m_image_controller, &ImageController::operationFailed,
+            this, &BrightnessModel::onOperationFailed);
             spdlog::debug("BrightnessModel: Connected to ImageController signals");
     }
 
