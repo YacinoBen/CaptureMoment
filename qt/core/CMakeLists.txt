@@ -6,11 +6,32 @@ message(STATUS "Configuring CaptureMoment Qt Core Library...")
 
 find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui GuiPrivate)
 
-if(TARGET Qt6::Core AND TARGET Qt6::Quick AND TARGET Qt6::Gui AND TARGET Qt6::GuiPrivate)
-    message(STATUS "Qt6 found (core): ${Qt6_VERSION} (Core, Quick, Gui, Gui Private)")
+if(TARGET Qt6::Core)
+    message(STATUS "Qt6 found Core")
 else()
-    message(FATAL_ERROR "Required Qt6 components (Core, Quick, Gui, Gui Private) not found.")
+    message(FATAL_ERROR "Core not found.")
 endif()
+
+if(TARGET Qt6::Quick)
+    message(STATUS "Qt6 found Quick")
+else()
+    message(FATAL_ERROR "Quick not found.")
+endif()
+
+if(TARGET Qt6::Gui)
+    message(STATUS "Qt6 found Gui")
+else()
+    message(FATAL_ERROR "Gui not found.")
+endif()
+
+if(TARGET Qt6::GuiPrivate)
+    message(STATUS "Qt6 found Gui Private")
+else()
+    message(FATAL_ERROR "Gui Private not found.")
+endif()
+
+
+message(STATUS "Qt6 found : ${Qt6_VERSION}")
 
 qt_standard_project_setup(REQUIRES 6.9.3)
 
@@ -42,6 +63,8 @@ set(QOBJECT_HEADERS
     include/models/operations/brightness_model.h
 )
 
+
+
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
     PRIVATE
         ${CORE_SOURCES} 
@@ -68,6 +91,7 @@ target_link_libraries(${CAPTUREMOMENT_QT_CORE_LIB}
         Qt6::Quick
         Qt6::Gui
         Qt6::GuiPrivate
+
         capturemoment_core        
 )
 
