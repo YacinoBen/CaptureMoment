@@ -38,6 +38,12 @@ qt_add_shaders(${CAPTUREMOMENT_DESKTOP_TARGET}
 )
 
 
+qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "config"
+    PREFIX /
+    FILES
+       qtquickcontrols2.conf
+)
+
 qt_add_qml_module(${CAPTUREMOMENT_DESKTOP_TARGET}
     URI CaptureMoment.desktop
     VERSION 1.0
@@ -73,7 +79,6 @@ target_link_libraries(${CAPTUREMOMENT_DESKTOP_TARGET}
     PRIVATE
         capturemoment_qt_core_lib
 )
-
 
 include(GNUInstallDirs)
 install(TARGETS capturemoment_desktop
