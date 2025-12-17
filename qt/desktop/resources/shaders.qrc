@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<RCC>
-    <qresource prefix="/shaders">
-        <file alias="image_display_vs.qsb">../shaders/glsl/image_display.vert</file>
-        <file alias="image_display_fs.qsb">../shaders/glsl/image_display.frag</file>
-    </qresource>
-</RCC>

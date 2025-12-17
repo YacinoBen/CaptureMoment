@@ -4,7 +4,7 @@ project(CaptureMomentQtCore LANGUAGES CXX)
 
 message(STATUS "Configuring CaptureMoment Qt Core Library...")
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui GuiPrivate)
+find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui GuiPrivate ShaderTools)
 
 if(TARGET Qt6::Core)
     message(STATUS "Qt6 found Core")
@@ -30,6 +30,11 @@ else()
     message(FATAL_ERROR "Gui Private not found.")
 endif()
 
+if(TARGET Qt6::ShaderTools)
+    message(STATUS "Qt6 found ShaderTools")
+else()
+    message(FATAL_ERROR "ShaderTools not found.")
+endif()
 
 message(STATUS "Qt6 found : ${Qt6_VERSION}")
 
@@ -46,6 +51,14 @@ set_target_properties(${CAPTUREMOMENT_QT_CORE_LIB} PROPERTIES
     AUTORCC TRUE
     AUTOUIC TRUE
 )
+
+qt_add_shaders(${CAPTUREMOMENT_QT_CORE_LIB}
+    PREFIX /shaders
+    FILES
+        shaders/glsl/image_display.vert
+        shaders/glsl/image_display.frag
+)
+
 set(CORE_SOURCES
     src/rendering/rhi_image_node.cpp
     src/rendering/rhi_image_item.cpp
@@ -91,7 +104,7 @@ target_link_libraries(${CAPTUREMOMENT_QT_CORE_LIB}
         Qt6::Quick
         Qt6::Gui
         Qt6::GuiPrivate
-
+        Qt6::ShaderTools
         capturemoment_core        
 )
 
