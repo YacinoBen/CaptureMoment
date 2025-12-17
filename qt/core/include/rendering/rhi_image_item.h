@@ -62,7 +62,8 @@ private:
      * Ensures thread-safe updates to the image data.
      */
     QMutex m_image_mutex;
-    
+
+protected :    
     // Zoom/Pan
     /**
      * @brief Current zoom level applied to the image.
@@ -131,13 +132,41 @@ public:
      */
     void setPan(const QPointF& pan);
 
+    /**
+     * @brief Get the zoom level.
+     */
+    float zoom() const { return m_zoom; };
+   
+    /**
+     * @brief Get the pan offset.
+     */
+    QPointF pan() const { return m_pan; };
 
-    int imageWidth() const;
-    int imageHeight() const;
+    /**
+     * @brief Get the width of the image.
+     */
+    int imageWidth() const { return m_image_width; };
+
+    /**
+     * @brief Get the height of the image.
+     */
+    int imageHeight() const { return m_image_height; };
 
 signals:
+    /**
+     * @brief Signal emitted when the zoom change.
+     */
     void zoomChanged(float zoom);
+
+    /**
+     * @brief Signal emitted when the pan change.
+     */
     void panChanged(const QPointF& pan);
+
+    /**
+     * @brief Signal emitted when the image dimensions change (width or height).
+     */
+    void imageSizeChanged();
 
 protected:
     // QQuickItem overrides

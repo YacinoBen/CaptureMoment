@@ -55,14 +55,7 @@ void RHIImageItem::setPan(const QPointF& pan)
     m_pan = pan; 
     update();
 }
-int RHIImageItem::imageWidth() const
-{
-   return this->m_image_width;
-}
-int RHIImageItem::imageHeight() const
-{
-    return m_image_height;
-}
+
 // Updates a specific tile of the displayed image.
 // Merges the tile data into the full image buffer (CPU side) and marks the GPU texture for update.
 void RHIImageItem::updateTile(const std::shared_ptr<ImageRegion>& tile)

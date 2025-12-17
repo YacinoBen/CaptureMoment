@@ -1,7 +1,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include "utils/qml_context_setup.h"
-#include "rendering/rhi_image_item.h"
+#include "rendering/qml_rhi_image_item.h"
 #include <spdlog/spdlog.h>
 
 int main(int argc, char *argv[])
@@ -10,8 +10,8 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
 
     // Register the custom RHI image item type for QML
-    qmlRegisterType<CaptureMoment::UI::Rendering::RHIImageItem>(
-        "CaptureMoment.Qt.Rendering", 1, 0, "RHIImageItem"
+    qmlRegisterType<CaptureMoment::UI::QMLRHIImageItem>(
+        "CaptureMoment.UI.RHI.Rendering", 1, 0, "QMLRHIImageItem"
     );
 
     // Setup QML context once
