@@ -9,12 +9,10 @@
 
 #include <QQuickItem>
 #include <QMutex>
-#include <QPointF>
 #include <QSGNode>
 #include <memory>
 
-#include "rendering/rhi_image_node.h"
-#include "common/image_region.h"
+#include "rendering/i_rendering_item_base.h"
 
 namespace CaptureMoment::UI {
 
@@ -40,53 +38,23 @@ class RHIImageNode;
  * to update the displayed image or specific tiles of it.
  */
 
-class RHIImageItem : public QQuickItem {
+class RHIImageItem : public QQuickItem, public IRenderingItemBase {
     Q_OBJECT
 
-private:
-    /**
-     * @brief Shared pointer to the full image data displayed by this item.
-     * 
-     * This member holds the complete image data (CPU side) which is used to update the GPU texture.
-     */
-    std::shared_ptr<ImageRegion> m_full_image;      
+private:     
     /**
      * @brief Flag indicating if the GPU texture needs to be updated from m_full_image.
      * 
      * Set to true when setImage or updateTile is called to signal the render node.
      */
     bool m_texture_needs_update{false};
+
     /**
      * @brief Mutex protecting access to m_full_image and related state.
      * 
      * Ensures thread-safe updates to the image data.
      */
     QMutex m_image_mutex;
-
-protected :    
-    // Zoom/Pan
-    /**
-     * @brief Current zoom level applied to the image.
-     * 
-     * A value of 1.0f represents the original size.
-     */
-    float m_zoom{1.0f};
-    /**
-     * @brief Current pan offset applied to the image.
-     * 
-     * Represents the offset in scene coordinates.
-     */
-    QPointF m_pan{0, 0};
-    
-    // Image metadata
-    /**
-     * @brief Width of the currently loaded image in pixels.
-     */
-    int m_image_width{0};
-    /**
-     * @brief Height of the currently loaded image in pixels.
-     */
-    int m_image_height{0};
 
 public:
     /**
@@ -107,7 +75,7 @@ public:
      * 
      * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
      */
-    void setImage(const std::shared_ptr<ImageRegion>& image);
+    void setImage(const std::shared_ptr<ImageRegion>& image) override;
     
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -118,19 +86,19 @@ public:
      * 
      * @param tile A shared pointer to the ImageRegion containing the processed tile data.
      */
-    void updateTile(const std::shared_ptr<ImageRegion>& tile);
+    void updateTile(const std::shared_ptr<ImageRegion>& tile) override;
     
     // Zoom/Pan
     /**
      * @brief Sets the zoom level.
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
-    void setZoom(float zoom);
+    void setZoom(float zoom) override;
     /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
-    void setPan(const QPointF& pan);
+    void setPan(const QPointF& pan) override;
 
     /**
      * @brief Get the zoom level.
@@ -188,4 +156,5 @@ private:
 };
 
 } // namespace Rendering
+
 } // namespace CaptureMoment::Qt

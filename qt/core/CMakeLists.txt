@@ -77,10 +77,13 @@ set(CORE_SOURCES
 )
 
 set(QOBJECT_HEADERS
+    # Rendering
+    include/rendering/i_rendering_item_base.h
     include/rendering/rhi_image_node.h
     include/rendering/rhi_image_item.h
     include/rendering/sgs_image_item.h
     include/rendering/painted_image_item.h
+
 
     # Controller
     include/controller/image_controller_base.h
@@ -108,6 +111,7 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             controller/image_controller_rhi.h
 
             # Rendering
+            rendering/i_rendering_item_base.h
             rendering/rhi_image_node.h
             rendering/rhi_image_item.h
             rendering/sgs_image_item.h

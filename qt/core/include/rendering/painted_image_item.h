@@ -8,12 +8,10 @@
 #pragma once
 
 #include <QQuickPaintedItem>
+#include <QImage>
 #include <QMutex>
-#include <QPointF>
-#include <QImage> // Pour le stockage temporaire de l'image à dessiner
-#include <memory>
 
-#include "common/image_region.h"
+#include "rendering/i_rendering_item_base.h"
 
 namespace CaptureMoment::UI {
 
@@ -36,7 +34,7 @@ namespace Rendering {
  * and ease of implementation is preferred over peak GPU performance for the display itself.
  * The core image *processing* (brightness, etc.) still happens on the CPU via Halide.
  */
-class PaintedImageItem : public QQuickPaintedItem {
+class PaintedImageItem : public QQuickPaintedItem, public IRenderingItemBase {
     Q_OBJECT
 
 private:
@@ -46,38 +44,14 @@ private:
      * This member holds the image data (converted from ImageRegion) ready for QPainter.
      * It's protected by m_image_mutex.
      */
-    QImage m_current_qimage;      
-    
+    QImage m_current_qimage;
+
     /**
-     * @brief Mutex protecting access to m_current_qimage and related state.
+     * @brief Mutex protecting access to m_full_image and related state.
      * 
      * Ensures thread-safe updates to the image data.
      */
-     mutable QMutex m_image_mutex;
-
-    // Zoom/Pan
-    /**
-     * @brief Current zoom level applied to the image.
-     * 
-     * A value of 1.0f represents the original size.
-     */
-    float m_zoom{1.0f};
-    /**
-     * @brief Current pan offset applied to the image.
-     * 
-     * Represents the offset in scene coordinates.
-     */
-    QPointF m_pan{0, 0};
-    
-    // Image metadata
-    /**
-     * @brief Width of the currently loaded image in pixels.
-     */
-    int m_image_width{0};
-    /**
-     * @brief Height of the currently loaded image in pixels.
-     */
-    int m_image_height{0};
+    mutable QMutex m_image_mutex;
 
 public:
     /**
@@ -99,7 +73,7 @@ public:
      * 
      * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
      */
-    void setImage(const std::shared_ptr<ImageRegion>& image);
+    void setImage(const std::shared_ptr<ImageRegion>& image) override;
     
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -110,14 +84,14 @@ public:
      * 
      * @param tile A shared pointer to the ImageRegion containing the processed tile data.
      */
-    void updateTile(const std::shared_ptr<ImageRegion>& tile);
+    void updateTile(const std::shared_ptr<ImageRegion>& tile) override;
     
     // Zoom/Pan
     /**
      * @brief Sets the zoom level.
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
-    void setZoom(float zoom);
+    void setZoom(float zoom) override;
     /**
      * @brief Gets the current zoom level.
      * @return The current zoom factor.
@@ -127,7 +101,7 @@ public:
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
-    void setPan(const QPointF& pan);
+    void setPan(const QPointF& pan) override;
     /**
      * @brief Gets the current pan offset.
      * @return The current pan offset.
@@ -138,12 +112,12 @@ public:
      * @brief Get the width of the image.
      * @return The image width in pixels, or 0 if no image is loaded.
      */
-    int imageWidth() const;
+    int imageWidth() const override;
     /**
      * @brief Get the height of the image.
      * @return The image height in pixels, or 0 if no image is loaded.
      */
-    int imageHeight() const;
+    int imageHeight() const override;
 
 signals:
     /**

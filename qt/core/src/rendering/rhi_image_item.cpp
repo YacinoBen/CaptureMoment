@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 #include <QMutexLocker>
 #include "rendering/rhi_image_item.h"
+#include "rendering/rhi_image_node.h" 
 namespace CaptureMoment::UI::Rendering {
 // --- RHIImageItem Implementation ---
 RHIImageItem::RHIImageItem(QQuickItem* parent)

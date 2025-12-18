@@ -9,12 +9,10 @@
 
 #include <QQuickItem>
 #include <QMutex>
-#include <QPointF>
 #include <QSGNode>
 #include <QSGTexture>
-#include <memory>
 
-#include "common/image_region.h"
+#include "rendering/i_rendering_item_base.h"
 
 namespace CaptureMoment::UI {
 
@@ -34,17 +32,10 @@ namespace Rendering {
  * suitable for QSGTexture (e.g., QImage) and manages zoom and pan operations.
  * It's a good choice for basic image display where custom RHI shaders are not needed.
  */
-class SGSImageItem : public QQuickItem {
+class SGSImageItem : public QQuickItem, public IRenderingItemBase {
 Q_OBJECT
 
 private:
-    /**
-     * @brief Shared pointer to the full image data displayed by this item.
-     * 
-     * This member holds the complete image data (CPU side, float32) which is used to update the GPU texture.
-     */
-     std::shared_ptr<ImageRegion> m_full_image;      
-    
     /**
      * @brief Flag indicating if the GPU texture needs to be updated from m_full_image.
      * 
@@ -60,32 +51,6 @@ private:
     QMutex m_image_mutex;
 
 protected :    
-    // Zoom/Pan
-    /**
-     * @brief Current zoom level applied to the image.
-     * 
-     * A value of 1.0f represents the original size.
-     */
-     float m_zoom{1.0f};
-            
-    /**
-     * @brief Current pan offset applied to the image.
-     * 
-     * Represents the offset in scene coordinates.
-     */
-    QPointF m_pan{0, 0};
-            
-    // Image metadata
-    /**
-     * @brief Width of the currently loaded image in pixels.
-     */
-    int m_image_width{0};
-           
-    /**
-     * @brief Height of the currently loaded image in pixels.
-     */
-    int m_image_height{0};
-
     // Cached texture for rendering
     /**
      * @brief Cached QSGTexture representing the image on the GPU.
@@ -114,7 +79,7 @@ public:
      * 
      * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
      */
-    void setImage(const std::shared_ptr<ImageRegion>& image);
+    void setImage(const std::shared_ptr<ImageRegion>& image) override;
             
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -125,7 +90,7 @@ public:
      * 
      * @param tile A shared pointer to the ImageRegion containing the processed tile data.
      */
-    void updateTile(const std::shared_ptr<ImageRegion>& tile);
+    void updateTile(const std::shared_ptr<ImageRegion>& tile) override;
             
     // Zoom/Pan
     /**
@@ -133,7 +98,7 @@ public:
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
 
-     void setZoom(float zoom);
+     void setZoom(float zoom) override;
     /**
      * @brief Gets the current zoom level.
      * @return The current zoom factor.
