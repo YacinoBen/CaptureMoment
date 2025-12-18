@@ -88,6 +88,9 @@ private:
     * @brief Graphics pipeline object defining the rendering state (shaders, blend state, etc.).
     */
     std::unique_ptr<QRhiGraphicsPipeline> m_pipeline;
+
+    QRhiResourceUpdateBatch* m_pending_upload_batch{nullptr};
+    bool m_srb_needs_rebuild{false};
             
     /**
     * @brief Flag indicating if the node's resources have been initialized.

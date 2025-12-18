@@ -54,12 +54,33 @@ void RHIImageNode::synchronize()
         {
                 // Copy image data locally to avoid holding mutex during GPU upload
                 spdlog::debug("RHIImageNode::synchronize (QMutexLocker) : start lock");
-                auto image_copy = m_item->m_full_image;
-                m_item->m_texture_needs_update = false;
-                lock.unlock(); // Release mutex before GPU operations
-                spdlog::debug("RHIImageNode::synchronize (QMutexLocker) : unlock");
                 updateTexture();
+                m_item->m_texture_needs_update = false;
+                spdlog::debug("RHIImageNode::synchronize (QMutexLocker) : unlock");
         }
+    }
+
+    if (m_uniform_buffer && m_item->window()) {
+        QSize winSize = m_item->window()->size();
+
+        // Calcul de la matrice MVP manuellement pour le Uniform Buffer
+        // Note: On utilise ici la taille de la fenêtre car on gère notre propre projection
+        QMatrix4x4 matrix;
+        matrix.ortho(0, winSize.width(), winSize.height(), 0, -1, 1);
+        matrix.translate(m_item->m_pan.x(), m_item->m_pan.y());
+        matrix.scale(m_item->m_zoom);
+
+        // Création et soumission immédiate du batch de mise à jour
+        // On utilise un command buffer temporaire pour appliquer l'update HORS de la passe de rendu principale
+        QRhiResourceUpdateBatch* batch = m_rhi->nextResourceUpdateBatch();
+        batch->updateDynamicBuffer(m_uniform_buffer.get(), 0, 64, matrix.constData());
+
+        QRhiCommandBuffer* cb = nullptr;
+        if (m_rhi->beginOffscreenFrame(&cb) == QRhi::FrameOpSuccess) {
+            cb->resourceUpdate(batch);
+            m_rhi->endOffscreenFrame();
+        }
+        // Pas de waitForIdle() nécessaire ici, la synchro frame suffira
     }
 }
 void RHIImageNode::render(const RenderState* state)
@@ -76,27 +97,75 @@ void RHIImageNode::render(const RenderState* state)
     }
     spdlog::info("RHIImageNode::render (cb): buffer found");
     const QSize fbSize(m_item->width(), m_item->height());
+
+   /* if (m_srb_needs_rebuild) {
+        spdlog::debug("RHIImageNode::render: Rebuilding SRB with new texture");
+
+        if (m_srb && m_texture && m_sampler && m_uniform_buffer) {
+            // Redéfinir les bindings avec la nouvelle texture
+            QRhiShaderResourceBinding bindings[] = {
+                QRhiShaderResourceBinding::uniformBuffer(
+                    0,
+                    QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage,
+                    m_uniform_buffer.get()
+                    ),
+                QRhiShaderResourceBinding::sampledTexture(
+                    1,
+                    QRhiShaderResourceBinding::FragmentStage,
+                    m_texture.get(),
+                    m_sampler.get()
+                    )
+            };
+
+            m_srb->setBindings(bindings, bindings + 2);
+
+            // ✅ Recréer le SRB AVANT beginPass (OK pour D3D11)
+            if (!m_srb->create()) {
+                spdlog::error("RHIImageNode::render: Failed to rebuild SRB");
+                return;
+            }
+
+            spdlog::debug("RHIImageNode::render: SRB rebuilt successfully");
+        }
+
+        m_srb_needs_rebuild = false;
+    }
+
     // Prepare transformation matrix
     QMatrix4x4 matrix = *state->projectionMatrix();
     matrix.ortho(0, fbSize.width(), fbSize.height(), 0, -1, 1);
     matrix.translate(m_item->m_pan.x(), m_item->m_pan.y());
     matrix.scale(m_item->m_zoom);
-    QRhiResourceUpdateBatch* batch = m_rhi->nextResourceUpdateBatch();
-    if (batch)
-    {
-        spdlog::info("RHIImageNode::render (batch): Updating uniform buffer");
-        batch->updateDynamicBuffer(m_uniform_buffer.get(), 0, 64, matrix.constData());
-        spdlog::info("RHIImageNode::render (batch): Uniform buffer updated");
-        spdlog::info("RHIImageNode::render (batch): Submitting resource update");
-        cb->resourceUpdate(batch);
-        spdlog::info("RHIImageNode::render (batch): Resource update submitted");
-    }
+
     // Begin render pass
     const QColor clearColor(0, 0, 0, 1);
     cb->beginPass(renderTarget(), clearColor, {1.0f, 0});
+
+    if (m_pending_upload_batch) {
+        cb->resourceUpdate(m_pending_upload_batch);
+        m_pending_upload_batch = nullptr;
+    }
+
+    QRhiResourceUpdateBatch* batch = m_rhi->nextResourceUpdateBatch();
+    if (!batch) {
+        spdlog::info("RHIImageNode::render (batch): Error Update");
+        return;
+    }
+
+
+
+    spdlog::info("RHIImageNode::render (batch): Updating uniform buffer");
+    batch->updateDynamicBuffer(m_uniform_buffer.get(), 0, 64, matrix.constData());
+    spdlog::info("RHIImageNode::render (batch): Uniform buffer updated");
+    spdlog::info("RHIImageNode::render (batch): Submitting resource update");
+    cb->resourceUpdate(batch);
+    spdlog::info("RHIImageNode::render (batch): Resource update submitted");*/
+
     // Set pipeline state
     cb->setGraphicsPipeline(m_pipeline.get());
-    cb->setViewport(QRhiViewport(0, 0, fbSize.width(), fbSize.height()));
+    QSize winSize = m_item->window()->size();
+
+    cb->setViewport(QRhiViewport(0, 0,  winSize.width(), winSize.height()));
     cb->setShaderResources(m_srb.get());
     // Bind vertex input - Qt 6.9 API
     QRhiCommandBuffer::VertexInput vertexInput = { m_vertex_buffer.get(), 0 };
@@ -266,49 +335,76 @@ void RHIImageNode::createPipeline()
                 m_sampler.get()  // Pointer to the QRhiSampler object
             )
     };
-        m_srb->setBindings(bindings, bindings + 2); // Set the array of bindings (size 2)
-        if (!m_srb->create()) {
-            spdlog::error("RHIImageNode::createPipeline: Failed to create Shader Resource Bindings.");
-            return;
-        }
-        spdlog::debug("RHIImageNode::createPipeline: Shader Resource Bindings created.");
- /*       // --- Create Graphics Pipeline Object using QRhi factory method ---
-        m_pipeline.reset(m_rhi->newGraphicsPipeline());
-        // Set the loaded shaders
-        m_pipeline->setShaderStages({
-            QRhiShaderStage{ QRhiShaderStage::Vertex, vs },   // Use the deserialized vertex shader object
-            QRhiShaderStage{ QRhiShaderStage::Fragment, fs }  // Use the deserialized fragment shader object
-        });
-        // Define the vertex input layout (how data flows from vertex buffer to shader)
-        QRhiVertexInputLayout inputLayout;
-        // Assuming a simple layout: position (2 floats) + texture coordinate (2 floats) = 4 floats total per vertex
-        // Binding 0: Stride is 4 * sizeof(float)
-        inputLayout.setBindings({
-            QRhiVertexInputBinding(4 * sizeof(float)) // One stream of data, vertex size is 4 floats
-        });
-        // Attributes:
-        // Attribute 0 (layout location = 0 in shader): 2 floats (x, y) starting at offset 0
-        // Attribute 1 (layout location = 1 in shader): 2 floats (u, v) starting at offset 2*sizeof(float)
-        inputLayout.setAttributes({
-            QRhiVertexInputAttribute(0, 0, QRhiVertexInputAttribute::Float2, 0),                    // Position (vec2)
-            QRhiVertexInputAttribute(0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float))    // Tex Coord (vec2)
-        });
-        m_pipeline->setVertexInputLayout(inputLayout);
-        m_pipeline->setShaderResourceBindings(m_srb.get());
-        // Set the shader resource bindings for this pipeline
-           QRhiSwapChain* sc = m_item->window()->swapChain();
+
+    m_srb->setBindings(bindings, bindings + 2); // Set the array of bindings (size 2)
+    if (!m_srb->create()) {
+        spdlog::error("RHIImageNode::createPipeline: Failed to create Shader Resource Bindings.");
+        return;
+    }
+    spdlog::debug("RHIImageNode::createPipeline: Shader Resource Bindings created.");
+
+    // --- Create Graphics Pipeline Object using QRhi factory method ---
+    m_pipeline.reset(m_rhi->newGraphicsPipeline());
+    // Set the loaded shaders
+    m_pipeline->setShaderStages({
+        QRhiShaderStage{ QRhiShaderStage::Vertex, vs },   // Use the deserialized vertex shader object
+        QRhiShaderStage{ QRhiShaderStage::Fragment, fs }  // Use the deserialized fragment shader object
+    });
+    // Define the vertex input layout (how data flows from vertex buffer to shader)
+    QRhiVertexInputLayout inputLayout;
+    // Assuming a simple layout: position (2 floats) + texture coordinate (2 floats) = 4 floats total per vertex
+    // Binding 0: Stride is 4 * sizeof(float)
+    inputLayout.setBindings({
+        QRhiVertexInputBinding(4 * sizeof(float)) // One stream of data, vertex size is 4 floats
+    });
+    // Attributes:
+    // Attribute 0 (layout location = 0 in shader): 2 floats (x, y) starting at offset 0
+    // Attribute 1 (layout location = 1 in shader): 2 floats (u, v) starting at offset 2*sizeof(float)
+    inputLayout.setAttributes({
+        QRhiVertexInputAttribute(0, 0, QRhiVertexInputAttribute::Float2, 0),                    // Position (vec2)
+        QRhiVertexInputAttribute(0, 1, QRhiVertexInputAttribute::Float2, 2 * sizeof(float))    // Tex Coord (vec2)
+    });
+    m_pipeline->setVertexInputLayout(inputLayout);
+    m_pipeline->setShaderResourceBindings(m_srb.get());
+
+    if (!m_item || !m_item->window()) {
+        spdlog::error("RHIImageNode::createPipeline: No window available");
+        return;
+    }
+
+    // Set the shader resource bindings for this pipeline
+    QRhiSwapChain* sc = m_item->window()->swapChain();
     if (!sc) {
         spdlog::error("No swapchain available");
         return;
     }
-    m_pipeline->setRenderPassDescriptor(sc->renderPassDescriptor());
+
+    QRhiRenderPassDescriptor* rpDesc = sc->renderPassDescriptor();
+
+    if (!rpDesc) {
+        spdlog::error("RHIImageNode::createPipeline: No render pass descriptor");
+        return;
+    }
+
+    m_pipeline->setRenderPassDescriptor(rpDesc);
+
+    // Optional: Configure blend state for transparency
+    QRhiGraphicsPipeline::TargetBlend blend;
+    blend.enable = true;
+    blend.srcColor = QRhiGraphicsPipeline::SrcAlpha;
+    blend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+    blend.srcAlpha = QRhiGraphicsPipeline::One;
+    blend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+
+    m_pipeline->setTargetBlends({ blend });
+
         // --- Create the pipeline object on the GPU ---
-        if (!m_pipeline->create()) {
-            spdlog::error("RHIImageNode::createPipeline: Failed to create graphics pipeline on GPU.");
-            return;
-        }
-*/
-        spdlog::info("RHIImageNode::createPipeline: Graphics pipeline created successfully.");
+    if (!m_pipeline->create()) {
+        spdlog::error("RHIImageNode::createPipeline: Failed to create graphics pipeline on GPU.");
+        return;
+    }
+
+    spdlog::info("RHIImageNode::createPipeline: Graphics pipeline created successfully.");
 }
 void RHIImageNode::updateTexture()
 {
@@ -320,9 +416,14 @@ void RHIImageNode::updateTexture()
     spdlog::info("RHIImageNode::updateTexture: start uploadPixelData");
     uploadPixelData(m_item->m_full_image);
 }
-void RHIImageNode::uploadPixelData(const std::shared_ptr<ImageRegion>& image) {
+void RHIImageNode::uploadPixelData(const std::shared_ptr<ImageRegion>& image)
+{
     // --- Validate input data and QRhi instance ---
-    if (!image || !m_rhi) return;
+    if (!image || !m_rhi) {
+        spdlog::warn("RHIImageNode::uploadPixelData: Invalid image or RHI");
+        return;
+    }
+
     // --- Convert pixel data format (float32 → uint8) ---
     // Prepare a buffer to hold the converted pixel data.
     std::vector<uint8_t> pixelData;
@@ -336,10 +437,35 @@ void RHIImageNode::uploadPixelData(const std::shared_ptr<ImageRegion>& image) {
         // Scale the clamped value to the [0, 255] range and cast to uint8_t.
         pixelData[i] = static_cast<uint8_t>(clampedVal * 255.0f);
     }
+    bool textureRecreated = false;
+
     // --- Check if texture needs recreation (size changed) ---
     if (!m_texture || m_texture->pixelSize() != QSize(image->m_width, image->m_height))
     {
-        // --- Create a new GPU texture with the correct size using QRhi factory ---
+
+        spdlog::info("RHIImageNode::uploadPixelData: Recreating texture {}x{}",
+                     image->m_width, image->m_height);
+
+        // ✅ Créer la nouvelle texture
+        m_texture.reset(m_rhi->newTexture(
+            QRhiTexture::RGBA8,
+            QSize(image->m_width, image->m_height)
+            ));
+
+        if (!m_texture || !m_texture->create()) {
+            spdlog::error("RHIImageNode::uploadPixelData: Failed to create texture");
+            return;
+        }
+
+        textureRecreated = true;
+
+        // ✅ IMPORTANT: Ne PAS recréer le SRB maintenant !
+        // On va le faire dans render() AVANT beginPass()
+        m_srb_needs_rebuild = true;
+
+        spdlog::debug("RHIImageNode::uploadPixelData: Texture recreated, SRB rebuild scheduled");
+
+     /*   // --- Create a new GPU texture with the correct size using QRhi factory ---
         m_texture.reset(m_rhi->newTexture(
             QRhiTexture::RGBA8, // Specify the pixel format (8 bits per channel, Red-Green-Blue-Alpha).
             QSize(image->m_width, image->m_height) // Specify the texture dimensions.
@@ -356,7 +482,7 @@ void RHIImageNode::uploadPixelData(const std::shared_ptr<ImageRegion>& image) {
            // Define the new shader resource bindings, linking the updated texture and sampler.
            QRhiShaderResourceBinding bindings[] = {
            // Bind the uniform buffer (e.g., for transformation matrices) to binding point 0 in the vertex stage.
-           QRhiShaderResourceBinding::uniformBuffer(0, QRhiShaderResourceBinding::VertexStage,
+           QRhiShaderResourceBinding::uniformBuffer(0, QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage,
                                                              m_uniform_buffer.get()),
                     // Bind the new texture and its sampler to binding point 1 in the fragment stage.
                     QRhiShaderResourceBinding::sampledTexture(1, QRhiShaderResourceBinding::FragmentStage,
@@ -372,11 +498,17 @@ void RHIImageNode::uploadPixelData(const std::shared_ptr<ImageRegion>& image) {
                 } else {
                     spdlog::debug("RHIImageNode::uploadPixelData: SRB updated with new texture.");
                 }
-        }
+        }*/
     }
     // --- Prepare GPU Texture Upload Commands (using QRhiResourceUpdateBatch) ---
     // Obtain a batch object to queue the upload command.
-    QRhiResourceUpdateBatch* batch = m_rhi->nextResourceUpdateBatch();
+    m_pending_upload_batch = m_rhi->nextResourceUpdateBatch();
+
+    if (!m_pending_upload_batch) {
+        spdlog::error("RHIImageNode::uploadPixelData: Failed to get resource update batch");
+        return;
+    }
+
     // --- Configure the texture upload description for Qt 6.9 API ---
     // 1. Describe the *specific part* (subresource) of the texture to update.
     QRhiTextureSubresourceUploadDescription subDesc;
@@ -400,12 +532,14 @@ void RHIImageNode::uploadPixelData(const std::shared_ptr<ImageRegion>& image) {
     // Alternatively: QRhiTextureUploadDescription uploadDesc; uploadDesc.setEntries({entry});
     // --- Queue the upload command ---
     // Add the upload command (for the specified texture and upload description) to the batch.
-    batch->uploadTexture(m_texture.get(), uploadDesc);
+    m_pending_upload_batch->uploadTexture(m_texture.get(), uploadDesc);
     // Note: The batch is typically submitted later by the render loop or Qt's scene graph.
     // For static initial uploads, you might use m_rhi->resourceUpdateBatchApply(batch) if necessary,
     // but this is often handled automatically by the system.
     // --- Log successful upload ---
+
+    m_srb_needs_rebuild = true;
     spdlog::debug("RHIImageNode::uploadPixelData: Uploaded {}x{} to GPU",
                      image->m_width, image->m_height);
-    }
+}
 } // namespace CaptureMoment::Qt::Rendering
