@@ -1,6 +1,6 @@
 /**
  * @file image_controller_painted.h
- * @brief 
+ * @brief Head for ImageControllerPainted from main class ImageControllerBase
  * @author CaptureMoment Team
  * @date 2025
  */
