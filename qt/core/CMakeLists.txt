@@ -60,9 +60,15 @@ qt_add_shaders(${CAPTUREMOMENT_QT_CORE_LIB}
 )
 
 set(CORE_SOURCES
+    src/image_controller.cpp
+    src/image_controller_base.cpp
+    src/image_controller_painted.cpp
+
+    # Rendering
     src/rendering/rhi_image_node.cpp
     src/rendering/rhi_image_item.cpp
-    src/image_controller.cpp
+    src/rendering/sgs_image_item.cpp
+    src/rendering/painted_image_item.cpp
 
     # Operations
     src/models/operations/brightness_model.cpp
@@ -71,9 +77,15 @@ set(CORE_SOURCES
 set(QOBJECT_HEADERS
     include/rendering/rhi_image_node.h
     include/rendering/rhi_image_item.h
+    include/rendering/sgs_image_item.h
+    include/rendering/painted_image_item.h
+
     include/image_controller.h
     include/models/operations/operation_provider.h
     include/models/operations/brightness_model.h
+
+    include/image_controller_base.h
+    include/image_controller_painted.h
 )
 
 
@@ -86,11 +98,17 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
+            image_controller.h
+            image_controller_base.h
+            image_controller_painted.h
+    
+            # Rendering
             rendering/rhi_image_node.h
             rendering/rhi_image_item.h
-            image_controller.h
+            rendering/sgs_image_item.h
+            rendering/painted_image_item.h
 
-            #Operations
+            # Operations
             domain/operation_parameters.h
             models/operations/i_operation_model.h
             models/operations/operation_provider.h
