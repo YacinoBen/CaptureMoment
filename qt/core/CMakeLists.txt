@@ -65,6 +65,7 @@ set(CORE_SOURCES
     src/controller/image_controller_base.cpp
     src/controller/image_controller_painted.cpp
     src/controller/image_controller_sgs.cpp
+    src/controller/image_controller_rhi.cpp
 
     # Rendering
     src/rendering/rhi_image_node.cpp
@@ -87,6 +88,7 @@ set(QOBJECT_HEADERS
     include/controller/image_controller_base.h
     include/controller/image_controller_painted.h
     include/controller/image_controller_sgs.h
+    include/controller/image_controller_rhi.h
 
     # Operations
     include/models/operations/operation_provider.h
@@ -106,6 +108,7 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             controller/image_controller_base.h
             controller/image_controller_painted.h
             controller/image_controller_sgs.h
+            controller/image_controller_rhi.h
 
             # Rendering
             rendering/rhi_image_node.h
