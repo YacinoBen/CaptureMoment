@@ -7,13 +7,16 @@
 
 #include "utils/qml_context_setup.h"
 #include "models/operations/brightness_model.h"
+#include "controller/image_controller_painted.h"
+#include "controller/image_controller_sgs.h"
+#include "controller/image_controller_rhi.h"
 
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::UI {
 
 // Static member initialization (pointers are initialized to nullptr by default)
-std::shared_ptr<ImageController> QmlContextSetup::m_controller = nullptr;
+std::shared_ptr<Controller::ImageControllerBase> QmlContextSetup::m_controller = nullptr;
 std::shared_ptr<BrightnessModel> QmlContextSetup::m_brightness_model = nullptr;
 
 bool QmlContextSetup::setupContext(QQmlContext* context)
@@ -61,13 +64,13 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 {
     spdlog::debug("QmlContextSetup::createController: Creating ImageController...");
 
-    m_controller = std::make_shared<ImageController>();
+    m_controller = std::make_shared<Controller::ImageControllerPainted>();
     
     if (!m_controller) {
         spdlog::error("QmlContextSetup::createController: Failed to create ImageController (out of memory or constructor threw).");
         return false;
     }
-    spdlog::debug("ImageController created.");
+    spdlog::debug("ImageControllerBase created.");
 
     return true;
 }
@@ -110,7 +113,13 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 
     // --- Connect Operation Models to Controller ---
     // BrightnessModel needs to know the controller to communicate changes or register itself
+    
+    //m_brightness_model->setImageController(m_controller.get());
+   // spdlog::debug("BrightnessModel connected to ImageController.");
+
+   // TO MODIFY
     m_brightness_model->setImageController(m_controller.get());
+
     spdlog::debug("BrightnessModel connected to ImageController.");
 
     // TODO: Connect more models as they are created
@@ -138,7 +147,8 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 
     // --- Register Controller ---
     context->setContextProperty("controller", m_controller.get());
-    spdlog::debug("'controller' registered to QML context.");
+    spdlog::debug("Controller Base registered to QML context.");
+
 
     // Note: The internal models (like m_brightness_model) are NOT registered here.
     // They are managed by ImageController.

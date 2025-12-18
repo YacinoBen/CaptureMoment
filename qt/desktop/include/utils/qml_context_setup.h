@@ -10,10 +10,17 @@
 #include <QQmlContext>
 #include <memory>
 
+#include "controller/image_controller_base.h"
+
 // Forward declarations
 namespace CaptureMoment::UI {
-    class ImageController;
     class BrightnessModel;
+    namespace Controller {
+        class ImageControllerBase;
+        class ImageControllerPainted;
+        class ImageControllerRHI;
+        class ImageControllerSGS;
+    }
 }
 
 namespace CaptureMoment::UI {
@@ -55,7 +62,7 @@ public:
 
 private:
     // Shared pointers for lifetime management
-    static std::shared_ptr<ImageController> m_controller;
+    static std::shared_ptr<Controller::ImageControllerBase> m_controller;
     static std::shared_ptr<BrightnessModel> m_brightness_model;
 
     /**
