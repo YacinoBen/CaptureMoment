@@ -5,7 +5,7 @@
  * @date 2025
  */
 
-#include "image_controller_base.h"
+#include "controller/image_controller_base.h"
 #include "models/operations/i_operation_model.h"
 #include "operations/operation_registry.h"
 
@@ -13,8 +13,7 @@
 #include <QMetaObject>
 #include <algorithm>
 
-namespace CaptureMoment::UI {
-namespace Controller {
+namespace CaptureMoment::UI::Controller {
 
 ImageControllerBase::ImageControllerBase(QObject* parent)
     : QObject(parent) {
@@ -123,7 +122,5 @@ void ImageControllerBase::onOperationResult(bool success, const QString& errorMs
         emit operationFailed(errorMsg);
     }
 }
-
-} // namespace Controller
 
 } // namespace CaptureMoment::UI

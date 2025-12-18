@@ -59,7 +59,7 @@ private:
     Domain::RelativeAdjustmentParams m_params;
 
 protected:
-    ImageController* m_image_controller{nullptr};
+    Controller::ImageControllerBase* m_image_controller {nullptr};
 public:
     /**
      * @brief Constructs a BrightnessModel.
@@ -96,10 +96,10 @@ public:
     OperationDescriptor getDescriptor() const override;
 
     /**
-     * @brief Sets the ImageController reference used for applying operations.
-     * @param controller Pointer to the ImageController instance.
+     * @brief Sets the ImageControllerBase reference used for applying operations.
+     * @param controller Pointer to the ImageControllerBase instance.
      */
-    void setImageController(ImageController* controller) override;
+    void setImageController(Controller::ImageControllerBase* controller) override;
     
     /**
      * @brief Resets the brightness value to its default (0.0).
@@ -133,7 +133,7 @@ public slots:
      *
      * This slot is intended to be called from QML when the user adjusts the brightness.
      * It validates the input, updates the internal RelativeAdjustmentParams structure,
-     * and signals the ImageController to apply the new brightness value.
+     * and signals the ImageControllerBase to apply the new brightness value.
      *
      * @param value The new brightness value (clamped between minimum() and maximum()).
      */
@@ -146,7 +146,7 @@ signals:
     /**
      * @brief Signal emitted when the brightness value changes.
      * QML can connect to this signal to react to value updates (e.g., refresh display).
-     * ImageController should connect to this signal to trigger processing.
+     * ImageControllerBase should connect to this signal to trigger processing.
      * @param value The new value of the brightness parameter.
     */
     void valueChanged(float value); 

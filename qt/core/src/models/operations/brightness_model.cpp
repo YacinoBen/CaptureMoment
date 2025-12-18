@@ -29,27 +29,27 @@ namespace CaptureMoment::UI {
         descriptor.setParam<float>("value", m_params.value);
         return descriptor;
     }
-    // Sets the ImageController reference used for applying operations.
-    void BrightnessModel::setImageController(ImageController* controller) 
+    // Sets the ImageControllerBase reference used for applying operations.
+    void BrightnessModel::setImageController(Controller::ImageControllerBase* controller) 
     {
         m_image_controller = controller;
         if (!m_image_controller) 
         {
-            spdlog::warn("BrightnessModel: ImageController set to nullptr");
+            spdlog::warn("BrightnessModel: ImageControllerBase set to nullptr");
             return;
         }
-        spdlog::debug("BrightnessModel: ImageController set");
+        spdlog::debug("BrightnessModel: ImageControllerBase set");
         
         // Register this model with the controller
         m_image_controller->registerModel(this);
         
         // Connect to controller's feedback signal
-        connect(m_image_controller, &ImageController::operationCompleted,
+        connect(m_image_controller, &Controller::ImageControllerBase::operationCompleted,
             this, &BrightnessModel::onOperationCompleted);
 
-        connect(m_image_controller, &ImageController::operationFailed,
+        connect(m_image_controller, &Controller::ImageControllerBase::operationFailed,
             this, &BrightnessModel::onOperationFailed);
-            spdlog::debug("BrightnessModel: Connected to ImageController signals");
+            spdlog::debug("BrightnessModel: Connected to ImageControllerBase signals");
     }
 
     // Sets the brightness value and triggers an update.
@@ -79,14 +79,14 @@ namespace CaptureMoment::UI {
         OperationDescriptor descriptor = getDescriptor();
 
 
-        // --- Trigger processing via ImageController ---
+        // --- Trigger processing via ImageControllerBase ---
         if (m_image_controller) {
             // Send the single operation descriptor to the controller
             // applyOperations expects a vector
             std::vector<OperationDescriptor> operations = {descriptor};
             m_image_controller->applyOperations(operations); // Call the controller's method
         } else {
-            spdlog::warn("BrightnessModel::setValue: No ImageController set, cannot apply operation.");
+            spdlog::warn("BrightnessModel::setValue: No ImageControllerBase set, cannot apply operation.");
         }
     }
 
@@ -97,7 +97,7 @@ namespace CaptureMoment::UI {
         setValue(0.0f); // Call setValue to handle the update, clamping, signaling, and controller communication
     }
 
-    // Handles successful operation completion from ImageController.
+    // Handles successful operation completion from ImageControllerBase.
     void BrightnessModel::onOperationCompleted() 
     {
         spdlog::debug("BrightnessModel: Operation Completed successfully");
@@ -105,7 +105,7 @@ namespace CaptureMoment::UI {
         emit operationApplied(); // Relay the signal to QML
     }
 
-    // Handles operation failure from ImageController.
+    // Handles operation failure from ImageControllerBase.
     void BrightnessModel::onOperationFailed(const QString& error)
     {
         spdlog::error("BrightnessModel: Operation failed - {}", error.toStdString());

@@ -5,15 +5,15 @@
  * @date 2025
  */
 
-#include "image_controller_painted.h"
+#include "controller/image_controller_painted.h"
 #include "rendering/painted_image_item.h"
 
 #include <spdlog/spdlog.h>
 
-namespace CaptureMoment::UI {
+namespace CaptureMoment::UI::Controller {
 
 ImageControllerPainted::ImageControllerPainted(QObject* parent)
-    : ImageControllerBase(parent) { 
+    : Controller::ImageControllerBase(parent) { 
     spdlog::info("ImageControllerPainted: Initialized with PhotoEngine");
 }
 
@@ -22,14 +22,14 @@ ImageControllerPainted::~ImageControllerPainted()
     spdlog::debug("ImageControllerPainted: Destroyed, worker thread stopped");
 }
 
-void ImageControllerPainted::setPaintedImageItem(Rendering::PaintedImageItem* item)
+void ImageControllerPainted::setPaintedImageItem(CaptureMoment::UI::Rendering::PaintedImageItem* item)
 {
     m_painted_image_item = item;
     emit paintedImageItemChanged();
     spdlog::debug("ImageControllerPainted: PaintedImageItem set");
 }
 
-void ImageControllerPainted::setPaintedImageItemFromQml(Rendering::PaintedImageItem* item)
+void ImageControllerPainted::setPaintedImageItemFromQml(CaptureMoment::UI::Rendering::PaintedImageItem* item)
 {
     setPaintedImageItem(item);
 }
@@ -119,15 +119,14 @@ void ImageControllerPainted::doApplyOperations(const std::vector<OperationDescri
         
         if (m_painted_image_item) {
             m_painted_image_item->updateTile(result);
-            spdlog::debug("ImageController::doApplyOperations: RHIImageItem updated with new result");
+            spdlog::debug("ImageControllerPainted::doApplyOperations: RHIImageItem updated with new result");
         }
         
         onOperationResult(true, "");
     } else {
         onOperationResult(false, "Failed to commit operation result");
-        spdlog::error("ImageController::doApplyOperations: Failed to commit result");
+        spdlog::error("ImageControllerPainted::doApplyOperations: Failed to commit result");
     }
 }
-
 
 } // namespace CaptureMoment::UI

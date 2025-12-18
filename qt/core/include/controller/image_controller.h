@@ -50,7 +50,7 @@ private:
      * @brief Current loaded image
      */
     std::shared_ptr<ImageRegion> m_current_image;
-    
+
     /**
      * @brief RHI display item (non-owned, set externally)
      */
@@ -99,7 +99,7 @@ public:
      * @brief Get current loaded image
      */
     std::shared_ptr<ImageRegion> currentImage() const { return m_current_image; }
-    
+
 
     /**
      * @brief Register an operation model for notifications
@@ -160,7 +160,7 @@ public slots:
     
     /**
      * @brief Apply operation with parameters (non-blocking)
-     * @param operations Vector of operation descriptors
+     * @param operations Vector of opstd::shared_ptr<ImageRegion>eration descriptors
      */
     void applyOperations(const std::vector<OperationDescriptor>& operations);
     /**

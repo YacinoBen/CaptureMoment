@@ -15,10 +15,9 @@
 #include "models/operations/i_operation_model.h"
 
 namespace CaptureMoment::UI {
-namespace Controller {
-
 class IOperationModel;
 
+namespace Controller {
 /**
  * @class ImageController
  * @brief Orchestrates Core processing and Qt UI updates

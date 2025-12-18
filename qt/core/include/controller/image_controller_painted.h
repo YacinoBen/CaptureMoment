@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "image_controller_base.h"
+#include "controller/image_controller_base.h"
 #include "rendering/painted_image_item.h"
 
 namespace CaptureMoment::UI {
@@ -15,8 +15,9 @@ namespace CaptureMoment::UI {
 namespace Controller {
 
 namespace Rendering {
-  class PaintedmageItem;
+  class PaintedImageItem;
 }
+
 /**
  * @class ImageControllerPainted
  * @brief Orchestrates Core processing and Qt UI updates with Paintedmethod
@@ -41,7 +42,7 @@ class ImageControllerPainted : public ImageControllerBase {
      * }
      * @endcode
      */
-    Q_PROPERTY(Rendering::PaintedImageItem* paintedImageItem READ getPaintedImageItem WRITE setPaintedImageItem NOTIFY paintedImageItemChanged)
+    Q_PROPERTY(CaptureMoment::UI::Rendering::PaintedImageItem* paintedImageItem READ getPaintedImageItem WRITE setPaintedImageItem NOTIFY paintedImageItemChanged)
 
 public:
     /**
@@ -59,7 +60,7 @@ public:
      * @brief Set the Painted display item for rendering
      * @param item Pointer to PaintedImageItem
      */
-    void setPaintedImageItem(Rendering::PaintedImageItem* item);
+    void setPaintedImageItem(CaptureMoment::UI::Rendering::PaintedImageItem* item);
     
     /**
      * @brief Getter for the Painted image item property exposed to QML.
@@ -69,7 +70,7 @@ public:
      *
      * @return A pointer to the currently associated PaintedImageItem, or nullptr if none is set.
      */
-    Rendering::PaintedImageItem* getPaintedImageItem() const { return m_painted_image_item; }
+    CaptureMoment::UI::Rendering::PaintedImageItem* getPaintedImageItem() const { return m_painted_image_item; }
 
     /**
      * @brief QML-accessible method to set the Painted image item.
@@ -80,13 +81,13 @@ public:
      *
      * @param item Pointer to the PaintedImageItem instance to be associated.
      */
-    Q_INVOKABLE void setPaintedImageItemFromQml(Rendering::PaintedImageItem* item);
+    Q_INVOKABLE void setPaintedImageItemFromQml(CaptureMoment::UI::Rendering::PaintedImageItem* item);
 
 private:
     /**
      * @brief Painted display item (non-owned, set externally)
      */
-    Rendering::PaintedImageItem* m_painted_image_item {nullptr};
+    CaptureMoment::UI::Rendering::PaintedImageItem* m_painted_image_item {nullptr};
 
 signals:
     /**

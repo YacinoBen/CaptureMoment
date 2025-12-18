@@ -8,11 +8,14 @@
 #pragma once
 
 #include <QObject>
-#include "image_controller.h"
+#include "controller/image_controller_base.h"
 #include "models/operations/i_operation_model.h"
 
 namespace CaptureMoment::UI {
-class ImageController;
+
+namespace Controller {
+class ImageControllerBase;
+}
 /**
  * @brief Generic base class providing Qt signals/slots infrastructure
  * 
@@ -40,12 +43,12 @@ protected :
      * @brief Set ImageController reference
      */
 
-    virtual void setImageController(ImageController* controller) = 0;
+    virtual void setImageController(Controller::ImageControllerBase* controller) = 0;
     /**
      * @brief Pointer to the ImageController responsible for coordinating operations.
      * This allows the operation model to communicate back to the central controller.
      */
-    ImageController* m_image_controller {nullptr};
+    Controller::ImageControllerBase* m_image_controller_base {nullptr};
 
 public slots:
     /**

@@ -187,4 +187,5 @@ private:
 };
 
 } // namespace Rendering
+
 } // namespace CaptureMoment::UI
