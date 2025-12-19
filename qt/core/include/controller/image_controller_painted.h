@@ -11,12 +11,10 @@
 #include "rendering/painted_image_item.h"
 
 namespace CaptureMoment::UI {
-
-namespace Controller {
-
 namespace Rendering {
   class PaintedImageItem;
 }
+namespace Controller {
 
 /**
  * @class ImageControllerPainted
