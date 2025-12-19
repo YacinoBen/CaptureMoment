@@ -9,8 +9,8 @@
 #include <spdlog/spdlog.h>
 #include <QPainter>
 #include <QMutexLocker>
-#include <algorithm> // Pour std::clamp
-#include <cstring>   // Pour memcpy si nécessaire
+#include <algorithm>
+#include <cstring>
 
 namespace CaptureMoment::UI::Rendering {
 
@@ -44,7 +44,7 @@ namespace CaptureMoment::UI::Rendering {
             m_image_width = image->m_width;
             m_image_height = image->m_height;
         }
-        
+
         // Emit signal for QML binding
         emit imageDimensionsChanged();
 
@@ -56,59 +56,75 @@ namespace CaptureMoment::UI::Rendering {
     // Merges the tile data into the internal QImage buffer and schedules a repaint.
     void PaintedImageItem::updateTile(const std::shared_ptr<ImageRegion>& tile)
     {
-        if (!tile || !tile->isValid())
-        {
-            spdlog::warn("PaintedImageItem::updateTile: Invalid tile");
-            return;
-        }
+         if (!tile || !tile->isValid()) {
+        spdlog::warn("PaintedImageItem::updateTile: Invalid tile");
+        return;
+    }
 
-        // Protect access to shared data (m_current_qimage)
-        {
-            QMutexLocker lock(&m_image_mutex);
-            if (m_current_qimage.isNull()) {
-                spdlog::warn("PaintedImageItem::updateTile: No base image loaded");
-                return;
-            }
+    QMutexLocker lock(&m_image_mutex);
+
+    if (m_current_qimage.isNull()) {
+        spdlog::warn("PaintedImageItem::updateTile: No base image loaded");
+        return;
+    }
+
+    // Check bounds
+    if (tile->m_x < 0 || tile->m_y < 0 ||
+        tile->m_x + tile->m_width > m_current_qimage.width() ||
+        tile->m_y + tile->m_height > m_current_qimage.height()) {
+        spdlog::warn("PaintedImageItem::updateTile: Tile out of bounds");
+        return;
+    }
+
+    const int expectedChannels = (m_current_qimage.format() == QImage::Format_RGB888) ? 3 : 4;
+    if (tile->m_channels != expectedChannels) {
+        spdlog::error("PaintedImageItem::updateTile: Channel mismatch. Expected {}, got {}", 
+                     expectedChannels, tile->m_channels);
+        return;
+    }
+
+    if (tile->m_channels == 3) {
+        // RGB
+        for (int y = 0; y < tile->m_height; ++y) {
+            int imgY = tile->m_y + y;
+            uchar* scanLine = m_current_qimage.scanLine(imgY);
             
-            // Check bounds
-            if (tile->m_x < 0 || tile->m_y < 0 ||
-                tile->m_x + tile->m_width > m_current_qimage.width() ||
-                tile->m_y + tile->m_height > m_current_qimage.height()) {
-                spdlog::warn("PaintedImageItem::updateTile: Tile out of bounds");
-                return;
-            }
+            for (int x = 0; x < tile->m_width; ++x) {
+                int imgX = tile->m_x + x;
+                size_t srcIdx = (y * tile->m_width + x) * 3;
+                size_t dstIdx = imgX * 3;
 
-            // Iterate through the pixels of the tile and update the QImage.
-            // This assumes the internal QImage format matches the conversion logic in convertImageRegionToQImage.
-            // QImage::scanLine(y) peut être plus efficace que setPixel pour de grands blocs.
-            for (int y = 0; y < tile->m_height; ++y) {
-                for (int x = 0; x < tile->m_width; ++x) {
-                    // Convertir la valeur du pixel du tile (ImageRegion) en QRgb pour QImage
-                    QRgb pixelValue = 0;
-                    size_t baseIdx = (y * tile->m_width + x) * 4; // Supposons 4 canaux (RGBA)
-                    if (baseIdx + 3 < tile->m_data.size()) {
-                        float r = std::clamp(tile->m_data[baseIdx + 0], 0.0f, 1.0f);
-                        float g = std::clamp(tile->m_data[baseIdx + 1], 0.0f, 1.0f);
-                        float b = std::clamp(tile->m_data[baseIdx + 2], 0.0f, 1.0f);
-                        float a = std::clamp(tile->m_data[baseIdx + 3], 0.0f, 1.0f); // Supposons un canal alpha
-
-                        pixelValue = qRgba(
-                            static_cast<uchar>(r * 255),
-                            static_cast<uchar>(g * 255),
-                            static_cast<uchar>(b * 255),
-                            static_cast<uchar>(a * 255)
-                        );
-                    }
-                    // Mettre à jour le pixel dans l'image interne
-                    m_current_qimage.setPixelColor(tile->m_x + x, tile->m_y + y, QColor(pixelValue));
+                if (srcIdx + 2 < tile->m_data.size()) {
+                    scanLine[dstIdx + 0] = static_cast<uchar>(std::clamp(tile->m_data[srcIdx + 0], 0.0f, 1.0f) * 255.0f);
+                    scanLine[dstIdx + 1] = static_cast<uchar>(std::clamp(tile->m_data[srcIdx + 1], 0.0f, 1.0f) * 255.0f);
+                    scanLine[dstIdx + 2] = static_cast<uchar>(std::clamp(tile->m_data[srcIdx + 2], 0.0f, 1.0f) * 255.0f);
                 }
             }
         }
-        
-        spdlog::debug("PaintedImageItem::updateTile: Merged tile at ({}, {}) {}x{}", 
-                     tile->m_x, tile->m_y, tile->m_width, tile->m_height);
-        // Trigger a repaint to reflect the updated tile.
-        update();
+    } else if (tile->m_channels == 4) {
+        // RGBA
+        for (int y = 0; y < tile->m_height; ++y) {
+            int imgY = tile->m_y + y;
+            uchar* scanLine = m_current_qimage.scanLine(imgY);
+            
+            for (int x = 0; x < tile->m_width; ++x) {
+                int imgX = tile->m_x + x;
+                size_t srcIdx = (y * tile->m_width + x) * 4;
+                size_t dstIdx = imgX * 4;
+                
+                if (srcIdx + 3 < tile->m_data.size()) {
+                    scanLine[dstIdx + 0] = static_cast<uchar>(std::clamp(tile->m_data[srcIdx + 0], 0.0f, 1.0f) * 255.0f);
+                    scanLine[dstIdx + 1] = static_cast<uchar>(std::clamp(tile->m_data[srcIdx + 1], 0.0f, 1.0f) * 255.0f);
+                    scanLine[dstIdx + 2] = static_cast<uchar>(std::clamp(tile->m_data[srcIdx + 2], 0.0f, 1.0f) * 255.0f);
+                    scanLine[dstIdx + 3] = static_cast<uchar>(std::clamp(tile->m_data[srcIdx + 3], 0.0f, 1.0f) * 255.0f);
+                }
+            }
+        }
+    }
+    
+    spdlog::debug("PaintedImageItem::updateTile: Updated tile at ({}, {}) {}x{}", 
+                 tile->m_x, tile->m_y, tile->m_width, tile->m_height);
+    update();
     }
 
     // Sets the zoom level.
@@ -177,34 +193,62 @@ namespace CaptureMoment::UI::Rendering {
 
     // Converts an ImageRegion to a QImage.
     QImage PaintedImageItem::convertImageRegionToQImage(const ImageRegion& region) const {
-        // QImage::Format_RGBA8888_Premultiplied est souvent un bon choix pour des données RGBA F32 converties en uint8
-        // Si votre ImageRegion est RGB sans alpha, utilisez Format_RGB888 et adaptez la conversion.
-        QImage qimg(region.m_width, region.m_height, QImage::Format_RGBA8888); // Ou Format_ARGB32_Premultiplied
-
+       if (!region.isValid()) {
+        spdlog::error("PaintedImageItem::convertImageRegionToQImage: Invalid region");
+        return QImage();
+    }
+    
+    // ✅ Choisir le format QImage selon le nombre de canaux
+    QImage::Format format;
+    if (region.m_channels == 3) {
+        format = QImage::Format_RGB888;
+    } else if (region.m_channels == 4) {
+        format = QImage::Format_RGBA8888;
+    } else {
+        spdlog::error("PaintedImageItem::convertImageRegionToQImage: Unsupported channel count: {}", 
+                     region.m_channels);
+        return QImage();
+    }
+    
+    QImage qimg(region.m_width, region.m_height, format);
+    
+    // ✅ Conversion adaptée au nombre de canaux
+    if (region.m_channels == 3) {
+        // RGB uniquement
         for (int y = 0; y < region.m_height; ++y) {
+            // Accès direct à la ligne pour performance
+            uchar* scanLine = qimg.scanLine(y);
+            
             for (int x = 0; x < region.m_width; ++x) {
-                QRgb pixelValue = 0;
-                size_t baseIdx = (y * region.m_width + x) * 4; // Supposons 4 canaux (RGBA)
-                if (baseIdx + 3 < region.m_data.size()) {
-                    float r = std::clamp(region.m_data[baseIdx + 0], 0.0f, 1.0f);
-                    float g = std::clamp(region.m_data[baseIdx + 1], 0.0f, 1.0f);
-                    float b = std::clamp(region.m_data[baseIdx + 2], 0.0f, 1.0f);
-                    float a = std::clamp(region.m_data[baseIdx + 3], 0.0f, 1.0f); // Supposons un canal alpha
-
-                    pixelValue = qRgba(
-                        static_cast<uchar>(r * 255),
-                        static_cast<uchar>(g * 255),
-                        static_cast<uchar>(b * 255),
-                        static_cast<uchar>(a * 255)
-                    );
-                }
-                qimg.setPixelColor(x, y, QColor(pixelValue));
+                size_t srcIdx = (y * region.m_width + x) * 3; // ✅ 3 canaux
+                size_t dstIdx = x * 3;
+                
+                // Clamp et conversion float32 → uint8
+                scanLine[dstIdx + 0] = static_cast<uchar>(std::clamp(region.m_data[srcIdx + 0], 0.0f, 1.0f) * 255.0f); // R
+                scanLine[dstIdx + 1] = static_cast<uchar>(std::clamp(region.m_data[srcIdx + 1], 0.0f, 1.0f) * 255.0f); // G
+                scanLine[dstIdx + 2] = static_cast<uchar>(std::clamp(region.m_data[srcIdx + 2], 0.0f, 1.0f) * 255.0f); // B
             }
         }
-
-        spdlog::debug("PaintedImageItem::convertImageRegionToQImage: Converted {}x{} region to QImage",
-                     region.m_width, region.m_height);
-        return qimg;
+    } else if (region.m_channels == 4) {
+        // RGBA
+        for (int y = 0; y < region.m_height; ++y) {
+            uchar* scanLine = qimg.scanLine(y);
+            
+            for (int x = 0; x < region.m_width; ++x) {
+                size_t srcIdx = (y * region.m_width + x) * 4; // ✅ 4 canaux
+                size_t dstIdx = x * 4;
+                
+                scanLine[dstIdx + 0] = static_cast<uchar>(std::clamp(region.m_data[srcIdx + 0], 0.0f, 1.0f) * 255.0f); // R
+                scanLine[dstIdx + 1] = static_cast<uchar>(std::clamp(region.m_data[srcIdx + 1], 0.0f, 1.0f) * 255.0f); // G
+                scanLine[dstIdx + 2] = static_cast<uchar>(std::clamp(region.m_data[srcIdx + 2], 0.0f, 1.0f) * 255.0f); // B
+                scanLine[dstIdx + 3] = static_cast<uchar>(std::clamp(region.m_data[srcIdx + 3], 0.0f, 1.0f) * 255.0f); // A
+            }
+        }
+    }
+    
+    spdlog::debug("PaintedImageItem::convertImageRegionToQImage: Converted {}x{} ({} channels) to QImage",
+                 region.m_width, region.m_height, region.m_channels);
+    return qimg;
     }
 
 } // namespace CaptureMoment::UI::Rendering
