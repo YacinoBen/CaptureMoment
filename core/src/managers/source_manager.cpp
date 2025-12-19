@@ -142,22 +142,75 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
     const size_t dataSize = static_cast<size_t>(clamped_width * clamped_height * 4);
     region->m_data.resize(dataSize);
     
-    // 3. Definition of the OIIO Region of Interest (ROI)
-    OIIO::ROI roi(clamped_x, clamped_x + clamped_width, clamped_y, clamped_y + clamped_height, 
-        0, 1, // Zmin, Zmax
-        0, 4); // Cmin, Cmax (force 4 channels in the OIIO call)
-    
-    // 4. Extraction of pixels
-    // get_pixels() reads the pixels into the destination memory buffer (region->m_data.data())
-    // using the specified type (OIIO::TypeDesc::FLOAT) and ROI.
+    int sourceChannels = this->channels();
 
-    if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, region->m_data.data())) {
-        spdlog::warn("Failed to extract tile at ({}, {}) size {}x{}", clamped_x, clamped_y, clamped_width, clamped_height);
+      if (sourceChannels == 4) {
+        OIIO::ROI roi(
+            clamped_x, clamped_x + clamped_width,
+            clamped_y, clamped_y + clamped_height,
+            0, 1,  // Z
+            0, 4   // Channels
+        );
+
+        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, region->m_data.data())) {
+            spdlog::warn("Failed to extract RGBA tile at ({}, {})", clamped_x, clamped_y);
+            return nullptr;
+        }
+
+      } else if (sourceChannels == 3) {
+        std::vector<float> tempRGB(clamped_width * clamped_height * 3);
+
+        OIIO::ROI roi(
+            clamped_x, clamped_x + clamped_width,
+            clamped_y, clamped_y + clamped_height,
+            0, 1, // Z
+            0, 3   
+        );
+        
+        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempRGB.data())) {
+            spdlog::warn("Failed to extract RGB tile at ({}, {})", clamped_x, clamped_y);
+            return nullptr;
+        }
+
+        for (int i = 0; i < clamped_width * clamped_height; ++i) {
+            region->m_data[i * 4 + 0] = tempRGB[i * 3 + 0]; // R
+            region->m_data[i * 4 + 1] = tempRGB[i * 3 + 1]; // G
+            region->m_data[i * 4 + 2] = tempRGB[i * 3 + 2]; // B
+            region->m_data[i * 4 + 3] = 1.0f;                // ✅ Alpha
+        }
+    }
+    else if (sourceChannels == 1) {
+        // Grayscale source
+        std::vector<float> tempGray(clamped_width * clamped_height);
+
+        OIIO::ROI roi(
+            clamped_x, clamped_x + clamped_width,
+            clamped_y, clamped_y + clamped_height,
+            0, 1,  // Z
+            0, 1   // ✅ Lire seulement 1 canal
+        );
+        
+        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempGray.data())) {
+            spdlog::warn("Failed to extract grayscale tile at ({}, {})", clamped_x, clamped_y);
+            return nullptr;
+        }
+
+        // Conversion Grayscale → RGBA
+        for (int i = 0; i < clamped_width * clamped_height; ++i) {
+            float gray = tempGray[i];
+            region->m_data[i * 4 + 0] = gray; // R
+            region->m_data[i * 4 + 1] = gray; // G
+            region->m_data[i * 4 + 2] = gray; // B
+            region->m_data[i * 4 + 3] = 1.0f; // Alpha
+        }
+
+    } else {
+        spdlog::error("Unsupported source channel count: {}", sourceChannels);
         return nullptr;
     }
-        
-    spdlog::trace("SourceManager: Tile extracted: ({}, {}) {}x{} to Float/RGBA.", 
-                  clamped_x, clamped_y, clamped_width, clamped_height);
+
+    spdlog::trace("SourceManager: Tile extracted: ({}, {}) {}x{} → RGBA_F32 (from {} channels source)", 
+                  clamped_x, clamped_y, clamped_width, clamped_height, sourceChannels);
     return region;
 }
 
