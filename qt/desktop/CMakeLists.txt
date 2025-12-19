@@ -53,7 +53,7 @@ set(CORE_HEADERS
         # QML
         /rendering/qml_rhi_image_item.h
         /rendering/qml_sgs_image_item.h
-        /rendering/qml_sgs_image_item.h
+        /rendering/qml_painted_image_item.h
 )
 qt_add_qml_module(${CAPTUREMOMENT_DESKTOP_TARGET}
     URI CaptureMoment.desktop
