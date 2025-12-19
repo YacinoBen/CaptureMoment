@@ -11,13 +11,12 @@
 #include "rendering/sgs_image_item.h"
 
 namespace CaptureMoment::UI {
-
-namespace Controller {
-
+    
 namespace Rendering {
   class SGSImageItem;
 }
 
+namespace Controller {
 /**
  * @class ImageControllerSGS
  * @brief Orchestrates Core processing and Qt UI updates with SGSmethod

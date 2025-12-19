@@ -11,12 +11,10 @@
 #include "rendering/rhi_image_item.h"
 
 namespace CaptureMoment::UI {
-
-namespace Controller {
-
 namespace Rendering {
   class RHIImageItem;
 }
+namespace Controller {
 
 /**
  * @class ImageControllerRHI
