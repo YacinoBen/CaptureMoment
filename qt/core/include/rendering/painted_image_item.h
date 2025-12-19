@@ -44,7 +44,7 @@ private:
      * This member holds the image data (converted from ImageRegion) ready for QPainter.
      * It's protected by m_image_mutex.
      */
-    QImage m_current_qimage;
+    QImage m_current_qimage{QSize(800,600),QImage::Format_RGB32};
 
     /**
      * @brief Mutex protecting access to m_full_image and related state.

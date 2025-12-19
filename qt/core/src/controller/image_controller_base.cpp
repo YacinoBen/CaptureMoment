@@ -8,6 +8,7 @@
 #include "controller/image_controller_base.h"
 #include "models/operations/i_operation_model.h"
 #include "operations/operation_registry.h"
+#include "display/display_manager.h"
 
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
@@ -21,6 +22,9 @@ ImageControllerBase::ImageControllerBase(QObject* parent)
     // Create Core components
     auto source = std::make_shared<SourceManager>();
     auto factory = std::make_shared<OperationFactory>();
+
+    // Create the display manager
+    m_display_manager = std::make_unique<CaptureMoment::UI::Display::DisplayManager>(this);
     
     // Register all operations (Brightness, Contrast, etc.)
     OperationRegistry::registerAll(*factory);
@@ -103,6 +107,7 @@ void ImageControllerBase::onImageLoadResult(bool success, const QString& errorMs
     if (success) {
         spdlog::info("ImageControllerBase: Image loaded successfully ({}x{})", 
                      m_image_width, m_image_height);
+        emit imageSizeChanged();
         emit imageLoaded(m_image_width, m_image_height);
     } else {
         spdlog::error("ImageControllerBase: Image load failed - {}", errorMsg.toStdString());

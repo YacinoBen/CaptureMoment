@@ -25,13 +25,29 @@ ImageControllerRHI::~ImageControllerRHI()
 void ImageControllerRHI::setRHIImageItem(CaptureMoment::UI::Rendering::RHIImageItem* item)
 {
     m_rhi_image_item = item;
-    emit rhiImageItemChanged();
-    spdlog::debug("ImageControllerRHI: RHIImageItem set");
+
+    if (m_display_manager)
+    {
+        m_display_manager->setRenderingItem(m_rhi_image_item);
+        emit rhiImageItemChanged();
+        if (m_rhi_image_item) {
+            spdlog::info("ImageControllerRHI: RHIImageItem connected");
+        } else {
+            spdlog::debug("ImageControllerRHI: RHIImageItem disconnected (set to nullptr)");
+        }
+    } else {
+         spdlog::warn("ImageControllerRHI: DisplayManager not available, cannot connect RHIImageItem");
+    }
 }
 
 void ImageControllerRHI::setRHIImageItemFromQml(CaptureMoment::UI::Rendering::RHIImageItem* item)
 {
-    setRHIImageItem(item);
+    if (item) {
+        setRHIImageItem(item); 
+        spdlog::info("ImageControllerRHI: RHIImageItem connected from QML");
+    } else {
+        spdlog::warn("ImageControllerRHI: Received nullptr RHIImageItem from QML");
+    }
 }
 
 void ImageControllerRHI::doLoadImage(const QString& filePath)

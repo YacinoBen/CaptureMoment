@@ -10,9 +10,11 @@
 #include <QObject>
 #include <memory>
 #include <QThread>
+
 #include "engine/photo_engine.h"
 #include "common/image_region.h"
 #include "models/operations/i_operation_model.h"
+#include "display/display_manager.h"
 
 namespace CaptureMoment::UI {
 class IOperationModel;
@@ -32,33 +34,46 @@ namespace Controller {
 class ImageControllerBase : public QObject {
     Q_OBJECT
 
+    /** @property imageWidth The width of the currently loaded image. */
+    Q_PROPERTY(int imageWidth READ imageWidth NOTIFY imageSizeChanged)
+    /** @property imageHeight The height of the currently loaded image. */
+    Q_PROPERTY(int imageHeight READ imageHeight NOTIFY imageSizeChanged)
+
+    /**
+     * @property displayManager
+     * @brief Exposes the DisplayManager instance to QML.
+     *
+     * This property allows QML components to access the DisplayManager
+     * for managing image display, zoom, pan, and viewport size.
+     */
+    Q_PROPERTY(CaptureMoment::UI::Display::DisplayManager* displayManager READ displayManager CONSTANT)
+
 public:
     /**
      * @brief Constructs ImageController
      * @param parent Parent QObject
      */
     explicit ImageControllerBase(QObject* parent = nullptr);
-    
+
     /**
      * @brief Destructor - cleans up worker thread
      */
     ~ImageControllerBase();
-    
+
     /**
      * @brief Get current image width
      */
     int imageWidth() const noexcept { return m_image_width; }
-    
+
     /**
      * @brief Get current image height
      */
     int imageHeight() const noexcept { return m_image_height; }
-    
+
     /**
      * @brief Get current loaded image
      */
     std::shared_ptr<ImageRegion> currentImage() const { return m_current_image; }
-    
 
     /**
      * @brief Register an operation model for notifications
@@ -69,7 +84,12 @@ public:
      * 
      * @param model Pointer to IOperationModel
      */
-    void registerModel(IOperationModel* model);    
+    void registerModel(IOperationModel* model);
+
+    /**
+     * @brief Get current displayManager instance
+     */
+    CaptureMoment::UI::Display::DisplayManager* displayManager() { return m_display_manager.get(); }
 
 private :
     /**
@@ -133,6 +153,11 @@ signals:
      * @param error Error message
      */
     void operationFailed(QString error);
+
+    /**
+     * @brief Emitted when image size changes
+     */
+    void imageSizeChanged();
     
 protected:
     /**
@@ -144,7 +169,12 @@ protected:
      * @brief Current loaded image
      */
     std::shared_ptr<ImageRegion> m_current_image;
-    
+
+    /**
+     * @brief The unique displaymanager instance for managing display updates
+     */
+    std::unique_ptr<CaptureMoment::UI::Display::DisplayManager> m_display_manager {nullptr};
+
     /**
      * @brief Current image width
      */

@@ -24,14 +24,30 @@ ImageControllerSGS::~ImageControllerSGS()
 
 void ImageControllerSGS::setSGSImageItem(CaptureMoment::UI::Rendering::SGSImageItem* item)
 {
-    m_sgs_image_item = item;
-    emit sgsImageItemChanged();
-    spdlog::debug("ImageControllerSGS: SGSImageItem set");
+     m_sgs_image_item = item; 
+
+    if (m_display_manager)
+    {
+        m_display_manager->setRenderingItem(m_sgs_image_item);
+        emit sgsImageItemChanged();
+        if (m_sgs_image_item) {
+            spdlog::info("ImageControllerSGS: SGSImageItem connected");
+        } else {
+            spdlog::debug("ImageControllerSGS: SGSImageItem disconnected (set to nullptr)");
+        }
+    } else {
+         spdlog::warn("ImageControllerSGS: DisplayManager not available, cannot connect SGSImageItem");
+    }
 }
 
 void ImageControllerSGS::setSGSImageItemFromQml(CaptureMoment::UI::Rendering::SGSImageItem* item)
 {
-    setSGSImageItem(item);
+    if (item) {
+        setSGSImageItem(item); 
+        spdlog::info("ImageControllerSGS: SGSImageItem connected from QML");
+    } else {
+        spdlog::warn("ImageControllerSGS: Received nullptr SGSImageItem from QML");
+    }
 }
 
 void ImageControllerSGS::doLoadImage(const QString& filePath)

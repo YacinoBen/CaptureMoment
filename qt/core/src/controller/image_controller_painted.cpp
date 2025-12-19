@@ -24,14 +24,30 @@ ImageControllerPainted::~ImageControllerPainted()
 
 void ImageControllerPainted::setPaintedImageItem(CaptureMoment::UI::Rendering::PaintedImageItem* item)
 {
-    m_painted_image_item = item;
-    emit paintedImageItemChanged();
-    spdlog::debug("ImageControllerPainted: PaintedImageItem set");
+    m_painted_image_item = item; 
+
+    if (m_display_manager)
+    {
+        m_display_manager->setRenderingItem(m_painted_image_item);
+        emit paintedImageItemChanged();
+        if (m_painted_image_item) {
+            spdlog::info("ImageControllerPainted: PaintedImageItem connected");
+        } else {
+            spdlog::debug("ImageControllerPainted: PaintedImageItem disconnected (set to nullptr)");
+        }
+    } else {
+         spdlog::warn("ImageControllerPainted: DisplayManager not available, cannot connect PaintedImageItem");
+    }
 }
 
 void ImageControllerPainted::setPaintedImageItemFromQml(CaptureMoment::UI::Rendering::PaintedImageItem* item)
 {
-    setPaintedImageItem(item);
+    if (item) {
+        setPaintedImageItem(item); 
+        spdlog::info("ImageControllerPainted: PaintedImageItem connected from QML");
+    } else {
+        spdlog::warn("ImageControllerPainted: Received nullptr PaintedImageItem from QML");
+    }
 }
 
 void ImageControllerPainted::doLoadImage(const QString& filePath)
@@ -48,9 +64,9 @@ void ImageControllerPainted::doLoadImage(const QString& filePath)
     m_image_width = m_engine->width();
     m_image_height = m_engine->height();
     
-    spdlog::debug("ImageController::doLoadImage: Image loaded {}x{}", 
+    spdlog::info("ImageController::doLoadImage: Image loaded {}x{}", 
                   m_image_width, m_image_height);
-    
+
     // Get tile (full image for now)
     auto task = m_engine->createTask({}, 0, 0, m_image_width, m_image_height);
     if (!task) {
@@ -69,10 +85,14 @@ void ImageControllerPainted::doLoadImage(const QString& filePath)
         return;
     }
     
-    // Update RHI display
-    if (m_painted_image_item && m_current_image) {
-        m_painted_image_item->setImage(m_current_image);
-        spdlog::debug("ImageController::doLoadImage: RHIImageItem updated");
+
+    if (m_display_manager) {
+        spdlog::info("ImageControllerPainted: Creating display image via DisplayManager");
+        m_display_manager->createDisplayImage(m_current_image);
+        // DisplayManager automatically calls m_painted_image_item->setImage() with downsampled image
+        spdlog::debug("ImageControllerPainted: DisplayManager updated (auto-sent to PaintedImageItem)");
+    } else {
+        spdlog::error("ImageControllerPainted: No DisplayManager!");
     }
     
     onImageLoadResult(true, "");
@@ -112,11 +132,11 @@ void ImageControllerPainted::doApplyOperations(const std::vector<OperationDescri
     }
     
     spdlog::debug("ImageController::doApplyOperations: Operation succeeded, committing result");
-    
+
     // Commit result to source and update display
     if (m_engine->commitResult(task)) {
         m_current_image = result;
-        
+
         if (m_painted_image_item) {
             m_painted_image_item->updateTile(result);
             spdlog::debug("ImageControllerPainted::doApplyOperations: RHIImageItem updated with new result");
