@@ -113,13 +113,8 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 
     // --- Connect Operation Models to Controller ---
     // BrightnessModel needs to know the controller to communicate changes or register itself
-    
-    //m_brightness_model->setImageController(m_controller.get());
-   // spdlog::debug("BrightnessModel connected to ImageController.");
 
-   // TO MODIFY
     m_brightness_model->setImageController(m_controller.get());
-
     spdlog::debug("BrightnessModel connected to ImageController.");
 
     // TODO: Connect more models as they are created
@@ -162,10 +157,10 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
     spdlog::debug("QmlContextSetup::registerModelsToQml: Registering objects to QML...");
 
     if (m_brightness_model) {
-        context->setContextProperty("brightnessModel", m_brightness_model.get());
-        spdlog::debug("'brightnessModel' registered to QML context.");
+        context->setContextProperty("brightnessControl", m_brightness_model.get());
+        spdlog::debug("'brightnessControl' registered to QML context.");
      } else {
-            spdlog::warn("QmlContextSetup::registerToQml: BrightnessModel is null, skipping registration.");
+            spdlog::warn("QmlContextSetup::registerToQml: BrightnessControl is null, skipping registration.");
     }
 
     // Note: The internal models (like m_brightness_model) are NOT registered here.
