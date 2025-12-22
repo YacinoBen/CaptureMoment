@@ -48,7 +48,7 @@ Control {
                 width: slider.availableWidth
                 height: implicitHeight
                 radius: 2
-                color: Material.midlight  // Grey background
+              //  color: Material.midlight  // Define color here
                 
                 // Progress bar
                 Rectangle {
