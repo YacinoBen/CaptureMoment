@@ -12,7 +12,7 @@ qt/desktop/qml/
     │   │   └── WelcomeView.qml                # Splash/welcome screen
     │   │
     │   ├── layout/                            # Layout components
-    │   │   ├── EditorLayout.qml               # 4-panel layout (left/center/right/bottom)
+    │   │   ├── PanelManager.qml               # 4-panel layout (left/center/right/bottom)
     │   │   ├── LeftPanel.qml                  # Tools & history
     │   │   ├── CenterPanel.qml                # Viewport/scene
     │   │   ├── RightPanel.qml                 # Operations

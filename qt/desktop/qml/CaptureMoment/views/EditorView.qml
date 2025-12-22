@@ -7,7 +7,7 @@ Rectangle {
     
     color: "#0a0a0a"
     
-    EditorLayout {
+    PanelManager {
         anchors.fill: parent
     }
 }

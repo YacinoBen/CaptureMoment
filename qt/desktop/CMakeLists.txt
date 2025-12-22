@@ -55,11 +55,54 @@ set(CORE_HEADERS
         /rendering/qml_sgs_image_item.h
         /rendering/qml_painted_image_item.h
 )
+
+set (QML_FILE
+    # main
+    qml/CaptureMoment/DesktopMain.qml
+
+    # Views
+    qml/CaptureMoment/views/EditorView.qml
+
+    # Layout
+    qml/CaptureMoment/layout/PanelManager.qml
+    qml/CaptureMoment/layout/LeftPanel.qml
+    qml/CaptureMoment/layout/CenterPanel.qml
+    qml/CaptureMoment/layout/RightPanel.qml
+    qml/CaptureMoment/layout/BottomPanel.qml
+    qml/CaptureMoment/layout/TopPanel.qml
+
+    # Controls
+    qml/CaptureMoment/controls/DropdownControl.qml
+    qml/CaptureMoment/controls/SliderControl.qml
+
+    # Operations
+    qml/CaptureMoment/operations/BrightnessOperation.qml
+
+    # Panels
+    qml/CaptureMoment/panels/OperationsView.qml
+    qml/CaptureMoment/panels/TonePanel.qml
+    qml/CaptureMoment/panels/base/CollapsiblePanel.qml
+    qml/CaptureMoment/panels/base/PanelHeader.qml
+
+    # Menu
+    qml/CaptureMoment/app/AppMenuBar.qml
+
+    # Display
+    qml/CaptureMoment/display/DisplayArea.qml
+    
+    # Styles
+    qml/CaptureMoment/styles/Icons.qml
+)
+
+set (RESSOURCE_FILE
+        
+)
 qt_add_qml_module(${CAPTUREMOMENT_DESKTOP_TARGET}
     URI CaptureMoment.desktop
     VERSION 1.0
     QML_FILES
-        qml/CaptureMoment/DesktopMain.qml
+       ${QML_FILE}
+       ${RESSOURCE_FILE}
 )
 target_sources(${CAPTUREMOMENT_DESKTOP_TARGET}
     PRIVATE
