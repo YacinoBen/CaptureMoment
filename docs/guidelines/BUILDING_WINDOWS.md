@@ -16,7 +16,6 @@ You can build with vcpkg, it's better or you can use your own toolchains compila
 ---
 
 ## Build Halide
-
 It's the most part it will take the time for building. It's better to choose pip method if you don't any binary installed.
 
 ### vcpkg
@@ -33,6 +32,10 @@ pip install halide
 ### Source
 Just follow how to build : https://github.com/halide/Halide
 
+### Important
+If you want to use your halide build, you need to use this argument "-DHALIDE_DIR=/path/to/halide(cmake)"
+
+Otherwise if you have installed halide with pip or you have already set the path in your variable env, you don't need to add the argument.
 
 ## 🛠️ Environment Setup with vcpkg
 
@@ -87,6 +90,7 @@ cmake --build build/debug-vcpkg-msvc
 ### Option B: With Qt Desktop
 
 #### If you have Qt and you don't want to recompile again
+
 ```PowerShell
 cmake --preset release-vcpkg-msvc -DHALIDE_DIR=/path/to/halide(cmake) -Ddesktop-ui="ON"
 cmake --build build/release-vcpkg-msvc
