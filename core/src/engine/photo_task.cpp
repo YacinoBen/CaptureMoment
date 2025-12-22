@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <vector>
+#include <spdlog/spdlog.h>
 
 #include "engine/photo_task.h"
 #include "operations/operation_pipeline.h"
@@ -29,17 +30,22 @@ namespace CaptureMoment {
 
     // Executes the processing task.
     void PhotoTask::execute() {
+        spdlog::info("PhotoTask::execute: Starting");
         // Reset progress to 0% at the beginning.
         m_progress = 0.0f;
 
         // Check if required inputs (tile, factory) are valid.
         if (!m_input_tile || !m_operation_factory) {
+            spdlog::info("PhotoTask::execute: check required m_input_tile {}, m_operation_factory {}", !m_input_tile, !m_operation_factory);
+
              // Set result to null and mark progress as 100% to indicate failure.
              m_result = nullptr; 
              m_progress = 1.0f;
              return; // Exit early if inputs are invalid.
         }
 
+
+        spdlog::info("PhotoTask::execute: Starting OperationPipeline::applyOperations");
         // Apply the sequence of operations to the input tile using the static PipelineEngine.
         bool success = OperationPipeline::applyOperations(*m_input_tile, m_operation_descriptors, *m_operation_factory);
 
@@ -53,6 +59,7 @@ namespace CaptureMoment {
 
         // Mark progress as 100% upon completion (success or failure).
         m_progress = 1.0f;
+        spdlog::info("PhotoTask::execute: Completed with success={}", success);
     }
 
     // Gets the current progress of the task.

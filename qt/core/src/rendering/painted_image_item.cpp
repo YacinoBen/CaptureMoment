@@ -83,11 +83,13 @@ namespace CaptureMoment::UI::Rendering {
         return;
     }
 
+    uchar* scanLine {nullptr};
+
     if (tile->m_channels == 3) {
         // RGB
         for (int y = 0; y < tile->m_height; ++y) {
             int imgY = tile->m_y + y;
-            uchar* scanLine = m_current_qimage.scanLine(imgY);
+            scanLine = m_current_qimage.scanLine(imgY);
             
             for (int x = 0; x < tile->m_width; ++x) {
                 int imgX = tile->m_x + x;
@@ -105,7 +107,7 @@ namespace CaptureMoment::UI::Rendering {
         // RGBA
         for (int y = 0; y < tile->m_height; ++y) {
             int imgY = tile->m_y + y;
-            uchar* scanLine = m_current_qimage.scanLine(imgY);
+            scanLine = m_current_qimage.scanLine(imgY);
             
             for (int x = 0; x < tile->m_width; ++x) {
                 int imgX = tile->m_x + x;
@@ -122,8 +124,12 @@ namespace CaptureMoment::UI::Rendering {
         }
     }
     
-    spdlog::debug("PaintedImageItem::updateTile: Updated tile at ({}, {}) {}x{}", 
+    spdlog::info("PaintedImageItem::updateTile: Updated tile at ({}, {}) {}x{}",
                  tile->m_x, tile->m_y, tile->m_width, tile->m_height);
+
+    spdlog::info("PaintedImageItem::updateTile: Sample pixel RGB: {},{},{}",
+                 scanLine[0], scanLine[1], scanLine[2]);
+
     update();
     }
 

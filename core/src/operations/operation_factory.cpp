@@ -15,6 +15,9 @@ namespace CaptureMoment {
 std::unique_ptr<IOperation> OperationFactory::create(
     const OperationDescriptor& descriptor
 ) const {
+
+    spdlog::info("OperationFactory::create: Available creators: {}", m_creators.size());
+
     auto it = m_creators.find(descriptor.type);
     
     if (it == m_creators.end()) {
@@ -23,7 +26,9 @@ std::unique_ptr<IOperation> OperationFactory::create(
     }
 
     spdlog::trace("OperationFactory::create: Creating operation '{}'", descriptor.name);
-    return it->second();
+    auto op = it->second();
+    spdlog::info("OperationFactory::create: Operation created successfully");
+    return op;
 }
 
 } // namespace CaptureMoment

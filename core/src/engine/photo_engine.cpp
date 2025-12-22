@@ -7,6 +7,7 @@
 
 #include "engine/photo_engine.h"
 #include "engine/photo_task.h"
+#include <spdlog/spdlog.h>
 
 namespace CaptureMoment {
 
@@ -92,8 +93,15 @@ namespace CaptureMoment {
         }
 
         // Apply the processed ImageRegion back to the SourceManager.
-        return m_source_manager->setTile(*result);
-    }
+
+        spdlog::info("PhotoEngine::commitResult: Committing result {}x{}", result->m_width, result->m_height);
+
+        bool success = m_source_manager->setTile(*result);
+
+        spdlog::info("PhotoEngine::commitResult: setTile returned {}", success);
+
+        return success;
+}
 
     // Returns the width of the currently loaded image.
     int PhotoEngine::width() const noexcept {
