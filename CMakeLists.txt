@@ -79,12 +79,16 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(core)
 
+if(BUILD_DESKTOP_UI OR BUILD_MOBILE_UI)
+    add_subdirectory(qt/core)
+endif()
+
 if(BUILD_DESKTOP_UI)
-    add_subdirectory(ui/desktop)
+    add_subdirectory(qt/desktop)
 endif()
 
 if(BUILD_MOBILE_UI)
-    add_subdirectory(ui/mobile)
+    add_subdirectory(qt/mobile)
 endif()
 
 if(BUILD_TESTS)

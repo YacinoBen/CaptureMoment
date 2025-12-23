@@ -44,12 +44,21 @@ jobs:
           sudo apt install -y build-essential
 
           sudo apt install -y libspdlog-dev 
-
-          pip uninstall halide -y halide || true
-          sudo apt install -y libhalide17-1 libhalide17-1-dev python3-halide
           
           sudo apt install -y libcurl4-openssl-dev
           sudo apt install -y libxkbcommon-dev
+
+      # ====================================================================
+      # Setup Python and install Halide via pip
+      # ====================================================================
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: pip halide
+        run: |
+         pip install halide
 
       # ====================================================================
       # Installation of Qt 6.9.3 with the dedicated action
@@ -60,6 +69,7 @@ jobs:
           version: '6.9.3'
           target: 'desktop'
           host: 'linux'
+          modules: 'qtshadertools'
 
       # ====================================================================
       # BUILD AND INSTALL OpenImageIO 3.1.8 from source

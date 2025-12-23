@@ -14,7 +14,8 @@ namespace CaptureMoment {
 
 static std::shared_ptr<OIIO::ImageCache> s_globalCachePtr = nullptr;
 
-OIIO::ImageCache* SourceManager::getGlobalCache() {
+OIIO::ImageCache* SourceManager::getGlobalCache()
+{
     if (!s_globalCachePtr) {
         // create the global ImageCache singleton
         s_globalCachePtr = OIIO::ImageCache::create();
@@ -39,12 +40,14 @@ SourceManager::SourceManager()
     spdlog::debug("SourceManager: Instance created.");
 }
 
-SourceManager::~SourceManager() {
+SourceManager::~SourceManager()
+{
     unload();
     spdlog::debug("SourceManager: Instance destroyed.");
 }
 
-bool SourceManager::loadFile(std::string_view path) {
+bool SourceManager::loadFile(std::string_view path)
+{
 
     // 1. If an image is already loaded, unload it first (cleanup old state)
     if (isLoaded()) {
@@ -52,7 +55,6 @@ bool SourceManager::loadFile(std::string_view path) {
     }
 
     spdlog::info("SourceManager: Attempting to load file: '{}'", path);
-    
 
     try {
         m_imageBuf = std::make_unique<OIIO::ImageBuf>(
@@ -61,7 +63,8 @@ bool SourceManager::loadFile(std::string_view path) {
             s_globalCachePtr
         );
         
-        if (!m_imageBuf->read()) {
+        if (!m_imageBuf->read()) 
+        {
             spdlog::warn("SourceManager: Failed to read file '{}'. OIIO Message: {}", 
                          path, m_imageBuf->geterror());
             m_imageBuf.reset();
@@ -69,7 +72,6 @@ bool SourceManager::loadFile(std::string_view path) {
         }
         
         m_currentPath = path;
-
 
         // LOG: Success log with dimensions
         spdlog::info("SourceManager: Successfully loaded '{}'. Resolution: {}x{} ({} channels).", 
@@ -85,7 +87,8 @@ bool SourceManager::loadFile(std::string_view path) {
     }
 }
 
-void SourceManager::unload() {
+void SourceManager::unload()
+{
 
     if (isLoaded()) {
     spdlog::info("SourceManager: Unloading '{}'.", m_currentPath);
@@ -99,21 +102,21 @@ bool SourceManager::isLoaded() const {
     return m_imageBuf && m_imageBuf->initialized();
 }
 
-int SourceManager::width() const {
+int SourceManager::width() const noexcept {
     return isLoaded() ? m_imageBuf->spec().width : 0;
 }
 
-int SourceManager::height() const {
+int SourceManager::height() const noexcept {
     return isLoaded() ? m_imageBuf->spec().height : 0;
 }
 
-int SourceManager::channels() const {
+int SourceManager::channels() const noexcept {
     return isLoaded() ? m_imageBuf->spec().nchannels : 0;
 }
 
 std::unique_ptr<ImageRegion> SourceManager::getTile(
-    int x, int y, int width, int height
-) {
+    int x, int y, int width, int height) 
+{
     if (!isLoaded()) {
         spdlog::warn("getTile() called but no image loaded");
         return nullptr;
@@ -122,11 +125,12 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
     // 1. Clamping coordinates to stay within bounds
     // Note: OIIO ROI uses exclusive max coordinates, but we clamp the requested size here.
 
-    int clamped_x = std::clamp(x, 0, this->width());
-    int clamped_y = std::clamp(y, 0, this->height());
+    int clamped_x = std::clamp(x, 0, this->width() - 1);
+    int clamped_y = std::clamp(y, 0, this->height() -1);
     int clamped_width = std::min(width, this->width() - clamped_x);
     int clamped_height = std::min(height, this->height() - clamped_y);
     
+    spdlog::info("SourceManager::getTile : clamped_x : {}, clamped_y : {}, clamped_width : {}, clamped_height: {}", clamped_x,clamped_y, clamped_width, clamped_height);
      // 2. Preparation of ImageRegion
     auto region = std::make_unique<ImageRegion>();
     region->m_x = clamped_x;
@@ -135,33 +139,101 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
     region->m_height = clamped_height;
     region->m_channels = 4;  // Force RGBA
     region->m_format = PixelFormat::RGBA_F32;
-    
-       
+
     // Allocation of the memory buffer (4 channels * sizeof(float))
     // We resize the vector to hold the required bytes.
     const size_t dataSize = static_cast<size_t>(clamped_width * clamped_height * 4);
     region->m_data.resize(dataSize);
     
-    // 3. Definition of the OIIO Region of Interest (ROI)
-    OIIO::ROI roi(clamped_x, clamped_x + clamped_width, clamped_y, clamped_y + clamped_height, 
-        0, 1, // Zmin, Zmax
-        0, 4); // Cmin, Cmax (force 4 channels in the OIIO call)
-    
-    // 4. Extraction of pixels
-    // get_pixels() reads the pixels into the destination memory buffer (region->m_data.data())
-    // using the specified type (OIIO::TypeDesc::FLOAT) and ROI.
+    int sourceChannels = this->channels();
 
-    if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, region->m_data.data())) {
-        spdlog::warn("Failed to extract tile at ({}, {}) size {}x{}", clamped_x, clamped_y, clamped_width, clamped_height);
+      if (sourceChannels == 4) 
+      {
+        OIIO::ROI roi(
+            clamped_x, clamped_x + clamped_width,
+            clamped_y, clamped_y + clamped_height,
+            0, 1,  // Z
+            0, 4   // Channels
+        );
+
+        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, region->m_data.data())) {
+            spdlog::warn("Failed to extract RGBA tile at ({}, {})", clamped_x, clamped_y);
+            return nullptr;
+        }
+
+        spdlog::info("SourceManager::getTile: Read 4-channel data directly.");
+
+      } else if (sourceChannels == 3) {
+        std::vector<float> tempRGB(clamped_width * clamped_height * 3);
+
+        OIIO::ROI roi(
+            clamped_x, clamped_x + clamped_width,
+            clamped_y, clamped_y + clamped_height,
+            0, 1, // Z
+            0, 3   
+        );
+        
+        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempRGB.data())) {
+            spdlog::warn("Failed to extract RGB tile at ({}, {})", clamped_x, clamped_y);
+            return nullptr;
+        }
+
+        for (int i = 0; i < clamped_width * clamped_height; ++i) 
+        {
+            region->m_data[i * 4 + 0] = tempRGB[i * 3 + 0]; // R
+            region->m_data[i * 4 + 1] = tempRGB[i * 3 + 1]; // G
+            region->m_data[i * 4 + 2] = tempRGB[i * 3 + 2]; // B
+            region->m_data[i * 4 + 3] = 1.0f;                // ✅ Alpha
+        }
+
+        spdlog::info("SourceManager::getTile: Converted 3-channel data to 4-channel.");
+    }
+    else if (sourceChannels == 1) 
+    {
+        // Grayscale source
+        std::vector<float> tempGray(clamped_width * clamped_height);
+
+        OIIO::ROI roi(
+            clamped_x, clamped_x + clamped_width,
+            clamped_y, clamped_y + clamped_height,
+            0, 1,  // Z
+            0, 1   // ✅ Lire seulement 1 canal
+        );
+        
+        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempGray.data())) {
+            spdlog::warn("Failed to extract grayscale tile at ({}, {})", clamped_x, clamped_y);
+            return nullptr;
+        }
+
+        // Conversion Grayscale → RGBA
+        for (int i = 0; i < clamped_width * clamped_height; ++i)
+        {
+            float gray = tempGray[i];
+            region->m_data[i * 4 + 0] = gray; // R
+            region->m_data[i * 4 + 1] = gray; // G
+            region->m_data[i * 4 + 2] = gray; // B
+            region->m_data[i * 4 + 3] = 1.0f; // Alpha
+        }
+        spdlog::info("SourceManager::getTile: Converted 1-channel data to 4-channel.");
+
+    } else {
+        spdlog::error("Unsupported source channel count: {}", sourceChannels);
         return nullptr;
     }
-        
-    spdlog::trace("SourceManager: Tile extracted: ({}, {}) {}x{} to Float/RGBA.", 
-                  clamped_x, clamped_y, clamped_width, clamped_height);
+
+    if (region->m_data.size() != static_cast<size_t>(region->m_width) * region->m_height * region->m_channels) {
+        spdlog::critical("SourceManager::getTile: Inconsistency! data.size()={}, calculated size={}", region->m_data.size(), static_cast<size_t>(region->m_width) * region->m_height * region->m_channels);
+        return nullptr; // Ou assertion
+    }
+
+    spdlog::info("SourceManager: Tile extracted: ({}, {}) {}*{} → RGBA_F32 (from {} channels source)",
+                  clamped_x, clamped_y, clamped_width, clamped_height, sourceChannels);
+
     return region;
 }
 
-bool SourceManager::setTile(const ImageRegion& tile) {
+bool SourceManager::setTile(const ImageRegion& tile)
+{
     if (!isLoaded()) {
         spdlog::warn("setTile() called but no image loaded");
         return false;
@@ -193,7 +265,8 @@ bool SourceManager::setTile(const ImageRegion& tile) {
     return true;
 }
 
-std::optional<std::string> SourceManager::getMetadata(std::string_view key) const {
+std::optional<std::string> SourceManager::getMetadata(std::string_view key) const 
+{
     if (!isLoaded()) {
         return std::nullopt;
     }
@@ -209,4 +282,5 @@ std::optional<std::string> SourceManager::getMetadata(std::string_view key) cons
         return std::nullopt;
     }
 }
+
 } // namespace CaptureMoment

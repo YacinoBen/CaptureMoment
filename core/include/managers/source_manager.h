@@ -6,6 +6,7 @@
  */
 
 #pragma once
+
 #include "managers/i_source_manager.h"
 #include <OpenImageIO/imagebuf.h>
 #include <OpenImageIO/imagecache.h>
@@ -47,9 +48,9 @@ public:
     bool loadFile(std::string_view path) override;
     void unload() override;
     bool isLoaded() const override;
-    int width() const override;
-    int height() const override;
-    int channels() const override;
+    int width() const noexcept override;
+    int height() const noexcept override;
+    int channels() const noexcept override;
     
     std::unique_ptr<ImageRegion> getTile(
         int x, int y, int width, int height
