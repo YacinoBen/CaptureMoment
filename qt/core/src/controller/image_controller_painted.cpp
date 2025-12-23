@@ -59,36 +59,22 @@ void ImageControllerPainted::doLoadImage(const QString& filePath)
         onImageLoadResult(false, "Failed to load image");
         return;
     }
-    
+
     // Get image metadata
     m_image_width = m_engine->width();
     m_image_height = m_engine->height();
     
     spdlog::info("ImageController::doLoadImage: Image loaded {}x{}", 
-                  m_image_width, m_image_height);
+                  m_image_width, m_image_height);;
 
-    // Get tile (full image for now)
-    auto task = m_engine->createTask({}, 0, 0, m_image_width, m_image_height);
-    if (!task) {
-        onImageLoadResult(false, "Failed to create task");
-        return;
-    }
-    
-    if (!m_engine->submit(task)) {
-        onImageLoadResult(false, "Failed to submit task");
-        return;
-    }
-    
-    m_current_image = task->result();
-    if (!m_current_image) {
+    if (!m_engine->getWorkingImage()) {
         onImageLoadResult(false, "Failed to get image result");
         return;
     }
     
-
     if (m_display_manager) {
         spdlog::info("ImageControllerPainted: Creating display image via DisplayManager");
-        m_display_manager->createDisplayImage(m_current_image);
+        m_display_manager->createDisplayImage(m_engine->getWorkingImage());
         // DisplayManager automatically calls m_painted_image_item->setImage() with downsampled image
         spdlog::debug("ImageControllerPainted: DisplayManager updated (auto-sent to PaintedImageItem)");
     } else {
@@ -101,51 +87,64 @@ void ImageControllerPainted::doLoadImage(const QString& filePath)
 void ImageControllerPainted::doApplyOperations(const std::vector<OperationDescriptor>& operations)
 {
     spdlog::debug("ImageController::doApplyOperations: Starting operation processing");
-    
-    if (!m_current_image || !m_engine) {
-        onOperationResult(false, "No image loaded");
+
+    if (!m_engine) {
+        onOperationResult(false, "No engine or image loaded");
         return;
     }
-    
-    // Create and submit task with operations
-    auto task = m_engine->createTask(operations, 0, 0, m_image_width, m_image_height);
+
+    // 1. Create and submit task with operations
+    auto task = m_engine->createTask(operations, 0, 0, m_image_width, m_image_height); // Assurez-vous que m_image_width/height sont valides
     if (!task) {
         onOperationResult(false, "Failed to create operation task");
         spdlog::error("ImageController::doApplyOperations: Failed to create task");
         return;
     }
-    
+
     spdlog::debug("ImageController::doApplyOperations: Task created, submitting to PhotoEngine");
-    
+
     if (!m_engine->submit(task)) {
         onOperationResult(false, "Failed to submit operation task");
         spdlog::error("ImageController::doApplyOperations: Failed to submit task");
         return;
     }
-    
-    // Get result
+
+    // 2. Get result (this is the processed tile/region)
     auto result = task->result();
     if (!result) {
         onOperationResult(false, "Operation execution failed");
         spdlog::error("ImageController::doApplyOperations: Operation failed");
         return;
     }
-    
-    spdlog::debug("ImageController::doApplyOperations: Operation succeeded, committing result");
 
-    // Commit result to source and update display
-    if (m_engine->commitResult(task)) {
-        m_current_image = result;
+    spdlog::debug("ImageController::doApplyOperations: Operation succeeded, committing result to working image");
 
-        if (m_painted_image_item) {
-            m_painted_image_item->updateTile(result);
-            spdlog::debug("ImageControllerPainted::doApplyOperations: RHIImageItem updated with new result");
+    // 3. Commit result to PhotoEngine's working image (NOT to SourceManager)
+    if (m_engine->commitResult(task))
+    {
+        spdlog::info("ImageController::doApplyOperations: Result committed to working image");
+        // 4. Retrieve the updated full working image from PhotoEngine
+        auto updatedWorkingImage = m_engine->getWorkingImage();
+
+        if (!updatedWorkingImage) {
+            spdlog::error("ImageController::doApplyOperations: Failed to get updated working image from PhotoEngine after commit.");
+            onOperationResult(false, "Failed to get updated image");
+            return;
         }
-        
+
+        // 5. Update display with the updated working image
+        if(m_display_manager) {
+            // Envoie l'image de travail complète (mise à jour) à DisplayManager
+            m_display_manager->updateDisplayTile(updatedWorkingImage); // <--- ENVOI DE L'IMAGE DE TRAVAIL COMPLÈTE
+            spdlog::info("ImageControllerPainted::doApplyOperations: DisplayManager updated with new working image result");
+        } else {
+            spdlog::warn("ImageControllerPainted::doApplyOperations: No DisplayManager set, cannot update display.");
+        }
+
         onOperationResult(true, "");
     } else {
-        onOperationResult(false, "Failed to commit operation result");
-        spdlog::error("ImageControllerPainted::doApplyOperations: Failed to commit result");
+        onOperationResult(false, "Failed to commit operation result to working image");
+        spdlog::error("ImageControllerPainted::doApplyOperations: Failed to commit result to working image");
     }
 }
 
