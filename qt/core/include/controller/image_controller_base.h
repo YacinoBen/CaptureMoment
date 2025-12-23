@@ -71,11 +71,6 @@ public:
     int imageHeight() const noexcept { return m_image_height; }
 
     /**
-     * @brief Get current loaded image
-     */
-    std::shared_ptr<ImageRegion> currentImage() const { return m_current_image; }
-
-    /**
      * @brief Register an operation model for notifications
      * 
      * Called by IOperationModel::setImageController()
@@ -164,11 +159,6 @@ protected:
      * @brief Core processing engine
      */
     std::shared_ptr<PhotoEngine> m_engine;
-    
-    /**
-     * @brief Current loaded image
-     */
-    std::shared_ptr<ImageRegion> m_current_image;
 
     /**
      * @brief The unique displaymanager instance for managing display updates

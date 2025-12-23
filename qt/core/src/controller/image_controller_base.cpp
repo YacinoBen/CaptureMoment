@@ -80,9 +80,9 @@ void ImageControllerBase::loadImage(const QString& filePath)
 
 void ImageControllerBase::applyOperations(const std::vector<OperationDescriptor>& operations)
 {
-    if (!m_current_image) {
+    if (!m_engine) {
         emit operationFailed("No image loaded");
-        spdlog::warn("ImageControllerBase::applyOperations: No image loaded");
+        spdlog::warn("ImageControllerBase::applyOperations: Engine Error load");
         return;
     }
     
