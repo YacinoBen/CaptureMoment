@@ -79,7 +79,7 @@ void ImageControllerSGS::doLoadImage(const QString& filePath)
         return;
     }
     
-    m_current_image = task->result();
+    /* m_current_image = task->result();
     if (!m_current_image) {
         onImageLoadResult(false, "Failed to get image result");
         return;
@@ -89,7 +89,7 @@ void ImageControllerSGS::doLoadImage(const QString& filePath)
     if (m_sgs_image_item && m_current_image) {
         m_sgs_image_item->setImage(m_current_image);
         spdlog::debug("ImageController::doLoadImage: RHIImageItem updated");
-    }
+    }*/
     
     onImageLoadResult(true, "");
 }
@@ -98,10 +98,10 @@ void ImageControllerSGS::doApplyOperations(const std::vector<OperationDescriptor
 {
     spdlog::debug("ImageController::doApplyOperations: Starting operation processing");
     
-    if (!m_current_image || !m_engine) {
+  /*  if (!m_current_image || !m_engine) {
         onOperationResult(false, "No image loaded");
         return;
-    }
+    }*/
     
     // Create and submit task with operations
     auto task = m_engine->createTask(operations, 0, 0, m_image_width, m_image_height);
@@ -131,7 +131,7 @@ void ImageControllerSGS::doApplyOperations(const std::vector<OperationDescriptor
     
     // Commit result to source and update display
     if (m_engine->commitResult(task)) {
-        m_current_image = result;
+        //m_current_image = result;
         
         if (m_sgs_image_item) {
             m_sgs_image_item->updateTile(result);

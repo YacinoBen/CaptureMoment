@@ -79,17 +79,17 @@ void ImageControllerRHI::doLoadImage(const QString& filePath)
         return;
     }
     
-    m_current_image = task->result();
+  /*  m_current_image = task->result();
     if (!m_current_image) {
         onImageLoadResult(false, "Failed to get image result");
         return;
-    }
+    }*/
     
     // Update RHI display
-    if (m_rhi_image_item && m_current_image) {
+   /* if (m_rhi_image_item && m_current_image) {
         m_rhi_image_item->setImage(m_current_image);
         spdlog::debug("ImageController::doLoadImage: RHIImageItem updated");
-    }
+    }*/
     
     onImageLoadResult(true, "");
 }
@@ -97,9 +97,9 @@ void ImageControllerRHI::doLoadImage(const QString& filePath)
 void ImageControllerRHI::doApplyOperations(const std::vector<OperationDescriptor>& operations)
 {
     spdlog::debug("ImageController::doApplyOperations: Starting operation processing");
-    
-    if (!m_current_image || !m_engine) {
-        onOperationResult(false, "No image loaded");
+
+    if (!m_engine) {
+        onOperationResult(false, "No Engine");
         return;
     }
     
@@ -131,7 +131,7 @@ void ImageControllerRHI::doApplyOperations(const std::vector<OperationDescriptor
     
     // Commit result to source and update display
     if (m_engine->commitResult(task)) {
-        m_current_image = result;
+        //m_current_image = result;
         
         if (m_rhi_image_item) {
             m_rhi_image_item->updateTile(result);
