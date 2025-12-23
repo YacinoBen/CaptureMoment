@@ -13,14 +13,14 @@ Item {
         anchors.fill: parent
 
         label: "Brightness"
-        value: brightnessControl.value * 100
-        from: brightnessControl.minimum * 100
-        to: brightnessControl.maximum * 100
-        stepSize: 1
+        value: brightnessControl.value
+        from: brightnessControl.minimum
+        to: brightnessControl.maximum
+        stepSize: 0.01
 
         onValueChanged: {
-            console.log("Value Brightness : ", value / 100)
-            brightnessControl.setValue(value / 100)
+            console.log("Value Brightness : ", value)
+            brightnessControl.setValue(value )
         }
     }
 }

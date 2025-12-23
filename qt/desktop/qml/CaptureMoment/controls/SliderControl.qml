@@ -101,16 +101,34 @@ Control {
 
         SpinBox {
             id: spinBox
-            value: Math.round(sliderControl.value)
-            from: Math.round(sliderControl.from)
-            to: Math.round(sliderControl.to)
-            stepSize: Math.round(sliderControl.stepSize)
+            property int decimals: 2
+            readonly property int decimalFactor: Math.pow(10, decimals)
+
+            from: sliderControl.from * decimalFactor
+            value: sliderControl.value * decimalFactor
+            to: sliderControl.to * decimalFactor
+            stepSize: Math.max(1, sliderControl.stepSize * decimalFactor)
             editable: true
             Layout.preferredWidth: 105
             Layout.preferredHeight: 35
 
+            validator: DoubleValidator {
+                bottom: Math.min(spinBox.from, spinBox.to) / spinBox.decimalFactor
+                top: Math.max(spinBox.from, spinBox.to) / spinBox.decimalFactor
+                decimals: spinBox.decimals
+                notation: DoubleValidator.StandardNotation
+            }
+
+            textFromValue: function(value, locale) {
+                return Number(value / decimalFactor).toLocaleString(locale, 'f', decimals)
+            }
+
+            valueFromText: function(text, locale) {
+                return Math.round(Number.fromLocaleString(locale, text) * decimalFactor)
+            }
+
             onValueChanged: {
-                sliderControl.value = value
+                sliderControl.value = value / decimalFactor
             }
         }
     }
