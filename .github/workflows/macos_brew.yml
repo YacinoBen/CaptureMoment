@@ -59,6 +59,7 @@
            version: '6.9.3'
            target: 'desktop'
            host: 'mac'
+           modules: 'qtshadertools'
 
         # ====================================================================
         # Configure cmake environment

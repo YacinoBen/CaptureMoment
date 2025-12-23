@@ -48,6 +48,7 @@ jobs:
          version: '6.9.3'
          target: 'desktop'
          arch: 'win64_msvc2022_64'
+         modules: 'qtshadertools'
 
       # ====================================================================
       # Setup vcpkg
