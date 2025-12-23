@@ -17,6 +17,7 @@ set(CORE_SOURCES
     src/operations/operation_factory.cpp
     src/operations/operation_brightness.cpp
     src/operations/operation_pipeline.cpp
+    src/operations/operation_registry.cpp
 
     # Engine
     src/engine/photo_engine.cpp

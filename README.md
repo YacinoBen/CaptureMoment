@@ -6,6 +6,9 @@
 [![C++](https://img.shields.io/badge/C++-20/23-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![Qt](https://img.shields.io/badge/Qt-6-blue.svg)](https://doc.qt.io/qt-6/)
 
+
+![Home](docs/img/home.jpg)
+
 ---
 
 ## 🎯 Goal

@@ -22,6 +22,7 @@ namespace CaptureMoment {
         const OperationFactory& factory                     // The factory to create operation instances.
     ) {
         // Iterate through each operation descriptor in the list.
+        spdlog::info("OperationPipeline::applyOperations: Starting with {} operations", operations.size());
         for (const auto& descriptor : operations) {
             // Skip operations that are not enabled.
             if (!descriptor.enabled) {
@@ -30,6 +31,7 @@ namespace CaptureMoment {
             }
 
             // Use the factory to create an instance of the concrete operation.
+            spdlog::info("OperationPipeline::applyOperations: Creating operation '{}'", descriptor.name);
             auto operation = factory.create(descriptor);
             if (!operation) {
                 spdlog::error("PipelineEngine::applyOperations: Failed to create operation '{}'", descriptor.name);
@@ -43,8 +45,11 @@ namespace CaptureMoment {
                 spdlog::error("PipelineEngine::applyOperations: Operation '{}' failed", descriptor.name);
                 return false; // Stop processing if operation execution fails.
             }
+            spdlog::info("OperationPipeline::applyOperations: Operation '{}' completed", descriptor.name);
         }
+
         // All operations completed successfully.
+        spdlog::info("OperationPipeline::applyOperations: All operations completed successfully");
         return true;
     }
     

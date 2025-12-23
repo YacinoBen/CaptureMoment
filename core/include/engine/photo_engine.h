@@ -35,6 +35,12 @@ private:
      */
     std::shared_ptr<OperationFactory> m_operation_factory;
 
+    /**
+     * @brief Shared pointer to the current working image being processed.
+     * This image is modified by operations and is separate from the original image in m_source_manager.
+     */
+    std::shared_ptr<ImageRegion> m_working_image;
+
 public:
     /**
      * @brief Constructs a PhotoEngine instance.
@@ -57,7 +63,7 @@ public:
      * @param[in] path The path to the image file to be loaded.
      * @return true if the image was loaded successfully, false otherwise.
      */
-    bool loadPhoto(std::string_view path);
+    bool loadImage(std::string_view path);
 
     /**
      * @brief Creates a new processing task.
@@ -102,7 +108,26 @@ public:
      *                 result needs to be committed.
      * @return true if the result was successfully committed, false otherwise.
      */
-    bool commitResult(const std::shared_ptr<IProcessingTask>& task);
+     [[nodiscard]] bool commitResult(const std::shared_ptr<IProcessingTask>& task);
+
+
+    /**
+     * @brief Commits the current working image back to the source image.
+     *
+     * This method should be called when the user wants to save the changes permanently.
+     * It replaces the original image in m_source_manager with the current m_working_image.
+     *
+     * @return true if the working image was successfully committed to the source manager, false otherwise.
+     */
+    [[nodiscard]] bool commitWorkingImageToSource(); // Nouvelle méthode pour sauvegarder
+
+    /**
+     * @brief Resets the working image to the original image loaded from the source manager.
+     *
+     * This method reloads m_working_image from m_source_manager, effectively undoing
+     * all applied operations.
+     */
+    void resetWorkingImage();
 
     /**
      * @brief Gets the width of the currently loaded image.
@@ -130,6 +155,12 @@ public:
      * @return The number of channels (e.g., 3 for RGB, 4 for RGBA), or 0 if no image is loaded.
      */
     int channels() const noexcept;
+
+    /**
+     * @brief Gets the current working image.
+     * @return Shared pointer to the current working ImageRegion.
+     */
+    std::shared_ptr<ImageRegion> getWorkingImage() const { return m_working_image; }
 };
 
 } // namespace CaptureMoment

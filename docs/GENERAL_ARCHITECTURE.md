@@ -39,6 +39,12 @@ Capture Moment is built on three pillars:
 * **Role:** Ensures all libraries (OIIO, OCIO, Halide, Qt) are compiled with the same ABI across all platforms.
 
 
+## Architectures
+
+* [**Core Design:**](CORE_DESIGN.md).
+* [**UI Core Design**](UI_CORE_ARCHITECTURE.md).
+* [**UI Desktop Desogn**](UI_DESKTOP_ARCHITECTURE.md).
+
 ## 📚 Additional Resources
 
 - **CMake Documentation:** [cmake.org/documentation](https://cmake.org/documentation/)

@@ -11,8 +11,19 @@
 
 namespace CaptureMoment {
 
-bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor& descriptor) {
+bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor& descriptor)
+{
     // 1. Validation
+    if (!input.isValid()) {
+        spdlog::warn("OperationBrightness::execute: Invalid input region");
+        return false;
+    }
+
+    if (!descriptor.enabled) {
+        spdlog::trace("OperationBrightness::execute: Operation disabled, skipping");
+        return true;
+    }
+
     if (!input.isValid()) {
         spdlog::warn("OperationBrightness::execute: Invalid input region");
         return false;
@@ -38,6 +49,12 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
 
     // 3. Halide pipeline
     try {
+
+        spdlog::info("OperationBrightness::execute: Creating Halide buffer");
+        spdlog::info("Data size: {}", input.m_data.size());
+        spdlog::info("Expected size: {}", input.m_width * input.m_height * input.m_channels);
+
+
         // Create Halide function
         Halide::Func brightness;
         Halide::Var x, y, c;
@@ -51,6 +68,8 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
         );
 
         // Apply brightness: add to RGB (channels 0-2), keep Alpha (channel 3)
+        spdlog::info("OperationBrightness::execute: Halide buffer created successfully");
+
         brightness(x, y, c) = Halide::select(
             c < 3,
             inputBuf(x, y, c) + brightnessValue,
@@ -58,12 +77,14 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
         );
 
         // Schedule for parallel execution
+        spdlog::info("OperationBrightness::execute: Halide function defined");
         brightness.parallel(y, 8).vectorize(x, 8);
+        spdlog::info("OperationBrightness::execute: Schedule applied, about to realize");
 
         // Realize back into the original buffer
         brightness.realize(inputBuf);
+        spdlog::info("OperationBrightness::execute: Halide realize completed successfully");
 
-        spdlog::trace("OperationBrightness::execute: Halide pipeline completed successfully");
         return true;
 
     } catch (const std::exception& e) {
