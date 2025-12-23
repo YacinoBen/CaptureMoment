@@ -78,6 +78,8 @@ private:
 
     /** @brief Pre-calculated scale factor (m_display_image_size / m_source_image_size). */
     float m_display_scale{1.0f};
+
+    std::shared_ptr<ImageRegion> m_source_image;
     
     /** @brief Pointer to the active rendering component. */
     Rendering::IRenderingItemBase* m_rendering_item{nullptr};
