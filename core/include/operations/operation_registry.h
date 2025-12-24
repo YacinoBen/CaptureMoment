@@ -7,10 +7,12 @@
 
 #pragma once
 
-#include <memory>
 #include "operations/operation_factory.h"
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
+
+namespace Operations {
+class OperationFactory;
 
 /**
  * @class OperationRegistry
@@ -65,4 +67,6 @@ private:
     static void registerEffects(OperationFactory& factory);
 };
 
-} // namespace CaptureMoment
+} // namespace Operations
+
+} // namespace CaptureMoment::Core
