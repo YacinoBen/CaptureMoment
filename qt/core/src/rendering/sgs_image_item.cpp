@@ -35,7 +35,7 @@ namespace CaptureMoment::UI::Rendering {
 
     // Sets the full image to be displayed.
     // Updates the internal image data and marks the GPU texture for update.
-    void SGSImageItem::setImage(const std::shared_ptr<ImageRegion>& image) 
+    void SGSImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
     {
         if (!image || !image->isValid())
         {
@@ -84,7 +84,7 @@ namespace CaptureMoment::UI::Rendering {
 
     // Updates a specific tile of the displayed image.
     // Merges the tile data into the full image buffer (CPU side) and marks the GPU texture for update.
-    void SGSImageItem::updateTile(const std::shared_ptr<ImageRegion>& tile)
+    void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
     {
         if (!tile || !tile->isValid())
         {
@@ -118,10 +118,10 @@ namespace CaptureMoment::UI::Rendering {
                     for (int c = 0; c < tile->m_channels; ++c)
                     {
                         // Copy the pixel value from the tile to the correct position in the full image.
-                        // This assumes ImageRegion supports operator() for (x, y, c) access.
-                        // Adjust the indexing if ImageRegion uses (y, x, c) or another convention.
+                        // This assumes Core::Common::ImageRegion supports operator() for (x, y, c) access.
+                        // Adjust the indexing if Core::Common::ImageRegion uses (y, x, c) or another convention.
                         // (*m_full_image)(tile->m_y + y, tile->m_x + x, c) = (*tile)(y, x, c);
-                        // Ou, si ImageRegion utilise (x, y, c) :
+                        // Ou, si Core::Common::ImageRegion utilise (x, y, c) :
                         (*m_full_image)(tile->m_x + x, tile->m_y + y, c) = (*tile)(x, y, c);
                     }
                 }
@@ -151,7 +151,7 @@ namespace CaptureMoment::UI::Rendering {
 
         // Check if texture needs update (thread-safe check)
         if (m_texture_needs_update) {
-            updateCachedTexture(); // Convert ImageRegion -> QImage -> QSGTexture
+            updateCachedTexture(); // Convert Core::Common::ImageRegion -> QImage -> QSGTexture
             m_texture_needs_update = false; // Reset flag
         }
 
@@ -178,7 +178,7 @@ namespace CaptureMoment::UI::Rendering {
         return textureNode;
     }
 
-    // Converts the internal ImageRegion to a QSGTexture.
+    // Converts the internal Core::Common::ImageRegion to a QSGTexture.
     void SGSImageItem::updateCachedTexture() {
         QMutexLocker lock(&m_image_mutex);
 
@@ -189,12 +189,10 @@ namespace CaptureMoment::UI::Rendering {
             return;
         }
 
-        spdlog::debug("SGSImageItem::updateCachedTexture: Converting ImageRegion ({}x{}) to QImage",
+        spdlog::debug("SGSImageItem::updateCachedTexture: Converting Core::Common::ImageRegion ({}x{}) to QImage",
                      m_full_image->m_width, m_full_image->m_height);
 
-        // --- Convert ImageRegion (float32) to QImage (uint8) ---
-        // QImage::Format_RGBA8888 est courant, mais assurez-vous que vos données sont bien RGBA.
-        // Si ImageRegion est RGB, vous devrez peut-être utiliser Format_RGB888 et adapter la conversion.
+        // --- Convert Core::Common::ImageRegion (float32) to QImage (uint8) ---
         QImage qimage(m_full_image->m_width, m_full_image->m_height, QImage::Format_RGBA8888);
 
         for (int y = 0; y < m_full_image->m_height; ++y) {

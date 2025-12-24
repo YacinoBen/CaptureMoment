@@ -38,7 +38,7 @@ public:
      * @brief Gets the type of this operation.
      * @return OperationType::Brightness.
      */
-    virtual OperationType getType() const = 0;
+    virtual Core::Operations::OperationType getType() const = 0;
 
       /**
      * @brief Creates and returns an OperationDescriptor representing the current state of this model.
@@ -46,7 +46,7 @@ public:
      * and other metadata required by the core processing engine (PipelineEngine).
      * @return OperationDescriptor representing the current brightness state.
      */
-    virtual OperationDescriptor getDescriptor() const = 0;
+    virtual Core::Operations::OperationDescriptor getDescriptor() const = 0;
 
     /**
      * @brief Reset to default state

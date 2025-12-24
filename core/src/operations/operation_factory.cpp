@@ -6,11 +6,11 @@
  */
 
 #include "operations/operation_factory.h"
-#include "operations/i_operation.h"
 #include "operations/operation_descriptor.h"
+#include "operations/i_operation.h"
 #include <spdlog/spdlog.h>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core::Operations {
 
 std::unique_ptr<IOperation> OperationFactory::create(
     const OperationDescriptor& descriptor
@@ -31,4 +31,4 @@ std::unique_ptr<IOperation> OperationFactory::create(
     return op;
 }
 
-} // namespace CaptureMoment
+} // namespace CaptureMoment::Core::Operations

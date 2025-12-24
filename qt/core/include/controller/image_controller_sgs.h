@@ -111,7 +111,7 @@ protected :
      * Implementation specific to updating via SGSImageItem.
      * @param operations Vector of operation descriptors to apply.
      */
-    void doApplyOperations(const std::vector<OperationDescriptor>& operations) override;
+    void doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations) override;
 };
 
 } // namespace Controller

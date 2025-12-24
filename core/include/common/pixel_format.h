@@ -1,33 +1,48 @@
 /**
  * @file pixel_format.h
- * @brief Definitions of pixel storage formats in memory
+ * @brief Defines the pixel storage formats used throughout the CaptureMoment Core library.
+ *
+ * This header provides the @ref CaptureMoment::Core::PixelFormat enum,
+ * which specifies how pixel data is stored in memory, including the number of channels
+ * and the data type per channel. It's primarily used within the @ref ImageRegion
+ * structure to define the format of its pixel data buffer.
+ *
  * @author CaptureMoment Team
  * @date 2025
  */
 
 #pragma once
-#include <cstdint>
 
-namespace CaptureMoment {
+#include <spdlog/spdlog.h>
+#include <cstdint> // Required for fixed-width integer types like uint8_t
 
+namespace CaptureMoment::Core {
+
+namespace Common {
 /**
  * @enum PixelFormat
- * @brief Pixel storage format in memory
+ * @brief Enumerates the supported pixel storage formats in memory.
+ *
+ * This enum defines the layout and data type for individual pixels.
+ * It specifies both the number of channels (e.g., RGB vs. RGBA) and
+ * the data type used for each channel's value (e.g., float32 vs. uint8).
  * 
- * Defines the data structure for each pixel:
- * - Number of channels (RGB vs RGBA)
- * - Data type (float32 for HDR, uint8 for display)
- * 
- * @note The RGBA_F32 format is recommended for the processing pipeline
- *       as it preserves the dynamic range (HDR).
+ * @note The @ref RGBA_F32 format is the recommended default for internal
+ *       processing pipelines as it supports High Dynamic Range (HDR) data
+ *       and preserves maximum precision during calculations.
+ *
+ * @see Common::ImageRegion::m_format
  */
 enum class PixelFormat : uint8_t {
     /**
-     * @brief 4 channels (Red, Green, Blue, Alpha) in float32
-     * 
-     * - Size per pixel: 16 bytes (4 × 4 bytes)
-     * - Value range: [-∞, +∞] (but usually [0.0, 1.0])
-     * - Usage: Internal processing pipeline, HDR
+     * @brief 4-channel format: Red, Green, Blue, Alpha in 32-bit float.
+     *
+     * Each pixel is stored as 4 consecutive `float` values.
+     * - **Size per pixel:** 16 bytes (4 channels * 4 bytes per float)
+     * - **Value range:** Theoretically `[-inf, +inf]`, but typically `[0.0f, 1.0f]`
+     *                    for normalized data. HDR values can exceed `[0.0f, 1.0f]`.
+     * - **Usage:** Standard format for internal image processing pipelines
+     *             where HDR support and high precision are required.
      * 
      * @code
      * ImageRegion region;
@@ -38,28 +53,72 @@ enum class PixelFormat : uint8_t {
     RGBA_F32,
     
     /**
-     * @brief 3 channels (Red, Green, Blue) in float32
-     * 
-     * - Size per pixel: 12 bytes (3 × 4 bytes)
-     * - Usage: Files without alpha channel
+     * @brief 3-channel format: Red, Green, Blue in 32-bit float.
+     *
+     * Each pixel is stored as 3 consecutive `float` values.
+     * - **Size per pixel:** 12 bytes (3 channels * 4 bytes per float)
+     * - **Value range:** Typically `[0.0f, 1.0f]`.
+     * - **Usage:** Common for image files that do not contain an alpha channel.
      */
     RGB_F32,
-    
+
     /**
-     * @brief 4 channels in uint8 (0-255)
-     * 
-     * - Size per pixel: 4 bytes
-     * - Usage: Final display (QImage, GPU texture)
+     * @brief 3-channel format: Red, Green, Blue in 8-bit unsigned integer.
+     *
+     * Each pixel is stored as 3 consecutive `uint8_t` values (0-255).
+     * - **Size per pixel:** 3 bytes (3 channels * 1 byte per uint8_t)
+     * - **Value range:** `[0, 255]` (corresponding to `[0.0f, 1.0f]` when normalized)
+     * - **Usage:** Standard format for image export to formats like JPEG
+     *             where alpha is not supported and memory usage is a concern.
      */
     RGBA_U8,
     
     /**
-     * @brief 3 channels in uint8
-     * 
-     * - Size per pixel: 3 bytes
-     * - Usage: Export JPEG
+     * @brief 3-channel format: Red, Green, Blue in 8-bit unsigned integer.
+     *
+     * Each pixel is stored as 3 consecutive `uint8_t` values (0-255).
+     * - **Size per pixel:** 3 bytes (3 channels * 1 byte per uint8_t)
+     * - **Value range:** `[0, 255]` (corresponding to `[0.0f, 1.0f]` when normalized)
+     * - **Usage:** Standard format for image export to formats like JPEG
+     *             where alpha is not supported and memory usage is a concern.
      */
     RGB_U8
 };
 
-} // namespace CaptureMoment
+/**
+ * @brief Returns the number of channels for a given PixelFormat.
+ * @param pf The pixel format.
+ * @return The number of channels (e.g., 3 for RGB, 4 for RGBA).
+ */
+[[nodiscard]] constexpr int getChannelCount(PixelFormat pf) noexcept
+{
+    switch(pf) {
+    case PixelFormat::RGBA_F32:
+    case PixelFormat::RGBA_U8:
+        return 4;
+    case PixelFormat::RGB_F32:
+    case PixelFormat::RGB_U8:
+        return 3;
+    default :
+        spdlog::error("PixelFormat::getChannelCount : no channel found");
+        return 0;
+    }
+}
+/**
+ * @brief Returns the size in bytes of a single pixel for a given PixelFormat.
+ * @param fmt The pixel format.
+ * @return The size in bytes (e.g., 12 for RGB_F32, 16 for RGBA_F32).
+ */
+[[nodiscard]] constexpr size_t getPixelSizeInBytes(PixelFormat pf) noexcept
+{
+    const int channels = getChannelCount(pf);
+    if (pf == PixelFormat::RGBA_F32 || pf == PixelFormat::RGB_F32) {
+        return channels * sizeof(float);
+    } else { // U8 formats
+        return channels * sizeof(uint8_t);
+    }
+}
+
+} // namespace Common
+
+} // namespace CaptureMoment::Core

@@ -20,7 +20,7 @@
 // #include "operations/operation_grain.h"            // TODO: Implement
 #include <spdlog/spdlog.h>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core::Operations {
 
 void OperationRegistry::registerAll(OperationFactory& factory) {
     spdlog::info("OperationRegistry: Registering all operations");
@@ -120,4 +120,4 @@ void OperationRegistry::registerEffects(OperationFactory& factory) {
     // spdlog::trace("ok: Perspective");
 }
 
-} // namespace CaptureMoment
+} // namespace CaptureMoment::Core::Operations

@@ -9,9 +9,9 @@
 #include <spdlog/spdlog.h>
 #include <Halide.h>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core::Operations {
 
-bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor& descriptor)
+bool OperationBrightness::execute(Common::ImageRegion& input, const OperationDescriptor& descriptor)
 {
     // 1. Validation
     if (!input.isValid()) {
@@ -24,28 +24,18 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
         return true;
     }
 
-    if (!input.isValid()) {
-        spdlog::warn("OperationBrightness::execute: Invalid input region");
-        return false;
-    }
-
-    if (!descriptor.enabled) {
-        spdlog::trace("OperationBrightness::execute: Operation disabled, skipping");
-        return true;
-    }
-
     // 2. Extract parameter using key-value access
     // Retrieves "value" key with default 0.0f if missing or type mismatch
-    const float brightnessValue = descriptor.getParam<float>("value", 0.0f);
+    const float brightness_value = descriptor.getParam<float>("value", 0.0f);
 
     // No-op optimization
-    if (brightnessValue == 0.0f) {
+    if (brightness_value == 0.0f) {
         spdlog::trace("OperationBrightness::execute: Brightness value is 0, skipping");
         return true;
     }
 
     spdlog::debug("OperationBrightness::execute: value={:.2f} on {}x{} ({}ch) region",
-                  brightnessValue, input.m_width, input.m_height, input.m_channels);
+                  brightness_value, input.m_width, input.m_height, input.m_channels);
 
     // 3. Halide pipeline
     try {
@@ -60,7 +50,7 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
         Halide::Var x, y, c;
 
         // Create input image from buffer (direct access via x, y, c)
-        Halide::Buffer<float> inputBuf(
+        Halide::Buffer<float> input_buf(
             input.m_data.data(),
             input.m_width,
             input.m_height,
@@ -72,8 +62,8 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
 
         brightness(x, y, c) = Halide::select(
             c < 3,
-            inputBuf(x, y, c) + brightnessValue,
-            inputBuf(x, y, c)
+            input_buf(x, y, c) + brightness_value,
+            input_buf(x, y, c)
         );
 
         // Schedule for parallel execution
@@ -82,7 +72,7 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
         spdlog::info("OperationBrightness::execute: Schedule applied, about to realize");
 
         // Realize back into the original buffer
-        brightness.realize(inputBuf);
+        brightness.realize(input_buf);
         spdlog::info("OperationBrightness::execute: Halide realize completed successfully");
 
         return true;
@@ -93,4 +83,4 @@ bool OperationBrightness::execute(ImageRegion& input, const OperationDescriptor&
     }
 }
 
-} // namespace CaptureMoment
+} // namespace CaptureMoment::Core::Operations

@@ -8,8 +8,9 @@
 #pragma once
 #include <cstdint>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
 
+namespace Operations {
 /**
  * @enum OperationType
  * @brief Identifies the type of an image processing operation.
@@ -50,4 +51,6 @@ enum class OperationType : uint8_t {
     // ...
 };
 
-} // namespace CaptureMoment
+} // namespace Operations
+
+} // namespace CaptureMoment::Core

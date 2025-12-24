@@ -7,14 +7,21 @@
 
 #pragma once
 
-#include <memory>
-
 #include "managers/source_manager.h"
 #include "operations/operation_factory.h"
 #include "domain/i_processing_backend.h"
+#include "common/image_region.h"
 
-namespace CaptureMoment {
+#include <memory>
 
+namespace CaptureMoment::Core {
+
+namespace Domain {
+class IProcessingBackend;
+class IProcessingTask;
+}
+
+namespace Engine {
 /**
  * @brief Central engine orchestrating image loading, processing task creation, and submission.
  *
@@ -24,22 +31,23 @@ namespace CaptureMoment {
  * of processing tasks, ensuring a sequential and coherent workflow.
  * This class implements the IProcessingBackend interface to standardize task management.
  */
-class PhotoEngine : public IProcessingBackend {
+class PhotoEngine : public Domain::IProcessingBackend
+{
 private:
     /**
      * @brief Shared pointer to the manager responsible for loading and providing image data.
      */
-    std::shared_ptr<SourceManager> m_source_manager;
+    std::shared_ptr<Managers::SourceManager> m_source_manager;
     /**
      * @brief Shared pointer to the factory responsible for creating operation instances.
      */
-    std::shared_ptr<OperationFactory> m_operation_factory;
+    std::shared_ptr<Operations::OperationFactory> m_operation_factory;
 
     /**
      * @brief Shared pointer to the current working image being processed.
      * This image is modified by operations and is separate from the original image in m_source_manager.
      */
-    std::shared_ptr<ImageRegion> m_working_image;
+    std::shared_ptr<Common::ImageRegion> m_working_image;
 
 public:
     /**
@@ -51,8 +59,8 @@ public:
      * @param[in] operation_factory A shared pointer to the OperationFactory instance.
      */
     PhotoEngine(
-        std::shared_ptr<SourceManager> source_manager,
-        std::shared_ptr<OperationFactory> operation_factory
+        std::shared_ptr<Managers::SourceManager> source_manager,
+        std::shared_ptr<Operations::OperationFactory> operation_factory
     );
 
     /**
@@ -63,7 +71,7 @@ public:
      * @param[in] path The path to the image file to be loaded.
      * @return true if the image was loaded successfully, false otherwise.
      */
-    bool loadImage(std::string_view path);
+    [[nodiscard]] bool loadImage(std::string_view path);
 
     /**
      * @brief Creates a new processing task.
@@ -79,8 +87,8 @@ public:
      *
      * @return A shared pointer to the newly created IProcessingTask.
      */
-    std::shared_ptr<IProcessingTask> createTask(   
-        const std::vector<OperationDescriptor>& ops,
+    std::shared_ptr<Domain::IProcessingTask> createTask(
+        const std::vector<Operations::OperationDescriptor>& ops,
         int x, int y, int width, int height) override;
 
     /**
@@ -94,7 +102,7 @@ public:
      * @param[in] task A shared pointer to the IProcessingTask to be executed.
      * @return true if the task was submitted and completed successfully, false otherwise.
      */
-    bool submit(std::shared_ptr<IProcessingTask> task) override;
+    [[nodiscard]] bool submit(std::shared_ptr<Domain::IProcessingTask> task) override;
 
     /**
      * @brief Commits the result of a completed task to the source image.
@@ -108,8 +116,7 @@ public:
      *                 result needs to be committed.
      * @return true if the result was successfully committed, false otherwise.
      */
-     [[nodiscard]] bool commitResult(const std::shared_ptr<IProcessingTask>& task);
-
+     [[nodiscard]] bool commitResult(const std::shared_ptr<Domain::IProcessingTask>& task);
 
     /**
      * @brief Commits the current working image back to the source image.
@@ -136,7 +143,7 @@ public:
      *
      * @return The width in pixels, or 0 if no image is loaded.
      */
-    int width() const noexcept;
+    [[nodiscard]] int width() const noexcept;
 
     /**
      * @brief Gets the height of the currently loaded image.
@@ -145,7 +152,7 @@ public:
      *
      * @return The height in pixels, or 0 if no image is loaded.
      */
-    int height() const noexcept;
+    [[nodiscard]] int height() const noexcept;
 
     /**
      * @brief Gets the number of channels of the currently loaded image.
@@ -154,13 +161,15 @@ public:
      *
      * @return The number of channels (e.g., 3 for RGB, 4 for RGBA), or 0 if no image is loaded.
      */
-    int channels() const noexcept;
+    [[nodiscard]] int channels() const noexcept;
 
     /**
      * @brief Gets the current working image.
      * @return Shared pointer to the current working ImageRegion.
      */
-    std::shared_ptr<ImageRegion> getWorkingImage() const { return m_working_image; }
+    [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImage() const { return m_working_image; }
 };
 
-} // namespace CaptureMoment
+} // namespace Engine
+
+} // namespace CaptureMoment::core

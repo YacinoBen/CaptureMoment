@@ -170,7 +170,7 @@ private:
     * 
     * @param image The ImageRegion containing the pixel data to upload.
     */
-    void uploadPixelData(const std::shared_ptr<ImageRegion>& image);
+    void uploadPixelData(const std::shared_ptr<Core::Common::ImageRegion>& image);
 
 };
 

@@ -31,7 +31,7 @@ void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
     }
 }
 
-void DisplayManager::createDisplayImage(const std::shared_ptr<ImageRegion>& sourceImage)
+void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::ImageRegion>& sourceImage)
 {
     if (!sourceImage || !sourceImage->isValid()) {
         spdlog::warn("DisplayManager::createDisplayImage: Invalid source image");
@@ -75,7 +75,7 @@ void DisplayManager::createDisplayImage(const std::shared_ptr<ImageRegion>& sour
     }
 }
 
-void DisplayManager::updateDisplayTile(const std::shared_ptr<ImageRegion>& sourceTile)
+void DisplayManager::updateDisplayTile(const std::shared_ptr<Core::Common::ImageRegion>& sourceTile)
 {
     if (!sourceTile || !sourceTile->isValid()) {
         spdlog::warn("DisplayManager::updateDisplayTile: Invalid source tile");
@@ -227,8 +227,8 @@ QSize DisplayManager::calculateDisplaySize(const QSize& sourceSize, const QSize&
     return QSize(std::max(1, display_width), std::max(1, display_height));
 }
 
-std::shared_ptr<ImageRegion> DisplayManager::downsampleImage(
-    const ImageRegion& source,
+std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
+    const Core::Common::ImageRegion& source,
     int targetWidth,
     int targetHeight
 ) const
@@ -238,12 +238,12 @@ std::shared_ptr<ImageRegion> DisplayManager::downsampleImage(
     }
     
     if (source.m_width == targetWidth && source.m_height == targetHeight) {
-        auto copy = std::make_shared<ImageRegion>();
+        auto copy = std::make_shared<Core::Common::ImageRegion>();
         *copy = source;
         return copy;
     }
     
-    auto downsampled = std::make_shared<ImageRegion>();
+    auto downsampled = std::make_shared<Core::Common::ImageRegion>();
     downsampled->m_x = 0;
     downsampled->m_y = 0;
     downsampled->m_width = targetWidth;
