@@ -14,8 +14,9 @@
 #include <string_view>
 #include <optional>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
 
+namespace Managers {
 /**
  * @class SourceManager
  * @brief Concrete implementation of the ISourceManager interface.
@@ -45,27 +46,27 @@ public:
     // -----------------------------------------------------------------
     // ISourceManager Implementation
     // -----------------------------------------------------------------
-    bool loadFile(std::string_view path) override;
+    [[nodiscard]] bool loadFile(std::string_view path) override;
     void unload() override;
-    bool isLoaded() const override;
-    int width() const noexcept override;
-    int height() const noexcept override;
-    int channels() const noexcept override;
+    [[nodiscard]] bool isLoaded() const override;
+    [[nodiscard]] int width() const noexcept override;
+    [[nodiscard]] int height() const noexcept override;
+    [[nodiscard]] int channels() const noexcept override;
     
-    std::unique_ptr<ImageRegion> getTile(
+    std::unique_ptr<Common::ImageRegion> getTile(
         int x, int y, int width, int height
     ) override;
 
-    bool setTile(const ImageRegion& tile) override;
+    [[nodiscard]] bool setTile(const Common::ImageRegion& tile) override;
     
-    std::optional<std::string> getMetadata(std::string_view key) const override;
+    [[nodiscard]] std::optional<std::string> getMetadata(std::string_view key) const override;
     
 private:
     /**
      * @brief The main image buffer containing the loaded image data.
      * * Managed by a std::unique_ptr for RAII compliance.
      */
-    std::unique_ptr<OIIO::ImageBuf> m_imageBuf;
+    std::unique_ptr<OIIO::ImageBuf> m_image_buf;
 
     /**
      * @brief Pointer to OIIO's global image cache.
@@ -77,7 +78,7 @@ private:
     /**
      * @brief The file path of the currently loaded image.
      */
-    std::string m_currentPath;
+    std::string m_current_path;
     
     /**
      * @brief Provides access to OIIO's global ImageCache singleton.
@@ -86,4 +87,7 @@ private:
     static OIIO::ImageCache* getGlobalCache();
 };
 
-} // namespace CaptureMoment
+} // namespace Managers
+
+} // namespace CaptureMoment::Core
+
