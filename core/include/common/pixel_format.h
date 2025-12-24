@@ -14,7 +14,6 @@
 #pragma once
 
 #include <spdlog/spdlog.h>
-#include <concepts>
 #include <cstdint> // Required for fixed-width integer types like uint8_t
 
 namespace CaptureMoment::Core {
@@ -85,13 +84,6 @@ enum class PixelFormat : uint8_t {
      */
     RGB_U8
 };
-
-/**
- * @concept ValidPixelFormat
- * @brief Checks if a type is a valid PixelFormat enum value.
- */
-template<typename T>
-concept ValidPixelFormat = std::same_as<T, PixelFormat>;
 
 /**
  * @brief Returns the number of channels for a given PixelFormat.
