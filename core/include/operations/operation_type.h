@@ -54,4 +54,3 @@ enum class OperationType : uint8_t {
 } // namespace Operations
 
 } // namespace CaptureMoment::Core
-
