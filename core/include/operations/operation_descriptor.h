@@ -69,7 +69,7 @@ struct OperationDescriptor {
      * @return The parameter value or defaultValue.
      */
     template <typename T>
-    T getParam(const std::string& key, const T& defaultValue) const {
+    [[nodiscard]] T getParam(const std::string& key, const T& defaultValue) const {
         auto it = params.find(key);
         if (it != params.end()) {
             try {

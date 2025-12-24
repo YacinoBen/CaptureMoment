@@ -46,7 +46,7 @@ public:
      * @param descriptor Operation descriptor with type information
      * @return Unique pointer to operation, or nullptr if type not registered
      */
-    std::unique_ptr<IOperation> create(const OperationDescriptor& descriptor) const;
+    [[nodiscard]] std::unique_ptr<IOperation> create(const OperationDescriptor& descriptor) const;
 
 private:
     using OperationCreator = std::function<std::unique_ptr<IOperation>()>;
