@@ -12,7 +12,9 @@
 #include <unordered_map>
 #include <functional>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
+
+namespace Operations {
 
 // Forward declarations
 class IOperation;
@@ -51,4 +53,6 @@ private:
     std::unordered_map<OperationType, OperationCreator> m_creators;
 };
 
-} // namespace CaptureMoment
+} // namespace Operations
+
+} // namespace CaptureMoment::Core
