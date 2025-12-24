@@ -14,17 +14,16 @@
 
 #include "common/image_region.h"
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
+
+namespace Domain {
 
 /**
  * @brief Global atomic counter for generating unique task identifiers.
  * * This static variable serves as a monotonic generator for task IDs.
  * @note Uses `std::uint64_t` to prevent overflow even with heavy usage..
  */
-
 static std::atomic<std::uint64_t> s_task_id_generator{0};
-
-
 
 /**
  * @brief Abstract base class defining the interface for an image processing task.
@@ -35,7 +34,8 @@ static std::atomic<std::uint64_t> s_task_id_generator{0};
  * tasks like applying filters, adjustments, or AI models to image regions
  * in a potentially concurrent or sequential manner.
  */
-class IProcessingTask {
+class IProcessingTask
+{
 public:
     /**
      * @brief Virtual destructor for safe inheritance.
@@ -56,7 +56,7 @@ public:
      * @return A float value between 0.0f (not started) and 1.0f (completed),
      *         representing the estimated progress of the task.
      */
-    virtual float progress() const = 0;
+    [[nodiscard]] virtual float progress() const = 0;
 
     /**
      * @brief Gets the result of the processed task.
@@ -68,7 +68,7 @@ public:
      * @return A shared pointer to the resulting ImageRegion. Can be nullptr
      *         if the task failed or has not yet produced a result.
      */
-    virtual std::shared_ptr<ImageRegion> result() const = 0;
+    [[nodiscard]] virtual std::shared_ptr<Common::ImageRegion> result() const = 0;
 
     /**
      * @brief Gets a unique identifier for this task instance.
@@ -76,7 +76,7 @@ public:
      * @return A string representing the unique ID of the task.
      *         Useful for tracking, logging, or managing multiple tasks.
      */
-    virtual std::string id() const = 0;
+    [[nodiscard]] virtual std::string id() const = 0;
 
 protected:
 
@@ -85,7 +85,7 @@ protected:
      * This method is defined inline within the class declaration.
      * @return A string in the format "task_<number>".
      */
-    static inline std::string generateId() {
+    [[nodiscard]] static inline std::string generateId() {
         return std::format("task_{}", s_task_id_generator.fetch_add(1, std::memory_order_relaxed));
     }
 
@@ -99,4 +99,6 @@ protected:
     std::string m_id;
 };
 
-} // namespace CaptureMoment
+} // namespace Domain
+
+} // namespace CaptureMoment::core
