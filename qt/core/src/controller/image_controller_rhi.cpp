@@ -94,7 +94,7 @@ void ImageControllerRHI::doLoadImage(const QString& filePath)
     onImageLoadResult(true, "");
 }
 
-void ImageControllerRHI::doApplyOperations(const std::vector<OperationDescriptor>& operations)
+void ImageControllerRHI::doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
 {
     spdlog::debug("ImageController::doApplyOperations: Starting operation processing");
 

@@ -28,7 +28,7 @@ namespace Rendering {
  * @brief QQuickItem that renders an image via QSGSimpleTextureNode.
  *
  * This class provides an image display component using the simpler QSGSimpleTextureNode
- * instead of the more complex QSGRenderNode. It converts ImageRegion data to a format
+ * instead of the more complex QSGRenderNode. It converts Core::Common::ImageRegion data to a format
  * suitable for QSGTexture (e.g., QImage) and manages zoom and pan operations.
  * It's a good choice for basic image display where custom RHI shaders are not needed.
  */
@@ -77,9 +77,9 @@ public:
      * This method safely updates the internal image data and marks the GPU texture
      * for an update on the next render pass.
      * 
-     * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
+     * @param image A shared pointer to the Core::Common::ImageRegion containing the full-resolution image data.
      */
-    void setImage(const std::shared_ptr<ImageRegion>& image) override;
+    void setImage(const std::shared_ptr<Core::Common::ImageRegion>& image) override;
             
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -88,9 +88,9 @@ public:
      * and marks the GPU texture for an update. It's intended for incremental updates
      * after processing specific regions.
      * 
-     * @param tile A shared pointer to the ImageRegion containing the processed tile data.
+     * @param tile A shared pointer to the Core::Common::ImageRegion containing the processed tile data.
      */
-    void updateTile(const std::shared_ptr<ImageRegion>& tile) override;
+    void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) override;
             
     // Zoom/Pan
     /**
@@ -163,7 +163,7 @@ protected:
             
 private:
     /**
-     * @brief Converts the internal ImageRegion to a QSGTexture.
+     * @brief Converts the internal Core::Common::ImageRegion to a QSGTexture.
      * 
      * This helper function converts the m_full_image (float32) to a QImage (uint8),
      * then creates or updates the m_cached_texture used by the QSGSimpleTextureNode.

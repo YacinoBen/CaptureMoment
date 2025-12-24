@@ -84,7 +84,7 @@ void ImageControllerPainted::doLoadImage(const QString& filePath)
     onImageLoadResult(true, "");
 }
 
-void ImageControllerPainted::doApplyOperations(const std::vector<OperationDescriptor>& operations)
+void ImageControllerPainted::doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
 {
     spdlog::debug("ImageController::doApplyOperations: Starting operation processing");
 

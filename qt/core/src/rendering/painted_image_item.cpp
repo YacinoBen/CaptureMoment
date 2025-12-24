@@ -26,7 +26,7 @@ namespace CaptureMoment::UI::Rendering {
 
     // Sets the full image to be displayed.
     // Updates the internal image data and schedules a repaint.
-    void PaintedImageItem::setImage(const std::shared_ptr<ImageRegion>& image) 
+    void PaintedImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
     {
         if (!image || !image->isValid())
         {
@@ -54,7 +54,7 @@ namespace CaptureMoment::UI::Rendering {
 
     // Updates a specific tile of the displayed image.
     // Merges the tile data into the internal QImage buffer and schedules a repaint.
-    void PaintedImageItem::updateTile(const std::shared_ptr<ImageRegion>& tile)
+    void PaintedImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
     {
          if (!tile || !tile->isValid()) {
         spdlog::warn("PaintedImageItem::updateTile: Invalid tile");
@@ -198,7 +198,7 @@ namespace CaptureMoment::UI::Rendering {
     }
 
     // Converts an ImageRegion to a QImage.
-    QImage PaintedImageItem::convertImageRegionToQImage(const ImageRegion& region) const {
+    QImage PaintedImageItem::convertImageRegionToQImage(const Core::Common::ImageRegion& region) const {
        if (!region.isValid()) {
         spdlog::error("PaintedImageItem::convertImageRegionToQImage: Invalid region");
         return QImage();

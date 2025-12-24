@@ -20,10 +20,10 @@ namespace CaptureMoment::UI {
         spdlog::debug("BrightnessModel: Created with default value {}", m_params.value);
     }
     
-    OperationDescriptor BrightnessModel::getDescriptor() const 
+    Core::Operations::OperationDescriptor BrightnessModel::getDescriptor() const
     {
-        OperationDescriptor descriptor;
-        descriptor.type = OperationType::Brightness;
+        Core::Operations::OperationDescriptor descriptor;
+        descriptor.type = Core::Operations::OperationType::Brightness;
         descriptor.name = "Brightness (" + std::to_string(static_cast<int>(m_params.value * 100)) + "%)";
         descriptor.enabled = true;
         descriptor.setParam<float>("value", m_params.value);
@@ -76,14 +76,14 @@ namespace CaptureMoment::UI {
             emit isActiveChanged(); // Pass the new active state
             spdlog::debug("BrightnessModel::setValue: Activity state changed to {}", is_now_active);
         }
-        OperationDescriptor descriptor = getDescriptor();
+        Core::Operations::OperationDescriptor descriptor = getDescriptor();
 
 
         // --- Trigger processing via ImageControllerBase ---
         if (m_image_controller) {
             // Send the single operation descriptor to the controller
             // applyOperations expects a vector
-            std::vector<OperationDescriptor> operations = {descriptor};
+            std::vector<Core::Operations::OperationDescriptor> operations = {descriptor};
             m_image_controller->applyOperations(operations); // Call the controller's method
         } else {
             spdlog::warn("BrightnessModel::setValue: No ImageControllerBase set, cannot apply operation.");
