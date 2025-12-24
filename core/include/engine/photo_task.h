@@ -20,6 +20,7 @@ namespace CaptureMoment::Core {
 namespace Domain {
 class IProcessingTask;
 }
+
 namespace Engine {
 /**
  * @brief Concrete implementation of IProcessingTask for applying a sequence of operations to an image tile.
@@ -86,7 +87,7 @@ public:
      *         this might be updated during the execute() call or simply return
      *         0.0f/1.0f if executed synchronously.
      */
-    [[nodiscard]] float progress() const override;
+    [[nodiscard]] float progress() const override { return m_progress; };
 
     /**
      * @brief Gets the result of the processed task.
@@ -95,7 +96,7 @@ public:
      *         tile if execution was successful, or nullptr if the task failed or
      *         has not yet been executed.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> result() const override;
+    [[nodiscard]] std::shared_ptr<Common::ImageRegion> result() const override { return m_result; };
 
     /**
      * @brief Gets the unique identifier for this task instance.
@@ -103,7 +104,7 @@ public:
      * @return A string representing the unique ID of the task.
      *         This ID is generated during construction.
      */
-    [[nodiscard]] std::string id() const override;
+    [[nodiscard]] std::string id() const override { return m_id; }
 };
 
 } // namespace Engine
