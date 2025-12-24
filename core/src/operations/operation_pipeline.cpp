@@ -7,17 +7,17 @@
 
 #include "operations/operation_pipeline.h"
 #include "operations/operation_factory.h"
-#include "operations/i_operation.h"
 #include "common/image_region.h"
 #include "operations/operation_descriptor.h"
+#include "operations/i_operation.h"
 #include <spdlog/spdlog.h>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core::Operations {
 
     // Implementation of the static applyOperations function.
     // Applies a sequence of operations to an image region.
     bool OperationPipeline::applyOperations(
-        ImageRegion& tile,                                  // The image region to process (modified in-place).
+        Common::ImageRegion& tile,                                  // The image region to process (modified in-place).
         const std::vector<OperationDescriptor>& operations, // The list of operations to apply.
         const OperationFactory& factory                     // The factory to create operation instances.
     ) {
@@ -53,4 +53,4 @@ namespace CaptureMoment {
         return true;
     }
     
-} // namespace CaptureMoment
+} // namespace CaptureMoment::Core::Operations
