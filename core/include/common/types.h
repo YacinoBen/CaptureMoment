@@ -65,6 +65,6 @@
  * - PhotoTask: Concrete implementation of IProcessingTask
  * - PhotoEngine: Concrete implementation of IProcessingBackend, orchestrates the processing flow
  */
-namespace CaptureMoment {
+namespace CaptureMoment::Core::Common {
     // Types and classes are defined in individual headers (see above)
 }
