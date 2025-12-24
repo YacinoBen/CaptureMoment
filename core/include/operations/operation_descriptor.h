@@ -10,10 +10,10 @@
 #include <string>
 #include <unordered_map>
 #include <any>
-#include <optional>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
 
+namespace Operations {
 
 /**
  * @struct OperationDescriptor
@@ -49,7 +49,7 @@ struct OperationDescriptor {
      * @brief Whether this operation is currently active.
      * If false, the pipeline should skip this operation.
      */
-    bool enabled{true};
+    bool enabled {true};
   
     /**
      * @brief Generic parameter storage.
@@ -93,4 +93,7 @@ struct OperationDescriptor {
     }
 };
 
-} // namespace CaptureMoment
+
+} // namespace Operations
+
+} // namespace CaptureMoment::Core
