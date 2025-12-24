@@ -8,8 +8,9 @@
 #pragma once
 #include "i_operation.h"
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
 
+namespace Operations {
 /**
  * @class BrightnessOperation
  * @brief Adjusts the brightness of an image region.
@@ -24,11 +25,12 @@ namespace CaptureMoment {
  * - > 0: Brighter
  * - < 0: Darker
  */
-class OperationBrightness : public IOperation {
+class OperationBrightness : public IOperation
+{
 public:
     // --- Metadata ---
-    OperationType type() const override { return OperationType::Brightness; }
-    const char* name() const override { return "Brightness"; }
+    [[nodiscard]] OperationType type() const override { return OperationType::Brightness; }
+    [[nodiscard]] const char* name() const override { return "Brightness"; }
 
     // --- Execution ---
     /**
@@ -39,7 +41,9 @@ public:
      * @param params Must contain a "value" (float) parameter.
      * @return true if successful.
      */
-    bool execute(ImageRegion& input, const OperationDescriptor& params) override;
+    [[nodiscard]] bool execute(Common::ImageRegion& input, const OperationDescriptor& params) override;
 };
 
-} // namespace CaptureMoment
+} // namespace Operations
+
+} // namespace CaptureMoment::Core
