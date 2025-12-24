@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include <spdlog/spdlog.h>
+#include <concepts>
 #include <cstdint> // Required for fixed-width integer types like uint8_t
 
 namespace CaptureMoment::Core {
@@ -83,6 +85,47 @@ enum class PixelFormat : uint8_t {
      */
     RGB_U8
 };
+
+/**
+ * @concept ValidPixelFormat
+ * @brief Checks if a type is a valid PixelFormat enum value.
+ */
+template<typename T>
+concept ValidPixelFormat = std::same_as<T, PixelFormat>;
+
+/**
+ * @brief Returns the number of channels for a given PixelFormat.
+ * @param pf The pixel format.
+ * @return The number of channels (e.g., 3 for RGB, 4 for RGBA).
+ */
+[[nodiscard]] constexpr int getChannelCount(PixelFormat pf) noexcept
+{
+    switch(pf) {
+    case PixelFormat::RGBA_F32:
+    case PixelFormat::RGBA_U8:
+        return 4;
+    case PixelFormat::RGB_F32:
+    case PixelFormat::RGB_U8:
+        return 3;
+    default :
+        spdlog::error("PixelFormat::getChannelCount : no channel found");
+        return 0;
+    }
+}
+/**
+ * @brief Returns the size in bytes of a single pixel for a given PixelFormat.
+ * @param fmt The pixel format.
+ * @return The size in bytes (e.g., 12 for RGB_F32, 16 for RGBA_F32).
+ */
+[[nodiscard]] constexpr size_t getPixelSizeInBytes(PixelFormat pf) noexcept
+{
+    const int channels = getChannelCount(pf);
+    if (pf == PixelFormat::RGBA_F32 || pf == PixelFormat::RGB_F32) {
+        return channels * sizeof(float);
+    } else { // U8 formats
+        return channels * sizeof(uint8_t);
+    }
+}
 
 } // namespace Common
 
