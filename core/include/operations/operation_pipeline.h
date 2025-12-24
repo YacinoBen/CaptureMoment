@@ -9,11 +9,16 @@
 
 #include <vector> // Required for std::vector
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
+
+namespace Common {
+struct ImageRegion;
+}
+
+namespace Operations {
 
 // Forward declarations
 class OperationFactory;
-struct ImageRegion;
 struct OperationDescriptor;
 
 /**
@@ -44,10 +49,12 @@ public:
      * @return true if all operations were applied successfully, false otherwise.
      */
     [[nodiscard]] static bool applyOperations(
-        ImageRegion& tile,
+        Common::ImageRegion& tile,
         const std::vector<OperationDescriptor>& operations,
         const OperationFactory& factory
-    );
+        );
 };
 
-} // namespace CaptureMoment
+} // namespace Operations
+
+} // namespace CaptureMoment::Core
