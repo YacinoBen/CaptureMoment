@@ -73,7 +73,7 @@ public:
      * 
      * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
      */
-    void setImage(const std::shared_ptr<ImageRegion>& image) override;
+    void setImage(const std::shared_ptr<Core::Common::ImageRegion>& image) override;
     
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -84,7 +84,7 @@ public:
      * 
      * @param tile A shared pointer to the ImageRegion containing the processed tile data.
      */
-    void updateTile(const std::shared_ptr<ImageRegion>& tile) override;
+    void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) override;
     
     // Zoom/Pan
     /**
@@ -157,7 +157,7 @@ private:
      * @param region The ImageRegion to convert.
      * @return The resulting QImage.
      */
-    QImage convertImageRegionToQImage(const ImageRegion& region) const;
+    QImage convertImageRegionToQImage(const Core::Common::ImageRegion& region) const;
 };
 
 } // namespace Rendering

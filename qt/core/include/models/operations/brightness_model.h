@@ -85,7 +85,7 @@ public:
      * @brief Gets the type of this operation.
      * @return OperationType::Brightness.
      */
-    OperationType getType() const override { return OperationType::Brightness; }
+    Core::Operations::OperationType getType() const override { return Core::Operations::OperationType::Brightness; }
 
     /**
      * @brief Creates and returns an OperationDescriptor representing the current state of this model.
@@ -93,7 +93,7 @@ public:
      * and other metadata required by the core processing engine (PipelineEngine).
      * @return OperationDescriptor representing the current brightness state.
      */
-    OperationDescriptor getDescriptor() const override;
+    Core::Operations::OperationDescriptor getDescriptor() const override;
 
     /**
      * @brief Sets the ImageControllerBase reference used for applying operations.

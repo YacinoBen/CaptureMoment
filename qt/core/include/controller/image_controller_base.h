@@ -109,7 +109,7 @@ public slots:
      * @brief Apply operation with parameters (non-blocking)
      * @param operations Vector of operation descriptors
      */
-    void applyOperations(const std::vector<OperationDescriptor>& operations);
+    void applyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations);
     /**
      * @brief Internal: Handle load image result
      * @param success Whether load succeeded
@@ -158,7 +158,7 @@ protected:
     /**
      * @brief Core processing engine
      */
-    std::shared_ptr<PhotoEngine> m_engine;
+    std::shared_ptr<Core::Engine::PhotoEngine> m_engine;
 
     /**
      * @brief The unique displaymanager instance for managing display updates
@@ -183,7 +183,7 @@ protected:
     /**
      * @brief Perform actual operations (runs on worker thread)
      */
-    virtual void doApplyOperations(const std::vector<OperationDescriptor>& operations) = 0;
+    virtual void doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations) = 0;
 };
 
 } // namespace Controller

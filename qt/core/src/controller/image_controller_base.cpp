@@ -20,17 +20,17 @@ ImageControllerBase::ImageControllerBase(QObject* parent)
     : QObject(parent) {
     
     // Create Core components
-    auto source = std::make_shared<SourceManager>();
-    auto factory = std::make_shared<OperationFactory>();
+    auto source = std::make_shared<Core::Managers::SourceManager>();
+    auto factory = std::make_shared<Core::Operations::OperationFactory>();
 
     // Create the display manager
     m_display_manager = std::make_unique<CaptureMoment::UI::Display::DisplayManager>(this);
     
     // Register all operations (Brightness, Contrast, etc.)
-    OperationRegistry::registerAll(*factory);
+    Core::Operations::OperationRegistry::registerAll(*factory);
     
     // Create PhotoEngine with registered operations
-    m_engine = std::make_shared<PhotoEngine>(source, factory);
+    m_engine = std::make_shared<Core::Engine::PhotoEngine>(source, factory);
     
     spdlog::info("ImageControllerBase: Initialized with PhotoEngine");
 }
@@ -78,7 +78,7 @@ void ImageControllerBase::loadImage(const QString& filePath)
     }, Qt::QueuedConnection);
 }
 
-void ImageControllerBase::applyOperations(const std::vector<OperationDescriptor>& operations)
+void ImageControllerBase::applyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
 {
     if (!m_engine) {
         emit operationFailed("No image loaded");

@@ -24,7 +24,7 @@ RHIImageItem::~RHIImageItem() {
 }
 // Sets the full image to be displayed.
 // Updates the internal image data and marks the GPU texture for update.
-void RHIImageItem::setImage(const std::shared_ptr<ImageRegion>& image) 
+void RHIImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
 {
     if (!image || !image->isValid())
     {
@@ -59,7 +59,7 @@ void RHIImageItem::setPan(const QPointF& pan)
 
 // Updates a specific tile of the displayed image.
 // Merges the tile data into the full image buffer (CPU side) and marks the GPU texture for update.
-void RHIImageItem::updateTile(const std::shared_ptr<ImageRegion>& tile)
+void RHIImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
 {
     if (!tile || !tile->isValid())
     {

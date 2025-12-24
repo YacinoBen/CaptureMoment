@@ -416,7 +416,7 @@ void RHIImageNode::updateTexture()
     spdlog::info("RHIImageNode::updateTexture: start uploadPixelData");
     uploadPixelData(m_item->m_full_image);
 }
-void RHIImageNode::uploadPixelData(const std::shared_ptr<ImageRegion>& image)
+void RHIImageNode::uploadPixelData(const std::shared_ptr<Core::Common::ImageRegion>& image)
 {
     // --- Validate input data and QRhi instance ---
     if (!image || !m_rhi) {

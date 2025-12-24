@@ -79,7 +79,7 @@ private:
     /** @brief Pre-calculated scale factor (m_display_image_size / m_source_image_size). */
     float m_display_scale{1.0f};
 
-    std::shared_ptr<ImageRegion> m_source_image;
+    std::shared_ptr<Core::Common::ImageRegion> m_source_image;
     
     /** @brief Pointer to the active rendering component. */
     Rendering::IRenderingItemBase* m_rendering_item{nullptr};
@@ -107,13 +107,13 @@ public:
      * @brief Initializes the display buffer from a full-resolution source.
      * @param sourceImage Shared pointer to the source ImageRegion.
      */
-    void createDisplayImage(const std::shared_ptr<ImageRegion>& sourceImage);
+    void createDisplayImage(const std::shared_ptr<Core::Common::ImageRegion>& sourceImage);
     
     /**
      * @brief Updates a specific part of the display image.
      * @param sourceTile The high-resolution tile to be downsampled and updated.
      */
-    void updateDisplayTile(const std::shared_ptr<ImageRegion>& sourceTile);
+    void updateDisplayTile(const std::shared_ptr<Core::Common::ImageRegion>& sourceTile);
     
     /**
      * @brief Updates the magnification level.
@@ -216,8 +216,8 @@ private:
      * @param targetHeight Desired height.
      * @return A new downsampled ImageRegion.
      */
-    std::shared_ptr<ImageRegion> downsampleImage(
-        const ImageRegion& source, int targetWidth, int targetHeight
+    std::shared_ptr<Core::Common::ImageRegion> downsampleImage(
+        const Core::Common::ImageRegion& source, int targetWidth, int targetHeight
     ) const;
     
     /** @brief Ensures the pan offset keeps the image within reasonable bounds. */

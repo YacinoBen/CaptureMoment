@@ -13,8 +13,9 @@
 #include "domain/i_processing_task.h"
 #include "operations/operation_descriptor.h"
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
 
+namespace Domain {
 /**
  * @brief Abstract base class defining the interface for a backend that manages image processing tasks.
  *
@@ -47,9 +48,9 @@ public:
      *         The returned object is not executed yet.
      */
     virtual std::shared_ptr<IProcessingTask> createTask(
-        const std::vector<OperationDescriptor>& ops,
+        const std::vector<Operations::OperationDescriptor>& ops,
         int x, int y, int width, int height
-    ) = 0;
+        ) = 0;
 
     /**
      * @brief Submits a processing task for execution.
@@ -66,4 +67,6 @@ public:
     [[nodiscard]] virtual bool submit(std::shared_ptr<IProcessingTask> task) = 0;
 };
 
-} // namespace CaptureMoment
+} // namespace Domain
+
+} // namespace CaptureMoment::core

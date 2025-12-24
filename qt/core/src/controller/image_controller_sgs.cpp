@@ -94,7 +94,7 @@ void ImageControllerSGS::doLoadImage(const QString& filePath)
     onImageLoadResult(true, "");
 }
 
-void ImageControllerSGS::doApplyOperations(const std::vector<OperationDescriptor>& operations)
+void ImageControllerSGS::doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
 {
     spdlog::debug("ImageController::doApplyOperations: Starting operation processing");
     

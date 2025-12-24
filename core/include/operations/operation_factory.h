@@ -12,7 +12,9 @@
 #include <unordered_map>
 #include <functional>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core {
+
+namespace Operations {
 
 // Forward declarations
 class IOperation;
@@ -44,11 +46,13 @@ public:
      * @param descriptor Operation descriptor with type information
      * @return Unique pointer to operation, or nullptr if type not registered
      */
-    std::unique_ptr<IOperation> create(const OperationDescriptor& descriptor) const;
+    [[nodiscard]] std::unique_ptr<IOperation> create(const OperationDescriptor& descriptor) const;
 
 private:
     using OperationCreator = std::function<std::unique_ptr<IOperation>()>;
     std::unordered_map<OperationType, OperationCreator> m_creators;
 };
 
-} // namespace CaptureMoment
+} // namespace Operations
+
+} // namespace CaptureMoment::Core

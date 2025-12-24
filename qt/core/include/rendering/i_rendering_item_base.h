@@ -40,7 +40,7 @@ protected:
      * 
      * This member holds the complete image data (CPU side, float32) which is used to update the display.
      */
-    std::shared_ptr<ImageRegion> m_full_image;      
+    std::shared_ptr<Core::Common::ImageRegion> m_full_image;
     
     /**
      * @brief Flag indicating if the display needs to be updated from m_full_image.
@@ -87,7 +87,7 @@ public:
      * 
      * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
      */
-    virtual void setImage(const std::shared_ptr<ImageRegion>& image) = 0;
+    virtual void setImage(const std::shared_ptr<Core::Common::ImageRegion>& image) = 0;
     
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -98,7 +98,7 @@ public:
      * 
      * @param tile A shared pointer to the ImageRegion containing the processed tile data.
      */
-    virtual void updateTile(const std::shared_ptr<ImageRegion>& tile) = 0;
+    virtual void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) = 0;
     
     // Zoom/Pan
     /**

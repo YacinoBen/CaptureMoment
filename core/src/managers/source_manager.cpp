@@ -10,7 +10,7 @@
 #include "managers/source_manager.h"
 #include <algorithm>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core::Managers {
 
 static std::shared_ptr<OIIO::ImageCache> s_globalCachePtr = nullptr;
 
@@ -37,6 +37,10 @@ OIIO::ImageCache* SourceManager::getGlobalCache()
 SourceManager::SourceManager()
     : m_cache(getGlobalCache())
 {
+    if (!m_cache) {
+        spdlog::critical("SourceManager: Failed to get global ImageCache, initialization failed.");
+        throw std::runtime_error("SourceManager: Failed to get global ImageCache.");
+    }
     spdlog::debug("SourceManager: Instance created.");
 }
 
@@ -49,40 +53,45 @@ SourceManager::~SourceManager()
 bool SourceManager::loadFile(std::string_view path)
 {
 
+    if (path.empty()) {
+        spdlog::warn("SourceManager::loadFile: Empty file path provided.");
+        return false;
+    }
+
     // 1. If an image is already loaded, unload it first (cleanup old state)
     if (isLoaded()) {
-        unload(); // Calls m_imageBuf.reset() internally
+        unload(); // Calls m_image_buf.reset() internally
     }
 
     spdlog::info("SourceManager: Attempting to load file: '{}'", path);
 
     try {
-        m_imageBuf = std::make_unique<OIIO::ImageBuf>(
+        m_image_buf = std::make_unique<OIIO::ImageBuf>(
             std::string(path),
             0, 0,  // subimage, miplevel
             s_globalCachePtr
         );
         
-        if (!m_imageBuf->read()) 
+        if (!m_image_buf->read())
         {
             spdlog::warn("SourceManager: Failed to read file '{}'. OIIO Message: {}", 
-                         path, m_imageBuf->geterror());
-            m_imageBuf.reset();
+                         path, m_image_buf->geterror());
+            m_image_buf.reset();
             return false;
         }
         
-        m_currentPath = path;
+        m_current_path = path;
 
         // LOG: Success log with dimensions
         spdlog::info("SourceManager: Successfully loaded '{}'. Resolution: {}x{} ({} channels).", 
-                     m_currentPath, width(), height(), channels());
+                     m_current_path, width(), height(), channels());
         return true;
         
     } catch (const std::exception& e) {
         spdlog::critical("SourceManager: C++ Exception during file loading of '{}': {}", 
                          path, e.what());
         
-        m_imageBuf.reset();
+        m_image_buf.reset();
         return false;
     }
 }
@@ -91,34 +100,40 @@ void SourceManager::unload()
 {
 
     if (isLoaded()) {
-    spdlog::info("SourceManager: Unloading '{}'.", m_currentPath);
+    spdlog::info("SourceManager: Unloading '{}'.", m_current_path);
     }
 
-    m_imageBuf.reset();
-    m_currentPath.clear();
+    m_image_buf.reset();
+    m_current_path.clear();
 }
 
 bool SourceManager::isLoaded() const {
-    return m_imageBuf && m_imageBuf->initialized();
+    return m_image_buf && m_image_buf->initialized();
 }
 
 int SourceManager::width() const noexcept {
-    return isLoaded() ? m_imageBuf->spec().width : 0;
+    return isLoaded() ? m_image_buf->spec().width : 0;
 }
 
 int SourceManager::height() const noexcept {
-    return isLoaded() ? m_imageBuf->spec().height : 0;
+    return isLoaded() ? m_image_buf->spec().height : 0;
 }
 
 int SourceManager::channels() const noexcept {
-    return isLoaded() ? m_imageBuf->spec().nchannels : 0;
+    return isLoaded() ? m_image_buf->spec().nchannels : 0;
 }
 
-std::unique_ptr<ImageRegion> SourceManager::getTile(
+std::unique_ptr<Common::ImageRegion> SourceManager::getTile(
     int x, int y, int width, int height) 
 {
     if (!isLoaded()) {
         spdlog::warn("getTile() called but no image loaded");
+        return nullptr;
+    }
+
+
+    if (width <= 0 || height <= 0) {
+        spdlog::warn("SourceManager::getTile: Invalid dimensions requested ({}x{})", width, height);
         return nullptr;
     }
     
@@ -130,24 +145,30 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
     int clamped_width = std::min(width, this->width() - clamped_x);
     int clamped_height = std::min(height, this->height() - clamped_y);
     
+
+    if (clamped_width <= 0 || clamped_height <= 0) {
+        spdlog::warn("SourceManager::getTile: Clamped region has zero area ({}x{})", clamped_width, clamped_height);
+        return nullptr;
+    }
+
     spdlog::info("SourceManager::getTile : clamped_x : {}, clamped_y : {}, clamped_width : {}, clamped_height: {}", clamped_x,clamped_y, clamped_width, clamped_height);
      // 2. Preparation of ImageRegion
-    auto region = std::make_unique<ImageRegion>();
+    auto region = std::make_unique<Common::ImageRegion>();
     region->m_x = clamped_x;
     region->m_y = clamped_y;
     region->m_width = clamped_width;
     region->m_height = clamped_height;
     region->m_channels = 4;  // Force RGBA
-    region->m_format = PixelFormat::RGBA_F32;
+    region->m_format = Common::PixelFormat::RGBA_F32;
 
     // Allocation of the memory buffer (4 channels * sizeof(float))
     // We resize the vector to hold the required bytes.
     const size_t dataSize = static_cast<size_t>(clamped_width * clamped_height * 4);
     region->m_data.resize(dataSize);
     
-    int sourceChannels = this->channels();
+    int source_channels = this->channels();
 
-      if (sourceChannels == 4) 
+      if (source_channels == 4)
       {
         OIIO::ROI roi(
             clamped_x, clamped_x + clamped_width,
@@ -156,14 +177,14 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
             0, 4   // Channels
         );
 
-        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, region->m_data.data())) {
+        if (!m_image_buf->get_pixels(roi, OIIO::TypeDesc::FLOAT, region->m_data.data())) {
             spdlog::warn("Failed to extract RGBA tile at ({}, {})", clamped_x, clamped_y);
             return nullptr;
         }
 
         spdlog::info("SourceManager::getTile: Read 4-channel data directly.");
 
-      } else if (sourceChannels == 3) {
+      } else if (source_channels == 3) {
         std::vector<float> tempRGB(clamped_width * clamped_height * 3);
 
         OIIO::ROI roi(
@@ -173,7 +194,7 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
             0, 3   
         );
         
-        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempRGB.data())) {
+        if (!m_image_buf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempRGB.data())) {
             spdlog::warn("Failed to extract RGB tile at ({}, {})", clamped_x, clamped_y);
             return nullptr;
         }
@@ -188,7 +209,7 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
 
         spdlog::info("SourceManager::getTile: Converted 3-channel data to 4-channel.");
     }
-    else if (sourceChannels == 1) 
+    else if (source_channels == 1)
     {
         // Grayscale source
         std::vector<float> tempGray(clamped_width * clamped_height);
@@ -197,10 +218,10 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
             clamped_x, clamped_x + clamped_width,
             clamped_y, clamped_y + clamped_height,
             0, 1,  // Z
-            0, 1   // ✅ Lire seulement 1 canal
+            0, 1
         );
         
-        if (!m_imageBuf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempGray.data())) {
+        if (!m_image_buf->get_pixels(roi, OIIO::TypeDesc::FLOAT, tempGray.data())) {
             spdlog::warn("Failed to extract grayscale tile at ({}, {})", clamped_x, clamped_y);
             return nullptr;
         }
@@ -217,7 +238,7 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
         spdlog::info("SourceManager::getTile: Converted 1-channel data to 4-channel.");
 
     } else {
-        spdlog::error("Unsupported source channel count: {}", sourceChannels);
+        spdlog::error("Unsupported source channel count: {}", source_channels);
         return nullptr;
     }
 
@@ -227,20 +248,39 @@ std::unique_ptr<ImageRegion> SourceManager::getTile(
     }
 
     spdlog::info("SourceManager: Tile extracted: ({}, {}) {}*{} → RGBA_F32 (from {} channels source)",
-                  clamped_x, clamped_y, clamped_width, clamped_height, sourceChannels);
+                  clamped_x, clamped_y, clamped_width, clamped_height, source_channels);
 
     return region;
 }
 
-bool SourceManager::setTile(const ImageRegion& tile)
+bool SourceManager::setTile(const Common::ImageRegion& tile)
 {
     if (!isLoaded()) {
-        spdlog::warn("setTile() called but no image loaded");
+        spdlog::warn("SourceManager::setTile: Called but no image loaded");
         return false;
     }
 
-    if (!tile.isValid() || tile.m_format != PixelFormat::RGBA_F32 || tile.m_channels != 4) {
-        spdlog::error("setTile() received an invalid or unsupported ImageRegion (must be RGBA_F32, 4 channels).");
+    if (!tile.isValid()) {
+        spdlog::error("SourceManager::setTile: Received an invalid ImageRegion.");
+        return false;
+    }
+
+    if (tile.m_format != Common::PixelFormat::RGBA_F32) {
+        spdlog::error("SourceManager::setTile: ImageRegion format is not RGBA_F32 (got {}).", static_cast<int>(tile.m_format));
+        return false;
+    }
+
+    if (tile.m_channels != 4) {
+        spdlog::error("SourceManager::setTile: ImageRegion does not have 4 channels (got {}).", tile.m_channels);
+        return false;
+    }
+
+    // Vérification des bornes
+    if (tile.m_x < 0 || tile.m_y < 0 ||
+        tile.m_x + tile.m_width > this->width() ||
+        tile.m_y + tile.m_height > this->height()) {
+        spdlog::error("SourceManager::setTile: Tile coordinates ({},{}) size ({}x{}) are out of image bounds ({}x{}).",
+                      tile.m_x, tile.m_y, tile.m_width, tile.m_height, this->width(), this->height());
         return false;
     }
 
@@ -250,17 +290,17 @@ bool SourceManager::setTile(const ImageRegion& tile)
         tile.m_y, tile.m_y + tile.m_height,
         0, 1, // Zmin, Zmax
         0, 4 // Cmin, Cmax (4 channels for writing)
-    );
+        );
 
-    // 2. writing pixels back into the ImageBuf
+    // 2. Writing pixels back into the ImageBuf
     // The ImageBuf is updated using TypeDesc::FLOAT (corresponding to std::vector<float>).
-    if (!m_imageBuf->set_pixels(roi, OIIO::TypeDesc::FLOAT, tile.m_data.data())) {
-        spdlog::error("Failed to write tile back at ({}, {}). OIIO Error: {}",
-                      tile.m_x, tile.m_y, m_imageBuf->geterror());
+    if (!m_image_buf->set_pixels(roi, OIIO::TypeDesc::FLOAT, tile.m_data.data())) {
+        spdlog::error("SourceManager::setTile: Failed to write tile back at ({}, {}). OIIO Error: {}",
+                      tile.m_x, tile.m_y, m_image_buf->geterror());
         return false;
     }
 
-    spdlog::trace("SourceManager: Tile written back: ({}, {}) {}x{} (RGBA_F32).",
+    spdlog::trace("SourceManager::setTile: Tile written back: ({}, {}) {}x{} (RGBA_F32).",
                   tile.m_x, tile.m_y, tile.m_width, tile.m_height);
     return true;
 }
@@ -271,7 +311,7 @@ std::optional<std::string> SourceManager::getMetadata(std::string_view key) cons
         return std::nullopt;
     }
     
-    const auto& spec = m_imageBuf->spec();
+    const auto& spec = m_image_buf->spec();
     auto* attr = spec.find_attribute(std::string(key));
 
    // to avoid problematic implicit conversion of the ternary operator.
@@ -283,4 +323,4 @@ std::optional<std::string> SourceManager::getMetadata(std::string_view key) cons
     }
 }
 
-} // namespace CaptureMoment
+} // namespace CaptureMoment::Core::Managers

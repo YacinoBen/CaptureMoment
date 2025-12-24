@@ -7,13 +7,14 @@
 
 #include "engine/photo_engine.h"
 #include "engine/photo_task.h"
+#include <string_view>
 #include <spdlog/spdlog.h>
 
-namespace CaptureMoment {
+namespace CaptureMoment::Core::Engine {
 
 // Constructor: Initializes the engine with required managers/factories.
-PhotoEngine::PhotoEngine(std::shared_ptr<SourceManager> source_manager,
-                         std::shared_ptr<OperationFactory> operation_factory)
+PhotoEngine::PhotoEngine(std::shared_ptr<Managers::SourceManager> source_manager,
+                         std::shared_ptr<Operations::OperationFactory> operation_factory)
     : m_source_manager{source_manager}, m_operation_factory{operation_factory}, m_working_image{nullptr} {}
 
 // Loads a photo file using the SourceManager.
@@ -45,8 +46,8 @@ bool PhotoEngine::loadImage(std::string_view path)
 }
 
 // Creates a processing task (Implementation of IProcessingBackend interface).
-std::shared_ptr<IProcessingTask> PhotoEngine::createTask(
-    const std::vector<OperationDescriptor>& ops, // List of operations to apply.
+std::shared_ptr<Domain::IProcessingTask> PhotoEngine::createTask(
+    const std::vector<Operations::OperationDescriptor>& ops, // List of operations to apply.
     int x, int y, int width, int height          // Region of interest (ROI) for the task.
     )
 {
@@ -63,7 +64,7 @@ std::shared_ptr<IProcessingTask> PhotoEngine::createTask(
         return nullptr;
     }
 
-    auto tile_unique_ptr = std::make_unique<ImageRegion>();
+    auto tile_unique_ptr = std::make_unique<Common::ImageRegion>();
     tile_unique_ptr->m_x = x; // Use the requested coordinates for the tile
     tile_unique_ptr->m_y = y;
     tile_unique_ptr->m_width = width;
@@ -88,13 +89,13 @@ std::shared_ptr<IProcessingTask> PhotoEngine::createTask(
     }
 
     if (!tile_unique_ptr) {
-        spdlog::warn("PhotoEngine::createTask: Failed to retrieve the requested region from working image.");
+        spdlog::warn("PhotoEngine::createTask: Failed to create a valid tile from working image for ROI ({},{},{},{}).", x, y, width, height);
         return nullptr;
     }
 
     // 2. Converts the unique_ptr to shared_ptr BEFORE calling it at make_shared
     // We use the shared_ptr constructor which takes a unique_ptr.
-    std::shared_ptr<ImageRegion> tile_shared_ptr = std::move(tile_unique_ptr);
+    std::shared_ptr<Common::ImageRegion> tile_shared_ptr = std::move(tile_unique_ptr);
 
     // 3. Creates and returns a new PhotoTask instance with the shared_ptr
     // The order of arguments in the PhotoTask constructor is:
@@ -103,7 +104,8 @@ std::shared_ptr<IProcessingTask> PhotoEngine::createTask(
 }
 
 // Submits a task for execution (Implementation of IProcessingBackend interface).
-bool PhotoEngine::submit(std::shared_ptr<IProcessingTask> task) {
+bool PhotoEngine::submit(std::shared_ptr<Domain::IProcessingTask> task)
+{
     // Check if the task pointer is valid.
     if (!task) {
         // Error handling: The task pointer is null.
@@ -120,7 +122,8 @@ bool PhotoEngine::submit(std::shared_ptr<IProcessingTask> task) {
 }
 
 // Commits the result of a completed task back to the source image.
-bool PhotoEngine::commitResult(const std::shared_ptr<IProcessingTask>& task) {
+bool PhotoEngine::commitResult(const std::shared_ptr<Domain::IProcessingTask>& task)
+{
     // Check if the task pointer is valid.
     if (!task) {
         // Error handling: The task pointer is null.
@@ -192,7 +195,10 @@ bool PhotoEngine::commitWorkingImageToSource()
 
 void PhotoEngine::resetWorkingImage()
 {
-    if (!m_source_manager) return;
+    if (!m_source_manager) {
+        spdlog::warn("PhotoEngine::resetWorkingImage: SourceManager is null, cannot reset.");
+        return;
+    }
 
     // Fetch the full original image
     int w = m_source_manager->width();
@@ -201,14 +207,21 @@ void PhotoEngine::resetWorkingImage()
     if (w > 0 && h > 0) {
         auto full_original = m_source_manager->getTile(0, 0, w, h);
         if (full_original) {
-            m_working_image = std::shared_ptr<ImageRegion>(std::move(full_original));
-            spdlog::info("PhotoEngine: Working Image reset to Original.");
+            m_working_image = std::shared_ptr<Common::ImageRegion>(std::move(full_original));
+            spdlog::info("PhotoEngine::resetWorkingImage: Working Image reset to Original ({}x{}).", w, h);
+        } else {
+            spdlog::error("PhotoEngine::resetWorkingImage: Failed to get full original tile from SourceManager.");
+            m_working_image = nullptr;
         }
+    } else {
+        spdlog::warn("PhotoEngine::resetWorkingImage: Source image has invalid dimensions ({}x{}).", w, h);
+        m_working_image = nullptr;
     }
 }
 
 // Returns the width of the currently loaded image.
-int PhotoEngine::width() const noexcept {
+int PhotoEngine::width() const noexcept
+{
     // Check if the source manager is valid to prevent crashes.
     if (m_source_manager) {
         return m_source_manager->width();
@@ -218,7 +231,8 @@ int PhotoEngine::width() const noexcept {
 }
 
 // Returns the height of the currently loaded image.
-int PhotoEngine::height() const noexcept {
+int PhotoEngine::height() const noexcept
+{
     if (m_source_manager) {
         return m_source_manager->height();
     }
@@ -226,11 +240,12 @@ int PhotoEngine::height() const noexcept {
 }
 
 // Returns the number of channels of the currently loaded image.
-int PhotoEngine::channels() const noexcept {
+int PhotoEngine::channels() const noexcept
+{
     if (m_source_manager) {
         return m_source_manager->channels();
     }
     return 0;
 }
 
-} // namespace CaptureMoment
+} // namespace CaptureMoment::Core::Engine
