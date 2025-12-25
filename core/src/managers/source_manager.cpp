@@ -63,7 +63,7 @@ bool SourceManager::loadFile(std::string_view path)
         unload(); // Calls m_image_buf.reset() internally
     }
 
-    spdlog::info("SourceManager: Attempting to load file: '{}'", path);
+    spdlog::info("SourceManager::loadFile Attempting to load file: '{}'", path);
 
     try {
         m_image_buf = std::make_unique<OIIO::ImageBuf>(
@@ -88,7 +88,7 @@ bool SourceManager::loadFile(std::string_view path)
         return true;
         
     } catch (const std::exception& e) {
-        spdlog::critical("SourceManager: C++ Exception during file loading of '{}': {}", 
+        spdlog::critical("SourceManager::loadFile C++ Exception during file loading of '{}': {}",
                          path, e.what());
         
         m_image_buf.reset();
