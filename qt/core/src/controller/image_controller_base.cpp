@@ -17,7 +17,8 @@
 namespace CaptureMoment::UI::Controller {
 
 ImageControllerBase::ImageControllerBase(QObject* parent)
-    : QObject(parent) {
+    : QObject(parent)
+{
     
     // Create Core components
     auto source = std::make_shared<Core::Managers::SourceManager>();
@@ -70,7 +71,7 @@ void ImageControllerBase::loadImage(const QString& filePath)
         return;
     }
     
-    spdlog::info("ImageControllerBase::loadImage: Loading {}", filePath.toStdString());
+    spdlog::info("ImageControllerBase::loadImage: calling method-thread doLoadImage() Loading {}", filePath.toStdString());
 
     // Run on worker thread to avoid blocking UI
     QMetaObject::invokeMethod(this, [this, filePath]() {
@@ -128,4 +129,4 @@ void ImageControllerBase::onOperationResult(bool success, const QString& errorMs
     }
 }
 
-} // namespace CaptureMoment::UI
+} // namespace CaptureMoment::UI::Controller
