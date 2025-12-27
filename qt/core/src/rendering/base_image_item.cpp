@@ -37,4 +37,17 @@ void BaseImageItem::setPan(const QPointF& pan) {
     }
 }
 
+// Gets the width of the image.
+int BaseImageItem::imageWidth() const
+{
+    QMutexLocker lock(&m_image_mutex);
+    return m_image_width;
+}
+
+// Gets the height of the image.
+int BaseImageItem::imageHeight() const
+{
+    QMutexLocker lock(&m_image_mutex);
+    return m_image_height;
+}
 } // namespace CaptureMoment::UI::Rendering
