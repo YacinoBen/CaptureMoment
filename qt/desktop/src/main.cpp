@@ -3,7 +3,7 @@
 
 #include "utils/qml_context_setup.h"
 //#include "rendering/qml_rhi_image_item.h"
-//#include "rendering/qml_sgs_image_item.h"
+#include "rendering/qml_sgs_image_item.h"
 #include "rendering/qml_painted_image_item.h"
 
 #include <spdlog/spdlog.h>
@@ -15,8 +15,11 @@ int main(int argc, char *argv[])
 
     // Register QML types
     qmlRegisterType<CaptureMoment::UI::QMLPaintedImageItem>(
-        "CaptureMoment.UI.Painted.Rendering", 1, 0, "QMLPaintedImageItem"
+        "CaptureMoment.UI.Rendering.Painted", 1, 0, "QMLPaintedImageItem"
     );
+    qmlRegisterType<CaptureMoment::UI::QMLSGSImageItem>(
+        "CaptureMoment.UI.Rendering.SGS", 1, 0, "QMLSGSImageItem"
+        );
 
     // Setup QML context once
     auto context = engine.rootContext();

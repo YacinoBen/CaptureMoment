@@ -2,7 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
-import CaptureMoment.UI.Painted.Rendering 1.0
+import CaptureMoment.UI.Rendering.Painted 1.0
+import CaptureMoment.UI.Rendering.SGS 1.0
+
 import CaptureMoment.desktop
 
 Rectangle {
@@ -12,14 +14,14 @@ Rectangle {
     
     signal openImageClicked()
 
-    QMLPaintedImageItem {
+    QMLSGSImageItem {
         id: imageDisplay
         anchors.fill: parent
 
-        onImageDimensionsChanged: {
+        /*onImageDimensionsChanged: {
             console.log("DisplayArea.qml::onImageDimensionsChanged: width: ", imageDisplay.imageWidth)
             console.log("DisplayArea.qml::onWidthChanged: height: ", imageDisplay.imageHeight)
-        }
+        }*/
     }
 
     // Setup image display when loaded

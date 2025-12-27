@@ -3,7 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Controls.Material
 
-import CaptureMoment.UI.Painted.Rendering 1.0
 import CaptureMoment.desktop
 
 ApplicationWindow {
