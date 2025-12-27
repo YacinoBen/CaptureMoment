@@ -86,7 +86,6 @@ public:
      */
     void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) override;
     
-    // Zoom/Pan
     /**
      * @brief Sets the zoom level.
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
@@ -96,28 +95,31 @@ public:
      * @brief Gets the current zoom level.
      * @return The current zoom factor.
      */
-    float zoom() const { return m_zoom; }
+    [[nodiscard]] float zoom() const override { return m_zoom; }
+
     /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
     void setPan(const QPointF& pan) override;
+
     /**
      * @brief Gets the current pan offset.
      * @return The current pan offset.
      */
-    QPointF pan() const { return m_pan; }
+     [[nodiscard]] QPointF pan() const override { return m_pan; }
 
     /**
      * @brief Get the width of the image.
      * @return The image width in pixels, or 0 if no image is loaded.
      */
-    int imageWidth() const override;
+     [[nodiscard]] int imageWidth() const override;
+
     /**
      * @brief Get the height of the image.
      * @return The image height in pixels, or 0 if no image is loaded.
      */
-    int imageHeight() const override;
+     [[nodiscard]] int imageHeight() const override;
 
 signals:
     /**
