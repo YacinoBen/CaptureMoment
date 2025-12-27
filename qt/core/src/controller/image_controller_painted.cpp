@@ -72,10 +72,10 @@ void ImageControllerPainted::doLoadImage(const QString& filePath)
         return;
     }
     
-    if (m_display_manager) {
+    if (m_display_manager)
+    {
         spdlog::info("ImageControllerPainted: Creating display image via DisplayManager");
         m_display_manager->createDisplayImage(m_engine->getWorkingImage());
-        // DisplayManager automatically calls m_painted_image_item->setImage() with downsampled image
         spdlog::debug("ImageControllerPainted: DisplayManager updated (auto-sent to PaintedImageItem)");
     } else {
         spdlog::error("ImageControllerPainted: No DisplayManager!");
