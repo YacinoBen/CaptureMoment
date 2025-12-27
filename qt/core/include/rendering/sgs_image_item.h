@@ -44,14 +44,14 @@ private:
      *
      * Set to true when setImage or updateTile is called to signal the render node.
      */
-     bool m_texture_needs_update{false};
+     bool m_texture_needs_update {false};
 
     /**
      * @brief Cached QSGTexture representing the image on the GPU.
      *
      * This texture is created/updated from m_full_image when m_texture_needs_update is true.
      */
-    QSGTexture* m_cached_texture{nullptr};
+    QSGTexture* m_cached_texture {nullptr};
 
 public:
     /**

@@ -50,4 +50,5 @@ int BaseImageItem::imageHeight() const
     QMutexLocker lock(&m_image_mutex);
     return m_image_height;
 }
+
 } // namespace CaptureMoment::UI::Rendering
