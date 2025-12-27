@@ -50,6 +50,12 @@ protected:
 
     // Zoom/Pan
     /**
+     * @brief Mutex protecting access to m_full_image and related state.
+     * Ensures thread-safe updates to the image data.
+     */
+    mutable QMutex m_image_mutex;
+
+    /**
      * @brief Current zoom level applied to the image.
      * 
      * A value of 1.0f represents the original size.
@@ -104,16 +110,19 @@ public:
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
     virtual void setZoom(float zoom) = 0;
+
     /**
      * @brief Gets the current zoom level.
      * @return The current zoom factor.
      */
     [[nodiscard]] virtual float zoom() const = 0;
+
     /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
     virtual void setPan(const QPointF& pan) = 0;
+
     /**
      * @brief Gets the current pan offset.
      * @return The current pan offset.
@@ -125,6 +134,7 @@ public:
      * @return The image width in pixels, or 0 if no image is loaded.
      */
     [[nodiscard]] virtual int imageWidth() const = 0;
+
     /**
      * @brief Get the height of the image.
      * @return The image height in pixels, or 0 if no image is loaded.
