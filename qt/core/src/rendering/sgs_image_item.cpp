@@ -19,7 +19,7 @@ namespace CaptureMoment::UI::Rendering {
 
 // Constructor: Initializes the item and sets the flag for custom content.
 SGSImageItem::SGSImageItem(QQuickItem* parent)
-    : QQuickItem(parent)
+    : BaseImageItem(parent)
 {
     // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
     setFlag(QQuickItem::ItemHasContents, true);
@@ -29,11 +29,15 @@ SGSImageItem::SGSImageItem(QQuickItem* parent)
 
 // Destructor: Cleans up resources.
 SGSImageItem::~SGSImageItem() {
-    // La suppression de m_cached_texture est faite dans updateCachedTexture
-    // ou dans le destructeur du QSGNode si elle est attachée au nœud.
-    // On s'assure ici que le thread de rendu n'utilise plus la texture.
-    // Cela se fait souvent automatiquement via les mécanismes de Qt Quick.
-    // delete m_cached_texture; // <-- DANGEREUX ici si la texture est attachée au nœud du thread de rendu
+    // The removal of m_cached_texture is done in updateCachedTexture
+
+    // or in the QSGNode destructor if it is attached to the node.
+
+    // Here we ensure that the rendering thread no longer uses the texture.
+
+    // This is often done automatically via Qt Quick mechanisms.
+
+    // delete m_cached_texture; // <-- DANGEROUS here if the texture is attached to the rendering thread node
     spdlog::debug("SGSImageItem: Destroyed");
 }
 
@@ -69,21 +73,15 @@ SGSImageItem::~SGSImageItem() {
 // Sets the zoom level.
 void SGSImageItem::setZoom(float zoom)
 {
-    if (!qFuzzyCompare(m_zoom, zoom)) {
-        m_zoom = zoom;
-        emit zoomChanged(m_zoom); // Emit signal for QML binding
-        update(); // Trigger repaint
-    }
+    BaseImageItem::setZoom(zoom);
+    update(); // Trigger repaint
 }
 
 // Sets the pan offset.
 void SGSImageItem::setPan(const QPointF& pan)
 {
-    if (m_pan != pan) {
-        m_pan = pan;
-        emit panChanged(m_pan); // Emit signal for QML binding
-        update(); // Trigger repaint
-    }
+    BaseImageItem::setPan(pan);
+    update(); // Trigger repaint
 }
 
     // Updates a specific tile of the displayed image.
@@ -273,20 +271,6 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
         spdlog::error("SGSImageItem::updateCachedTexture: No window available to create texture");
         m_cached_texture = nullptr; // Ensure member is null if no window
     }
-}
-
-// Gets the width of the image.
-int SGSImageItem::imageWidth() const
-{
-    QMutexLocker lock(&m_image_mutex);
-    return m_image_width;
-}
-
-// Gets the height of the image.
-int SGSImageItem::imageHeight() const
-{
-    QMutexLocker lock(&m_image_mutex);
-    return m_image_height;
 }
 
 } // namespace CaptureMoment::UI::Rendering

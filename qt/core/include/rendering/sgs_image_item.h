@@ -14,7 +14,7 @@
 #include <QSizeF>
 #include <QPointF>
 
-#include "rendering/i_rendering_item_base.h"
+#include "rendering/base_image_item.h"
 
 namespace CaptureMoment::UI {
 
@@ -35,7 +35,7 @@ namespace Rendering {
  * It's a good choice for basic image display where custom RHI shaders are not needed.
  * Inherits from IRenderingItemBase to manage common state (zoom, pan, image dimensions).
  */
-class SGSImageItem : public QQuickItem, public IRenderingItemBase {
+class SGSImageItem : public BaseImageItem {
     Q_OBJECT
 
 private:
@@ -45,13 +45,6 @@ private:
      * Set to true when setImage or updateTile is called to signal the render node.
      */
      bool m_texture_needs_update{false};
-
-    /**
-     * @brief Mutex protecting access to m_full_image and related state.
-     *
-     * Ensures thread-safe updates to the image data.
-     */
-    mutable QMutex m_image_mutex;
 
     /**
      * @brief Cached QSGTexture representing the image on the GPU.
@@ -98,55 +91,14 @@ public:
      * @brief Sets the zoom level.
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
-    void setZoom(float zoom) override;
-
-    /**
-     * @brief Gets the current zoom level.
-     * @return The current zoom factor.
-     */
-    [[nodiscard]] float zoom() const override { return m_zoom; }
+    void setZoom(float zoom) override; //call only Update
 
     /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
-    void setPan(const QPointF& pan) override;
+    void setPan(const QPointF& pan) override;  // call only Update
 
-    /**
-     * @brief Gets the current pan offset.
-     * @return The current pan offset.
-     */
-    [[nodiscard]] QPointF pan() const override  { return m_pan; }
-
-    /**
-     * @brief Get the width of the image.
-     * @return The image width in pixels, or 0 if no image is loaded.
-     */
-    [[nodiscard]] int imageWidth() const override;
-
-    /**
-     * @brief Get the height of the image.
-     * @return The image height in pixels, or 0 if no image is loaded.
-     */
-    [[nodiscard]] int imageHeight() const override;
-
-signals:
-    /**
-     * @brief Signal emitted when the zoom value changes.
-     * @param zoom The new zoom factor.
-     */
-    void zoomChanged(float zoom);
-
-    /**
-     * @brief Signal emitted when the pan offset changes.
-     * @param pan The new pan offset.
-     */
-    void panChanged(const QPointF& pan);
-
-    /**
-     * @brief Signal emitted when the image dimensions change (width or height).
-     */
-    void imageSizeChanged();
 
 protected:
     // QQuickItem overrides

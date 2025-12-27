@@ -8,11 +8,7 @@
 #pragma once
 
 #include <QQuickItem>
-#include "rendering/sgs_image_item.h" // Nécessite que SGSImageItem soit inclus
-#include <QSize> // Pour QSize si nécessaire
-#include <QPointF> // Pour QPointF
-#include <QRectF> // Pour QRectF si nécessaire
-#include <concepts> // C++20: Pour les concepts (optionnel ici, mais potentiellement utile)
+#include "rendering/sgs_image_item.h"
 
 namespace CaptureMoment::UI {
 
@@ -28,12 +24,6 @@ class QMLSGSImageItem : public Rendering::SGSImageItem
 {
     Q_OBJECT
 
-    // Expose properties from SGSImageItem to QML
-    Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
-    Q_PROPERTY(QPointF pan READ pan WRITE setPan NOTIFY panChanged)
-    Q_PROPERTY(int imageWidth READ imageWidth NOTIFY imageSizeChanged) // Utilise imageSizeChanged de SGSImageItem
-    Q_PROPERTY(int imageHeight READ imageHeight NOTIFY imageSizeChanged) // Utilise imageSizeChanged de SGSImageItem
-
 public:
     /**
      * @brief Constructs a QMLSGSImageItem.
@@ -44,7 +34,7 @@ public:
     /**
      * @brief Destroys the QMLSGSImageItem.
      */
-    ~QMLSGSImageItem(); // Utilise override et = default si le destructeur de base suffit
+    ~QMLSGSImageItem();
 };
 
 } // namespace CaptureMoment::UI
