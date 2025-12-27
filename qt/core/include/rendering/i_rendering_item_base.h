@@ -10,7 +10,6 @@
 #include <QObject>
 #include <QMutex>
 #include <QPointF>
-#include <string>
 
 #include "common/image_region.h"
 
@@ -100,7 +99,6 @@ public:
      */
     virtual void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) = 0;
     
-    // Zoom/Pan
     /**
      * @brief Sets the zoom level.
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
@@ -110,7 +108,7 @@ public:
      * @brief Gets the current zoom level.
      * @return The current zoom factor.
      */
-    virtual float zoom() const = 0;
+    [[nodiscard]] virtual float zoom() const = 0;
     /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
@@ -120,18 +118,18 @@ public:
      * @brief Gets the current pan offset.
      * @return The current pan offset.
      */
-    virtual QPointF pan() const = 0;
+    [[nodiscard]] virtual QPointF pan() const = 0;
 
     /**
      * @brief Get the width of the image.
      * @return The image width in pixels, or 0 if no image is loaded.
      */
-    virtual int imageWidth() const = 0;
+    [[nodiscard]] virtual int imageWidth() const = 0;
     /**
      * @brief Get the height of the image.
      * @return The image height in pixels, or 0 if no image is loaded.
      */
-    virtual int imageHeight() const = 0;
+    [[nodiscard]] virtual int imageHeight() const = 0;
 };
 
 } // namespace Rendering
