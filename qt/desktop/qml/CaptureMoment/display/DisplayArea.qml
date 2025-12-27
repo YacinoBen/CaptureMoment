@@ -26,7 +26,8 @@ Rectangle {
 
     // Setup image display when loaded
     Component.onCompleted: {
-        controller.setPaintedImageItemFromQml(imageDisplay)
+      //  controller.setPaintedImageItemFromQml(imageDisplay)
+        controller.setSGSImageItemFromQml(imageDisplay)
         if (controller.displayManager) {
             controller.displayManager.setViewportSize(Qt.size(width, height))
         }

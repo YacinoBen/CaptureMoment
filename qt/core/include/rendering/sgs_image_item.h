@@ -146,7 +146,7 @@ signals:
     /**
      * @brief Signal emitted when the image dimensions change (width or height).
      */
-    void imageDimensionsChanged();
+    void imageSizeChanged();
 
 protected:
     // QQuickItem overrides
