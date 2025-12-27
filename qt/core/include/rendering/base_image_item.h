@@ -74,20 +74,6 @@ public:
     explicit BaseImageItem(QQuickItem* parent = nullptr);
 
     /**
-     * @brief Gets the current zoom level.
-     * This value is expected to be modified only on the main thread, no mutex needed here.
-     * @return The current zoom factor.
-     */
-    [[nodiscard]] float zoom() const override { return m_zoom; }
-
-    /**
-     * @brief Gets the current pan offset.
-     * This value is expected to be modified only on the main thread, no mutex needed here.
-     * @return The current pan offset.
-     */
-    [[nodiscard]] QPointF pan() const override{ return m_pan; }
-
-    /**
      * @brief Gets the width of the image.
      * This method provides thread-safe access to m_image_width.
      * @return The image width in pixels.

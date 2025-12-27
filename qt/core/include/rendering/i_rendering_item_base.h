@@ -115,7 +115,7 @@ public:
      * @brief Gets the current zoom level.
      * @return The current zoom factor.
      */
-    [[nodiscard]] virtual float zoom() const = 0;
+    [[nodiscard]] float zoom() const { return m_zoom; };
 
     /**
      * @brief Sets the pan offset.
@@ -127,7 +127,7 @@ public:
      * @brief Gets the current pan offset.
      * @return The current pan offset.
      */
-    [[nodiscard]] virtual QPointF pan() const = 0;
+    [[nodiscard]] QPointF pan() const { return m_pan; };
 
     /**
      * @brief Get the width of the image.
