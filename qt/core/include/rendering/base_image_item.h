@@ -8,12 +8,14 @@
 #pragma once
 
 #include <QQuickItem>
-#include <QPointF> // For QPointF
-#include <QMutex>  // If needed in derived classes
-#include <QSize>   // If needed
+#include <QPointF>
+#include <QMutex>
+#include <QSize>
 #include "rendering/i_rendering_item_base.h"
 
-namespace CaptureMoment::UI::Rendering {
+namespace CaptureMoment::UI {
+
+namespace Rendering {
 
 /**
  * @brief Base class for Qt Quick image display items managing common state (zoom, pan, dimensions) and QML properties/signals.
@@ -26,7 +28,7 @@ namespace CaptureMoment::UI::Rendering {
  * Note: m_image_width and m_image_height are protected by m_image_mutex and require locking for thread-safe access.
  * m_zoom and m_pan are expected to be modified only on the main thread.
  */
-class BaseImageItem : public QQuickItem,  public IRenderingItemBase // Note: IRenderingItemBase n'a pas de Q_OBJECT
+class BaseImageItem : public QQuickItem,  public IRenderingItemBase
 {
     Q_OBJECT
 
@@ -76,28 +78,28 @@ public:
      * This value is expected to be modified only on the main thread, no mutex needed here.
      * @return The current zoom factor.
      */
-    [[nodiscard]] float zoom() const { return m_zoom; }
+    [[nodiscard]] float zoom() const override { return m_zoom; }
 
     /**
      * @brief Gets the current pan offset.
      * This value is expected to be modified only on the main thread, no mutex needed here.
      * @return The current pan offset.
      */
-    [[nodiscard]] QPointF pan() const { return m_pan; }
+    [[nodiscard]] QPointF pan() const override{ return m_pan; }
 
     /**
      * @brief Gets the width of the image.
      * This method provides thread-safe access to m_image_width.
      * @return The image width in pixels.
      */
-    [[nodiscard]] virtual int imageWidth() const override; // Doit implémenter le verrouillage
+    [[nodiscard]] virtual int imageWidth() const override;
 
     /**
      * @brief Gets the height of the image.
      * This method provides thread-safe access to m_image_height.
      * @return The image height in pixels.
      */
-    [[nodiscard]] virtual int imageHeight() const override; // Doit implémenter le verrouillage
+    [[nodiscard]] virtual int imageHeight() const override;
 
     /**
      * @brief Sets the zoom level.
@@ -106,7 +108,7 @@ public:
      * and potentially trigger a repaint (update()).
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
-    virtual void setZoom(float zoom) override; // Doit implémenter update() si nécessaire
+    virtual void setZoom(float zoom) override;
 
     /**
      * @brief Sets the pan offset.
@@ -115,7 +117,7 @@ public:
      * and potentially trigger a repaint (update()).
      * @param pan The new pan offset as a QPointF.
      */
-    virtual void setPan(const QPointF& pan) override; // Doit implémenter update() si nécessaire
+    virtual void setPan(const QPointF& pan) override;
 
 signals:
     /**
@@ -136,4 +138,6 @@ signals:
     void imageSizeChanged();
 };
 
-} // namespace CaptureMoment::UI::Rendering
+} // namespace Rendering
+
+} // namespace CaptureMoment::UI
