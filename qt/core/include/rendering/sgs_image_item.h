@@ -11,6 +11,8 @@
 #include <QMutex>
 #include <QSGNode>
 #include <QSGTexture>
+#include <QSizeF>
+#include <QPointF>
 
 #include "rendering/i_rendering_item_base.h"
 
@@ -18,7 +20,7 @@ namespace CaptureMoment::UI {
 
 /**
  * @brief Namespace containing Qt-specific UI components for CaptureMoment.
- * 
+ *
  * This namespace includes classes responsible for rendering and UI integration
  * using Qt Quick and potentially the Qt Rendering Hardware Interface (QRhi).
  */
@@ -31,30 +33,29 @@ namespace Rendering {
  * instead of the more complex QSGRenderNode. It converts Core::Common::ImageRegion data to a format
  * suitable for QSGTexture (e.g., QImage) and manages zoom and pan operations.
  * It's a good choice for basic image display where custom RHI shaders are not needed.
+ * Inherits from IRenderingItemBase to manage common state (zoom, pan, image dimensions).
  */
 class SGSImageItem : public QQuickItem, public IRenderingItemBase {
-Q_OBJECT
+    Q_OBJECT
 
 private:
     /**
-     * @brief Flag indicating if the GPU texture needs to be updated from m_full_image.
-     * 
+     * @brief Flag indicating if the display needs to be updated from m_full_image.
+     *
      * Set to true when setImage or updateTile is called to signal the render node.
      */
-    bool m_texture_needs_update{false};
-           
+     bool m_texture_needs_update{false};
+
     /**
      * @brief Mutex protecting access to m_full_image and related state.
-     * 
+     *
      * Ensures thread-safe updates to the image data.
      */
-    QMutex m_image_mutex;
+    mutable QMutex m_image_mutex;
 
-protected :    
-    // Cached texture for rendering
     /**
      * @brief Cached QSGTexture representing the image on the GPU.
-     * 
+     *
      * This texture is created/updated from m_full_image when m_texture_needs_update is true.
      */
     QSGTexture* m_cached_texture{nullptr};
@@ -64,16 +65,16 @@ public:
      * @brief Constructs a new SGSImageItem.
      * @param parent The parent QQuickItem, if any.
      */
-     explicit SGSImageItem(QQuickItem* parent = nullptr);
-            
+    explicit SGSImageItem(QQuickItem* parent = nullptr);
+
     /**
      * @brief Destroys the SGSImageItem and releases associated resources.
      */
-     ~SGSImageItem();
-            
+    ~SGSImageItem() override;
+
     /**
      * @brief Sets the full image to be displayed.
-     * 
+     *
      * This method safely updates the internal image data and marks the GPU texture
      * for an update on the next render pass.
      * 
@@ -83,7 +84,7 @@ public:
             
     /**
      * @brief Updates a specific tile of the displayed image.
-     * 
+     *
      * This method merges the data from the provided tile into the full image buffer
      * and marks the GPU texture for an update. It's intended for incremental updates
      * after processing specific regions.
@@ -97,43 +98,43 @@ public:
      * @brief Sets the zoom level.
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
+    void setZoom(float zoom) override;
 
-     void setZoom(float zoom) override;
     /**
      * @brief Gets the current zoom level.
      * @return The current zoom factor.
      */
-     float zoom() const { return m_zoom; }
-            
-    /**    
+    [[nodiscard]] float zoom() const override { return m_zoom; }
+
+    /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
-     void setPan(const QPointF& pan);
-            
+    void setPan(const QPointF& pan) override;
+
     /**
      * @brief Gets the current pan offset.
      * @return The current pan offset.
      */
-     QPointF pan() const { return m_pan; }
+    [[nodiscard]] QPointF pan() const override  { return m_pan; }
 
     /**
      * @brief Get the width of the image.
      * @return The image width in pixels, or 0 if no image is loaded.
      */
-    int imageWidth() const { return m_image_width; };
+    [[nodiscard]] int imageWidth() const override;
 
     /**
      * @brief Get the height of the image.
      * @return The image height in pixels, or 0 if no image is loaded.
      */
-    int imageHeight() const { return m_image_height; };
+    [[nodiscard]] int imageHeight() const override;
 
 signals:
     /**
      * @brief Signal emitted when the zoom value changes.
      * @param zoom The new zoom factor.
-    */
+     */
     void zoomChanged(float zoom);
 
     /**
@@ -145,31 +146,31 @@ signals:
     /**
      * @brief Signal emitted when the image dimensions change (width or height).
      */
-    void imageSizeChanged();
+    void imageDimensionsChanged();
 
 protected:
     // QQuickItem overrides
     /**
      * @brief Updates the scene graph node for this item.
-     * 
+     *
      * This override creates and returns the QSGNode responsible for
      * rendering the image using QSGSimpleTextureNode.
-     * 
+     *
      * @param node The previous QSGNode, if any.
      * @param data Update data provided by the scene graph.
      * @return The QSGNode instance for this item.
      */
     QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData* data) override;
-            
+
 private:
     /**
      * @brief Converts the internal Core::Common::ImageRegion to a QSGTexture.
      * 
      * This helper function converts the m_full_image (float32) to a QImage (uint8),
      * then creates or updates the m_cached_texture used by the QSGSimpleTextureNode.
+     * This function runs on the rendering thread.
      */
     void updateCachedTexture();
-
 };
 
 } // namespace Rendering
