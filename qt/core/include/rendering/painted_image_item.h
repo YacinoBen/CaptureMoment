@@ -46,13 +46,6 @@ private:
      */
     QImage m_current_qimage{QSize(800,600),QImage::Format_RGB32};
 
-    /**
-     * @brief Mutex protecting access to m_full_image and related state.
-     * 
-     * Ensures thread-safe updates to the image data.
-     */
-    mutable QMutex m_image_mutex;
-
 public:
     /**
      * @brief Constructs a new PaintedImageItem.
@@ -91,23 +84,12 @@ public:
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
     void setZoom(float zoom) override;
-    /**
-     * @brief Gets the current zoom level.
-     * @return The current zoom factor.
-     */
-    [[nodiscard]] float zoom() const override { return m_zoom; }
 
     /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
     void setPan(const QPointF& pan) override;
-
-    /**
-     * @brief Gets the current pan offset.
-     * @return The current pan offset.
-     */
-     [[nodiscard]] QPointF pan() const override { return m_pan; }
 
     /**
      * @brief Get the width of the image.
@@ -135,7 +117,7 @@ signals:
     /**
      * @brief Signal emitted when the image dimensions change (width or height).
      */
-    void imageDimensionsChanged();
+    void imageSizeChanged();
 
 protected:
     // QQuickPaintedItem override

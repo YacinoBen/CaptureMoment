@@ -29,8 +29,8 @@ Q_OBJECT
     // These properties map directly to getter/setter methods and signals defined in PaintedImageItem.
     Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
     Q_PROPERTY(QPointF pan READ pan WRITE setPan NOTIFY panChanged)
-    Q_PROPERTY(int imageWidth READ imageWidth NOTIFY imageDimensionsChanged)
-    Q_PROPERTY(int imageHeight READ imageHeight NOTIFY imageDimensionsChanged)
+    Q_PROPERTY(int imageWidth READ imageWidth NOTIFY imageSizeChanged)
+    Q_PROPERTY(int imageHeight READ imageHeight NOTIFY imageSizeChanged)
 
 public:
     /**

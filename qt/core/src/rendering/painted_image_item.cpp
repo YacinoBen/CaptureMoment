@@ -54,7 +54,7 @@ PaintedImageItem::PaintedImageItem(QQuickItem* parent)
     }
 
     // Emit signal for QML binding
-    emit imageDimensionsChanged();
+    emit imageSizeChanged();
 
     // Trigger a repaint to reflect the new image.
     update();
