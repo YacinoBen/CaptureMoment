@@ -12,7 +12,7 @@
 #include <QSGNode>
 #include <memory>
 
-#include "rendering/i_rendering_item_base.h"
+#include "rendering/base_image_item.h"
 
 namespace CaptureMoment::UI {
 
@@ -38,7 +38,7 @@ class RHIImageNode;
  * to update the displayed image or specific tiles of it.
  */
 
-class RHIImageItem : public QQuickItem, public IRenderingItemBase {
+class RHIImageItem : public BaseImageItem {
     Q_OBJECT
 
 private:     
@@ -48,13 +48,6 @@ private:
      * Set to true when setImage or updateTile is called to signal the render node.
      */
     bool m_texture_needs_update{false};
-
-    /**
-     * @brief Mutex protecting access to m_full_image and related state.
-     * 
-     * Ensures thread-safe updates to the image data.
-     */
-    QMutex m_image_mutex;
 
 public:
     /**
@@ -99,42 +92,6 @@ public:
      * @param pan The new pan offset as a QPointF.
      */
     void setPan(const QPointF& pan) override;
-
-    /**
-     * @brief Get the zoom level.
-     */
-    float zoom() const { return m_zoom; };
-   
-    /**
-     * @brief Get the pan offset.
-     */
-    QPointF pan() const { return m_pan; };
-
-    /**
-     * @brief Get the width of the image.
-     */
-    int imageWidth() const { return m_image_width; };
-
-    /**
-     * @brief Get the height of the image.
-     */
-    int imageHeight() const { return m_image_height; };
-
-signals:
-    /**
-     * @brief Signal emitted when the zoom change.
-     */
-    void zoomChanged(float zoom);
-
-    /**
-     * @brief Signal emitted when the pan change.
-     */
-    void panChanged(const QPointF& pan);
-
-    /**
-     * @brief Signal emitted when the image dimensions change (width or height).
-     */
-    void imageSizeChanged();
 
 protected:
     // QQuickItem overrides

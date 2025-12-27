@@ -28,11 +28,6 @@ namespace Rendering {
 
 class QMLRHIImageItem : public Rendering::RHIImageItem
 {
-    Q_PROPERTY(float m_zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
-    Q_PROPERTY(QPointF m_pan READ pan WRITE setPan NOTIFY panChanged)
-    Q_PROPERTY(int m_image_width READ imageWidth NOTIFY imageSizeChanged)
-    Q_PROPERTY(int m_image_height READ imageHeight NOTIFY imageSizeChanged)
-
 Q_OBJECT
 
 public:

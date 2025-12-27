@@ -11,7 +11,7 @@
 namespace CaptureMoment::UI::Rendering {
 // --- RHIImageItem Implementation ---
 RHIImageItem::RHIImageItem(QQuickItem* parent)
-        : QQuickItem(parent) 
+        : BaseImageItem(parent)
 {
         // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
         setFlag(QQuickItem::ItemHasContents, true);
@@ -48,13 +48,13 @@ void RHIImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& im
 }
 void RHIImageItem::setZoom(float zoom) 
 {
-    m_zoom = zoom; 
-    update();
+    BaseImageItem::setZoom(zoom);
+    update(); // Trigger repaint
 }
 void RHIImageItem::setPan(const QPointF& pan)
 {
-    m_pan = pan; 
-    update();
+    BaseImageItem::setPan(pan);
+    update(); // Trigger repaint
 }
 
 // Updates a specific tile of the displayed image.
