@@ -11,30 +11,9 @@
 namespace CaptureMoment::UI::Rendering {
 
 // Constructor: Initializes the base item.
-BaseImageItem::BaseImageItem(QQuickItem* parent)
-    : QQuickItem(parent)
+BaseImageItem::BaseImageItem()
 {
-    // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
-    setFlag(QQuickItem::ItemHasContents, true); // If all derived classes need this
     spdlog::debug("BaseImageItem: Created");
-}
-
-// Sets the zoom level (default implementation).
-void BaseImageItem::setZoom(float zoom) {
-    if (!qFuzzyCompare(m_zoom, zoom)) {
-        m_zoom = zoom;
-        emit zoomChanged(m_zoom);
-        // update(); // Do not call update() here, derived classes should do it if needed
-    }
-}
-
-// Sets the pan offset (default implementation).
-void BaseImageItem::setPan(const QPointF& pan) {
-    if (m_pan != pan) {
-        m_pan = pan;
-        emit panChanged(m_pan);
-        // update(); // Do not call update() here, derived classes should do it if needed
-    }
 }
 
 // Gets the width of the image.

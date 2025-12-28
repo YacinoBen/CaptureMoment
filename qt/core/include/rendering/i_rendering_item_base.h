@@ -27,10 +27,8 @@ namespace Rendering {
  * @brief Abstract base class for image display items managing common state (zoom, pan, dimensions).
  *
  * This class provides a common interface and shared state management for image display items
- * like PaintedImageItem, SGSImageItem, or RHIImageItem. It encapsulates the logic for
  * zoom, pan, image dimensions, and the basic setImage/updateTile methods.
  * It does not inherit from QQuickItem or any other Qt Quick base class, allowing
- * different rendering backends (QPainter, QSGTexture, QRhi) to be used by derived classes.
  */
 class IRenderingItemBase {
 protected:
