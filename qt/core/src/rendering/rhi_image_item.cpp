@@ -11,7 +11,6 @@
 namespace CaptureMoment::UI::Rendering {
 // --- RHIImageItem Implementation ---
 RHIImageItem::RHIImageItem(QQuickItem* parent)
-        : BaseImageItem(parent)
 {
         // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
         setFlag(QQuickItem::ItemHasContents, true);
@@ -45,16 +44,6 @@ void RHIImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& im
     spdlog::info("RHIImageItem::setImage: {}x{}", m_image_width, m_image_height);
     // Trigger a repaint to reflect the new image.
     update();
-}
-void RHIImageItem::setZoom(float zoom) 
-{
-    BaseImageItem::setZoom(zoom);
-    update(); // Trigger repaint
-}
-void RHIImageItem::setPan(const QPointF& pan)
-{
-    BaseImageItem::setPan(pan);
-    update(); // Trigger repaint
 }
 
 // Updates a specific tile of the displayed image.
@@ -118,4 +107,24 @@ QSGNode* RHIImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
         // Return the render node to the scene graph.
     return m_render_node;
 }
+
+void RHIImageItem::setZoom(float zoom)
+{
+    if (!qFuzzyCompare(m_zoom, zoom) && zoom > 0.0f)
+    { // Verify the positive value zoom
+        m_zoom = zoom;
+        emit zoomChanged(m_zoom); // Emit signal for QML binding
+        update(); // Trigger repaint
+    }
+}
+void RHIImageItem::setPan(const QPointF& pan)
+{
+    if (m_pan != pan)
+    {
+        m_pan = pan;
+        emit panChanged(m_pan); // Emit signal for QML binding
+        update(); // Trigger repaint
+    }
+}
+
 } // namespace CaptureMoment::Qt::Rendering

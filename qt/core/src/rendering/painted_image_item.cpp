@@ -109,41 +109,6 @@ PaintedImageItem::PaintedImageItem(QQuickItem* parent)
     update();
 }
 
-// Sets the zoom level.
-void PaintedImageItem::setZoom(float zoom)
-{
-    if (!qFuzzyCompare(m_zoom, zoom) && zoom > 0.0f)
-    { // Verify the positive value zoom
-        m_zoom = zoom;
-        emit zoomChanged(m_zoom); // Emit signal for QML binding
-        update(); // Trigger repaint
-    }
-}
-
-// Sets the pan offset.
-void PaintedImageItem::setPan(const QPointF& pan)
-{
-    if (m_pan != pan) {
-        m_pan = pan;
-        emit panChanged(m_pan); // Emit signal for QML binding
-        update(); // Trigger repaint
-    }
-}
-
-// Gets the width of the image.
-int PaintedImageItem::imageWidth() const
-{
-    QMutexLocker lock(&m_image_mutex);
-    return m_image_width;
-}
-
-// Gets the height of the image.
-int PaintedImageItem::imageHeight() const
-{
-    QMutexLocker lock(&m_image_mutex);
-    return m_image_height;
-}
-
 // Paints the image using QPainter.
 void PaintedImageItem::paint(QPainter* painter)
 {
@@ -273,6 +238,27 @@ void PaintedImageItem::paint(QPainter* painter)
     spdlog::debug("PaintedImageItem::convertImageRegionToQImage: Converted {}x{} ({} channels) to QImage",
                   region.m_width, region.m_height, region.m_channels);
     return qimg;
+}
+
+// Sets the zoom level.
+void PaintedImageItem::setZoom(float zoom)
+{
+    if (!qFuzzyCompare(m_zoom, zoom) && zoom > 0.0f)
+    { // Verify the positive value zoom
+        m_zoom = zoom;
+        emit zoomChanged(m_zoom); // Emit signal for QML binding
+        update(); // Trigger repaint
+    }
+}
+
+// Sets the pan offset.
+void PaintedImageItem::setPan(const QPointF& pan)
+{
+    if (m_pan != pan) {
+        m_pan = pan;
+        emit panChanged(m_pan); // Emit signal for QML binding
+        update(); // Trigger repaint
+    }
 }
 
 } // namespace CaptureMoment::UI::Rendering

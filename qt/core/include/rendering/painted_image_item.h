@@ -9,9 +9,8 @@
 
 #include <QQuickPaintedItem>
 #include <QImage>
-#include <QMutex>
 
-#include "rendering/i_rendering_item_base.h"
+#include "rendering/base_image_item.h"
 
 namespace CaptureMoment::UI {
 
@@ -33,8 +32,11 @@ namespace Rendering {
  * This is suitable for basic image display where custom RHI shaders are not needed
  * and ease of implementation is preferred over peak GPU performance for the display itself.
  * The core image *processing* (brightness, etc.) still happens on the CPU via Halide.
+ *
+ * Imossible to use BaseImageItem due to QQuickItem.
  */
-class PaintedImageItem : public QQuickPaintedItem, public IRenderingItemBase {
+class PaintedImageItem : public QQuickPaintedItem, public BaseImageItem {
+
     Q_OBJECT
 
 private:
@@ -91,34 +93,6 @@ public:
      */
     void setPan(const QPointF& pan) override;
 
-    /**
-     * @brief Get the width of the image.
-     * @return The image width in pixels, or 0 if no image is loaded.
-     */
-     [[nodiscard]] int imageWidth() const override;
-
-    /**
-     * @brief Get the height of the image.
-     * @return The image height in pixels, or 0 if no image is loaded.
-     */
-     [[nodiscard]] int imageHeight() const override;
-
-signals:
-    /**
-     * @brief Signal emitted when the zoom value changes.
-     * @param zoom The new zoom factor.
-     */
-    void zoomChanged(float zoom);
-    /**
-     * @brief Signal emitted when the pan offset changes.
-     * @param pan The new pan offset.
-     */
-    void panChanged(const QPointF& pan);
-    /**
-     * @brief Signal emitted when the image dimensions change (width or height).
-     */
-    void imageSizeChanged();
-
 protected:
     // QQuickPaintedItem override
     /**
@@ -141,7 +115,26 @@ private:
      * @param region The ImageRegion to convert.
      * @return The resulting QImage.
      */
-    QImage convertImageRegionToQImage(const Core::Common::ImageRegion& region) const;
+    [[nodiscard]] QImage convertImageRegionToQImage(const ImageRegion& region) const;
+
+
+signals:
+    /**
+     * @brief Signal emitted when the zoom value changes.
+     * @param zoom The new zoom factor.
+     */
+    void zoomChanged(float zoom);
+
+    /**
+     * @brief Signal emitted when the pan offset changes.
+     * @param pan The new pan offset.
+     */
+    void panChanged(const QPointF& pan);
+
+    /**
+     * @brief Signal emitted when the image dimensions change (width or height).
+     */
+    void imageSizeChanged();
 };
 
 } // namespace Rendering

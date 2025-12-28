@@ -38,7 +38,7 @@ class RHIImageNode;
  * to update the displayed image or specific tiles of it.
  */
 
-class RHIImageItem : public BaseImageItem {
+class RHIImageItem : public QQuickItem, public BaseImageItem {
     Q_OBJECT
 
 private:     
@@ -106,6 +106,24 @@ protected:
      * @return The QSGRenderNode instance for this item.
      */
     QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData* data) override;
+
+signals:
+    /**
+     * @brief Signal emitted when the zoom value changes.
+     * @param zoom The new zoom factor.
+     */
+    void zoomChanged(float zoom);
+
+    /**
+     * @brief Signal emitted when the pan offset changes.
+     * @param pan The new pan offset.
+     */
+    void panChanged(const QPointF& pan);
+
+    /**
+     * @brief Signal emitted when the image dimensions change (width or height).
+     */
+    void imageSizeChanged();
     
 private:
 

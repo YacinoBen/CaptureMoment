@@ -35,7 +35,8 @@ namespace Rendering {
  * It's a good choice for basic image display where custom RHI shaders are not needed.
  * Inherits from IRenderingItemBase to manage common state (zoom, pan, image dimensions).
  */
-class SGSImageItem : public BaseImageItem {
+
+class SGSImageItem : public QQuickItem, public BaseImageItem{
     Q_OBJECT
 
 private:
@@ -139,6 +140,24 @@ private:
      * This function runs on the main thread.
      */
     void updateTextureOnMainThread();
+
+signals:
+    /**
+     * @brief Signal emitted when the zoom value changes.
+     * @param zoom The new zoom factor.
+     */
+    void zoomChanged(float zoom);
+
+    /**
+     * @brief Signal emitted when the pan offset changes.
+     * @param pan The new pan offset.
+     */
+    void panChanged(const QPointF& pan);
+
+    /**
+     * @brief Signal emitted when the image dimensions change (width or height).
+     */
+    void imageSizeChanged();
 };
 
 } // namespace Rendering

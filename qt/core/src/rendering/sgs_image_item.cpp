@@ -19,7 +19,6 @@ namespace CaptureMoment::UI::Rendering {
 
 // Constructor: Initializes the item and sets the flag for custom content.
 SGSImageItem::SGSImageItem(QQuickItem* parent)
-    : BaseImageItem(parent)
 {
     // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
     setFlag(QQuickItem::ItemHasContents, true);
@@ -68,20 +67,6 @@ SGSImageItem::~SGSImageItem() {
 
     // Trigger a repaint to reflect the new image.
     update();
-}
-
-// Sets the zoom level.
-void SGSImageItem::setZoom(float zoom)
-{
-    BaseImageItem::setZoom(zoom);
-    update(); // Trigger repaint
-}
-
-// Sets the pan offset.
-void SGSImageItem::setPan(const QPointF& pan)
-{
-    BaseImageItem::setPan(pan);
-    update(); // Trigger repaint
 }
 
     // Updates a specific tile of the displayed image.
@@ -267,6 +252,28 @@ void SGSImageItem::updateTextureOnMainThread()
         // A more robust solution might involve a double-buffering mechanism or using QQuickWindow::scheduleRenderJob.
         delete m_pending_texture; // Delete the old pending texture if it exists
         m_pending_texture = new_texture; // Assign the new texture
+    }
+}
+
+// Sets the zoom level.
+void SGSImageItem::setZoom(float zoom)
+{
+    if (!qFuzzyCompare(m_zoom, zoom) && zoom > 0.0f)
+    { // Verify the positive value zoom
+        m_zoom = zoom;
+        emit zoomChanged(m_zoom); // Emit signal for QML binding
+        update(); // Trigger repaint
+    }
+}
+
+// Sets the pan offset.
+void SGSImageItem::setPan(const QPointF& pan)
+{
+    if (m_pan != pan)
+    {
+        m_pan = pan;
+        emit panChanged(m_pan); // Emit signal for QML binding
+        update(); // Trigger repaint
     }
 }
 
