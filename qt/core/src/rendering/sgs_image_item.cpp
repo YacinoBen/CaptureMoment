@@ -59,9 +59,9 @@ SGSImageItem::~SGSImageItem() {
         m_full_image = image;
         m_image_width = image->m_width;
         m_image_height = image->m_height;
-        // Signal that the GPU texture needs to be updated from the new image data.
-        m_texture_needs_update = true;
     }
+
+    updateTextureOnMainThread();
 
     // Emit signal for QML binding
     emit imageSizeChanged();
@@ -111,32 +111,29 @@ void SGSImageItem::setPan(const QPointF& pan)
             return;
         }
 
-            // Iterate through the pixels of the tile.
-            for (int y = 0; y < tile->m_height; ++y)
+        // Iterate through the pixels of the tile.
+        for (int y = 0; y < tile->m_height; ++y)
+        {
+            for (int x = 0; x < tile->m_width; ++x)
             {
-                for (int x = 0; x < tile->m_width; ++x)
+                // Iterate through the channels (e.g., RGBA).
+                for (int c = 0; c < tile->m_channels; ++c)
                 {
-                    // Iterate through the channels (e.g., RGBA).
-                    for (int c = 0; c < tile->m_channels; ++c)
-                    {
-                        // Copy the pixel value from the tile to the correct position in the full image.
-                        // This assumes Core::Common::ImageRegion supports operator() for (x, y, c) access.
-                        // Adjust the indexing if Core::Common::ImageRegion uses (y, x, c) or another convention.
-                        // (*m_full_image)(tile->m_y + y, tile->m_x + x, c) = (*tile)(y, x, c);
-                        // Ou, si Core::Common::ImageRegion utilise (x, y, c) :
-                        (*m_full_image)(tile->m_x + x, tile->m_y + y, c) = (*tile)(x, y, c);
-                    }
+                    // Copy the pixel value from the tile to the correct position in the full image.
+                    // Use the operator() of ImageRegion assuming (y, x, c) indexing.
+                    (*m_full_image)(tile->m_y + y, tile->m_x + x, c) = (*tile)(y, x, c);
                 }
             }
-             // Signal that the GPU texture needs to be updated due to the tile change.
-            m_texture_needs_update = true;
         }
-        
-        spdlog::debug("SGSImageItem::updateTile: Merged tile at ({}, {}) {}x{}", 
-                     tile->m_x, tile->m_y, tile->m_width, tile->m_height);
-        // Trigger a repaint to reflect the updated tile.
-        update();
     }
+
+    updateTextureOnMainThread();
+
+    spdlog::debug("SGSImageItem::updateTile: Merged tile at ({}, {}) {}x{}",
+                  tile->m_x, tile->m_y, tile->m_width, tile->m_height);
+    // Trigger a repaint to reflect the updated tile.
+    update();
+}
 
 // Updates the scene graph node for this item.
 // Creates or updates the QSGSimpleTextureNode responsible for rendering.
@@ -151,25 +148,33 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
         spdlog::info("SGSImageItem::updatePaintNode: Reusing existing QSGSimpleTextureNode");
     }
 
-        // Check if texture needs update (thread-safe check)
-        if (m_texture_needs_update) {
-            updateCachedTexture(); // Convert Core::Common::ImageRegion -> QImage -> QSGTexture
-            m_texture_needs_update = false; // Reset flag
+    // 1. Transfer the new texture created on the main thread to the render thread
+    {
+        QMutexLocker pending_lock(&m_pending_mutex);
+        if (m_pending_texture) {
+            // The QSGSimpleTextureNode takes ownership of the texture.
+            // The old texture (if any) will be deleted by Qt Quick when the node is destroyed.
+            textureNode->setTexture(m_pending_texture);
+            m_pending_texture = nullptr; // Clear the pending texture pointer
+            spdlog::info("SGSImageItem::updatePaintNode: Set new texture from main thread");
         }
+        // If m_pending_texture is nullptr, the node keeps its current texture
+    }
 
-    // Set the texture on the node if we have one cached
-    if (m_cached_texture) {
-        textureNode->setTexture(m_cached_texture);
+    // 2. Configure the node with the current texture (either new or old)
+        if (textureNode->texture()) {
         // Apply zoom and pan via the node's rect. This scales and translates the texture on screen.
         // The anchor point for scaling is the top-left corner (0, 0) by default.
         // To center the zoom, you might need a QSGTransformNode or adjust the rect's top-left accordingly.
         float display_width = m_image_width * m_zoom;
         float display_height = m_image_height * m_zoom;
-        float offset_x = m_pan.x() - (display_width - width()) / 2.0f; // Example: center pan relative to item size
-        float offset_y = m_pan.y() - (display_height - height()) / 2.0f; // Example: center pan relative to item size
+        // Example: center pan relative to item size
+        float offset_x = m_pan.x() - (display_width - width()) / 2.0f;
+        float offset_y = m_pan.y() - (display_height - height()) / 2.0f;
         // Note: Adjust offset calculation based on desired pan behavior (relative to item or texture)
         textureNode->setRect(offset_x, offset_y, display_width, display_height);
         textureNode->setFiltering(QSGTexture::Linear); // Or Nearest, depending on preference
+        spdlog::warn("SGSImageItem::updatePaintNode: configure node success");
 
         // Note: The pan calculation above is an example. You might want pan to be relative to the item's center
         // or the texture's center, which requires more complex offset logic here or in setPan.
@@ -177,99 +182,91 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
         // If no texture is available, clear the node's texture and set its rect to zero.
         textureNode->setTexture(nullptr);
         textureNode->setRect(0, 0, 0, 0);
-        spdlog::warn("SGSImageItem::updatePaintNode: No cached texture available");
+        spdlog::warn("SGSImageItem::updatePaintNode: No texture available for rendering");
     }
 
-    spdlog::trace("SGSImageItem::updatePaintNode: Node updated, texture set: {}", m_cached_texture ? "yes" : "no");
+    spdlog::info("SGSImageItem::updatePaintNode: Node updated, texture set: {}", textureNode->texture() ? "yes" : "no");
     // Return the render node to the scene graph.
     return textureNode;
 }
 
-    // Converts the internal Core::Common::ImageRegion to a QSGTexture.
-    void SGSImageItem::updateCachedTexture() {
-        QMutexLocker lock(&m_image_mutex);
+// Converts the internal ImageRegion to a QSGTexture on the main thread.
+void SGSImageItem::updateTextureOnMainThread()
+{
+    // This function runs on the **main thread**.
+    // m_image_mutex protects m_full_image and m_image_width/height accessed here.
+    std::shared_ptr<Core::Common::ImageRegion> current_image;
+    int current_width = 0;
+    int current_height = 0;
+    int current_channels = 0;
 
-    if (!m_full_image) {
-        spdlog::warn("SGSImageItem::updateCachedTexture: No image data");
-        // The old texture will be deleted by Qt Quick when the node is destroyed
-        // or when a new texture is set. We just set the member to nullptr.
-        // delete m_cached_texture; // <-- DANGEREUX sur le thread de rendu
-        m_cached_texture = nullptr;
-        return;
+    // 1. Read the current image data safely
+    {
+        QMutexLocker lock(&m_image_mutex);
+        if (!m_full_image) {
+            spdlog::warn("SGSImageItem::updateTextureOnMainThread: No image data to convert");
+            // No need to set m_pending_texture to nullptr here, it's handled by updatePaintNode
+            return;
+        }
+        current_image = m_full_image; // Copy the shared_ptr
+        current_width = m_image_width;
+        current_height = m_image_height;
+        current_channels = m_full_image->m_channels;
     }
 
-        spdlog::debug("SGSImageItem::updateCachedTexture: Converting Core::Common::ImageRegion ({}x{}) to QImage",
-                     m_full_image->m_width, m_full_image->m_height);
+    if (!current_image) return;
 
-        // --- Convert Core::Common::ImageRegion (float32) to QImage (uint8) ---
-        QImage qimage(m_full_image->m_width, m_full_image->m_height, QImage::Format_RGBA8888);
+    spdlog::debug("SGSImageItem::updateTextureOnMainThread: Converting ImageRegion ({}x{}) to QImage",
+                  current_width, current_height);
 
-    for (int y = 0; y < m_full_image->m_height; ++y) {
-        for (int x = 0; x < m_full_image->m_width; ++x) {
-            size_t baseIdx = (y * m_full_image->m_width + x) * m_full_image->m_channels;
-            if (baseIdx + m_full_image->m_channels - 1 < m_full_image->m_data.size()) {
-                float r = std::clamp(m_full_image->m_data[baseIdx + 0], 0.0f, 1.0f);
-                float g = std::clamp(m_full_image->m_data[baseIdx + 1], 0.0f, 1.0f);
-                float b = std::clamp(m_full_image->m_data[baseIdx + 2], 0.0f, 1.0f);
-                float a = (m_full_image->m_channels == 4) ? std::clamp(m_full_image->m_data[baseIdx + 3], 0.0f, 1.0f) : 1.0f;
+    // 2. Convert ImageRegion (float32) to QImage (uint8)
+    QImage::Format qimage_format = (current_channels == 3) ? QImage::Format_RGB888 : QImage::Format_RGBA8888;
+    QImage qimage(current_width, current_height, qimage_format);
 
-                if (m_full_image->m_channels == 3) {
-                    QRgb pixelValue = qRgb(
-                        static_cast<uchar>(r * 255),
-                        static_cast<uchar>(g * 255),
-                        static_cast<uchar>(b * 255)
-                        );
-                    qimage.setPixel(x, y, pixelValue);
-                } else { // 4 channels (RGBA)
-                    QRgba64 pixelValue = qRgba64( // Utilisation de QRgba64 pour plus de précision
-                        static_cast<ushort>(r * 65535),
-                        static_cast<ushort>(g * 65535),
-                        static_cast<ushort>(b * 65535),
-                        static_cast<ushort>(a * 65535)
-                        );
-                    // Ou pour QRgb (moins précis mais plus courant)
-                    QRgb pixelValueRgb = qRgba(
-                        static_cast<uchar>(r * 255),
-                        static_cast<uchar>(g * 255),
-                        static_cast<uchar>(b * 255),
-                        static_cast<uchar>(a * 255)
-                        );
-                    qimage.setPixel(x, y, pixelValueRgb);
-                }
+    for (int y = 0; y < current_height; ++y) {
+        for (int x = 0; x < current_width; ++x) {
+            size_t baseIdx = (y * current_width + x) * current_channels;
+            if (baseIdx + current_channels - 1 < current_image->m_data.size()) {
+                float r = std::clamp(current_image->m_data[baseIdx + 0], 0.0f, 1.0f);
+                float g = std::clamp(current_image->m_data[baseIdx + 1], 0.0f, 1.0f);
+                float b = std::clamp(current_image->m_data[baseIdx + 2], 0.0f, 1.0f);
+                float a = (current_channels == 4) ? std::clamp(current_image->m_data[baseIdx + 3], 0.0f, 1.0f) : 1.0f;
+
+                QRgb pixelValueRgb = qRgba(
+                    static_cast<uchar>(r * 255),
+                    static_cast<uchar>(g * 255),
+                    static_cast<uchar>(b * 255),
+                    static_cast<uchar>(a * 255)
+                    );
+                qimage.setPixel(x, y, pixelValueRgb);
             }
         }
     }
 
-    // --- Clean up old texture ---
-    // The old texture should be deleted by Qt Quick when the node is destroyed or replaced.
-    // We simply create a new one and let the scene graph manage the old one.
-    // delete m_cached_texture; // <-- DANGEREUX sur le thread de rendu
-    // m_cached_texture = nullptr; // Not necessary before creating a new one
-
-    // --- Create new QSGTexture from QImage ---
-    // This method creates the texture on the GPU via the window's RHI context.
-    // It's safe to call on the rendering thread if `window()` is accessible here.
-    // However, `window()` might not be available in `updatePaintNode` context reliably.
-    // A safer way is to use `window()->createTextureFromImage(qimage)` inside `updatePaintNode`
-    // after checking `window()`, but we need to manage the lifetime correctly.
-    // For simplicity here, we assume `window()` is valid in the context where updateCachedTexture is called
-    // (which should be from updatePaintNode on the render thread).
-
-    // Ensure we have a valid window pointer (this should be true in updatePaintNode)
-    if (window())
-    {
-        // The texture will be managed by the QSGNode. Qt Quick will handle its deletion.
-        QSGTexture* new_texture = window()->createTextureFromImage(qimage);
+    // 3. Create new QSGTexture from QImage on the main thread
+    QSGTexture* new_texture = nullptr;
+    if (window()) { // Ensure window is valid on the main thread
+        spdlog::info("SGSImageItem::updateTextureOnMainThread: Window pointer is valid, attempting to create texture.");
+        new_texture = window()->createTextureFromImage(qimage);
         if (new_texture) {
-            m_cached_texture = new_texture; // Assign the new texture
-            spdlog::debug("SGSImageItem::updateCachedTexture: QSGTexture created successfully from QImage");
+            spdlog::info("SGSImageItem::updateTextureOnMainThread: QSGTexture created successfully from QImage");
         } else {
-            spdlog::error("SGSImageItem::updateCachedTexture: Failed to create QSGTexture from QImage");
-            m_cached_texture = nullptr; // Ensure member is null on failure
+            spdlog::info("SGSImageItem::updateTextureOnMainThread: Failed to create QSGTexture from QImage");
         }
     } else {
-        spdlog::error("SGSImageItem::updateCachedTexture: No window available to create texture");
-        m_cached_texture = nullptr; // Ensure member is null if no window
+        spdlog::error("SGSImageItem::updateTextureOnMainThread: No window available to create texture");
+    }
+
+    // 4. Store the new texture in m_pending_texture for the render thread to pick up
+    {
+        QMutexLocker pending_lock(&m_pending_mutex);
+        // The old m_pending_texture (if any) should ideally be deleted here or managed by Qt Quick.
+        // However, deleting it here might be unsafe if the render thread is still using it.
+        // Qt Quick's resource management usually handles this correctly when the texture is set on a node.
+        // For now, we just overwrite the pointer. The old texture will be deleted by Qt Quick when appropriate.
+        // A more robust solution might involve a double-buffering mechanism or using QQuickWindow::scheduleRenderJob.
+        delete m_pending_texture; // Delete the old pending texture if it exists
+        m_pending_texture = new_texture; // Assign the new texture
     }
 }
 
