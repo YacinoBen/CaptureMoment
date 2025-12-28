@@ -23,10 +23,11 @@ namespace CaptureMoment::UI {
  * capabilities (managed by the core Qt Quick scene graph and QPainter) with QML.
  */
 class QMLPaintedImageItem : public Rendering::PaintedImageItem {
+
 Q_OBJECT
 
-    // Expose properties from PaintedImageItem (and potentially IRenderingItemBase) to QML
-    // These properties map directly to getter/setter methods and signals defined in PaintedImageItem.
+    // Expose properties from PaintedImageItem to QML
+    // These properties map directly to getter/setter methods and signals defined in BaseImageItem.
     Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
     Q_PROPERTY(QPointF pan READ pan WRITE setPan NOTIFY panChanged)
     Q_PROPERTY(int imageWidth READ imageWidth NOTIFY imageSizeChanged)

@@ -14,20 +14,20 @@ Rectangle {
     
     signal openImageClicked()
 
-    QMLSGSImageItem {
+    QMLPaintedImageItem {
         id: imageDisplay
         anchors.fill: parent
 
-        /*onImageDimensionsChanged: {
+        onImageSizeChanged: {
             console.log("DisplayArea.qml::onImageDimensionsChanged: width: ", imageDisplay.imageWidth)
             console.log("DisplayArea.qml::onWidthChanged: height: ", imageDisplay.imageHeight)
-        }*/
+        }
     }
 
     // Setup image display when loaded
     Component.onCompleted: {
-      //  controller.setPaintedImageItemFromQml(imageDisplay)
-        controller.setSGSImageItemFromQml(imageDisplay)
+        controller.setPaintedImageItemFromQml(imageDisplay)
+        //controller.setSGSImageItemFromQml(imageDisplay)
         if (controller.displayManager) {
             controller.displayManager.setViewportSize(Qt.size(width, height))
         }

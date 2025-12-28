@@ -12,9 +12,9 @@
 
 namespace CaptureMoment::UI {
 
-    
+
 namespace Rendering {
-    class RHIImageItem;
+class RHIImageItem;
 }
 
 /**
@@ -28,7 +28,14 @@ namespace Rendering {
 
 class QMLRHIImageItem : public Rendering::RHIImageItem
 {
-Q_OBJECT
+    Q_OBJECT
+
+    // Expose properties from RHIImageItem to QML
+    // These properties map directly to getter/setter methods and signals defined in BaseImageItem.
+    Q_PROPERTY(float zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
+    Q_PROPERTY(QPointF pan READ pan WRITE setPan NOTIFY panChanged)
+    Q_PROPERTY(int imageWidth READ imageWidth NOTIFY imageSizeChanged)
+    Q_PROPERTY(int imageHeight READ imageHeight NOTIFY imageSizeChanged)
 
 public:
     /**
@@ -41,6 +48,6 @@ public:
      * @brief Destroys the QMLRHIImageItem.
      */ 
     ~QMLRHIImageItem();
-    };
+};
 
 } // namespace CaptureMoment::UI
