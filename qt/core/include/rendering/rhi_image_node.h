@@ -18,21 +18,21 @@ namespace CaptureMoment::UI {
 
 /**
 * @brief Namespace containing Qt-specific UI components for CaptureMoment.
-* 
+*
 * This namespace includes classes responsible for rendering and UI integration
 * using Qt Quick and the Qt Rendering Hardware Interface (QRhi).
 */
 namespace Rendering {
 
-class RHIImageItem; 
+class RHIImageItem;
 /**
 * @class RHIImageNode
 * @brief QSGRenderNode for direct RHI rendering.
-* 
+*
 * This class is responsible for managing the GPU resources (textures, buffers, pipeline)
 * and performing the actual rendering commands using QRhi on the render thread.
 * It receives state updates from the main GUI thread via synchronize().
-* 
+*
 * It manages:
 * - GPU texture
 * - Graphics pipeline
@@ -43,7 +43,7 @@ class RHIImageNode : public QSGRenderNode {
 private:
     /**
     * @brief Pointer to the RHIImageItem that owns this node.
-    * 
+    *
     * Used to access the image data and state from the main thread.
     */
     RHIImageItem* m_item{nullptr};
@@ -52,7 +52,7 @@ private:
     * @brief Pointer to the QRhi instance for the window.
     */
     QRhi* m_rhi{nullptr};
-            
+
     // RHI Resources (owned by this node using RAII)
     /**
     * @brief GPU texture storing the image data.
@@ -91,12 +91,12 @@ private:
 
     QRhiResourceUpdateBatch* m_pending_upload_batch{nullptr};
     bool m_srb_needs_rebuild{false};
-            
+
     /**
     * @brief Flag indicating if the node's resources have been initialized.
     */
     bool m_initialized{false};
-            
+
 public:
 
     /**
@@ -112,7 +112,7 @@ public:
 
     /**
     * @brief Synchronizes state from the GUI thread to the render thread.
-    * 
+    *
     * This method is called on the render thread while the GUI thread is blocked.
     * It checks for updates (like texture changes) from the RHIImageItem and
     * prepares resources for the next render call.
@@ -121,29 +121,29 @@ public:
 
     /**
     * @brief Performs the actual rendering commands using QRhi.
-    * 
+    *
     * This method is called on the render thread. It sets up the pipeline,
     * binds resources, and issues draw commands.
-    * 
+    *
     * @param state The current render state provided by the scene graph.
     */
     void render(const RenderState* state) override;
-            
+
     /**
     * @brief Returns flags indicating the rendering behavior of this node.
-    * 
+    *
     * Specifies that this node renders within a bounded rectangle and potentially uses depth.
-    * 
+    *
     * @return RenderingFlags for this node.
     */
     RenderingFlags flags() const override {
         return BoundedRectRendering | DepthAwareRendering;
     }
-            
+
 private:
     /**
     * @brief Initializes the RHI resources (pipeline, buffers, etc.).
-    * 
+    *
     * Called once during the first synchronize call if resources are not initialized.
     */
     void initialize();
@@ -160,14 +160,14 @@ private:
 
     /**
     * @brief Updates the GPU texture if the image data has changed.
-    * 
+    *
     * Checks the state from m_item and uploads the new data if necessary.
     */
     void updateTexture();
 
     /**
     * @brief Uploads pixel data from an ImageRegion to the GPU texture.
-    * 
+    *
     * @param image The ImageRegion containing the pixel data to upload.
     */
     void uploadPixelData(const std::shared_ptr<Core::Common::ImageRegion>& image);
