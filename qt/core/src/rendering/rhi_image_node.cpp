@@ -16,7 +16,7 @@
 #include "rendering/rhi_image_item.h"
 
 namespace CaptureMoment::UI::Rendering {
-
+/*
 RHIImageNode::RHIImageNode(RHIImageItem* item)
         : m_item(item) {
         spdlog::debug("RHIImageNode: Created");
@@ -579,6 +579,6 @@ void RHIImageNode::uploadPixelData(const std::shared_ptr<Core::Common::ImageRegi
     spdlog::info("RHIImageNode::uploadPixelData: Upload command queued for texture ({}x{})", image->m_width, image->m_height);
 
     spdlog::info("RHIImageNode::uploadPixelData: End");
-}
+}*/
 
 } // namespace CaptureMoment::UI::Rendering
