@@ -17,9 +17,6 @@ namespace CaptureMoment::UI {
     class BrightnessModel;
     namespace Controller {
         class ImageControllerBase;
-        class ImageControllerPainted;
-        class ImageControllerRHI;
-        class ImageControllerSGS;
     }
 }
 

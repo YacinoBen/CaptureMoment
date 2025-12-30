@@ -64,7 +64,7 @@ bool QmlContextSetup::createController()
 {
     spdlog::debug("QmlContextSetup::createController: Creating ImageController...");
 
-    m_controller = std::make_shared<Controller::ImageControllerSGS>();
+    m_controller = std::make_shared<Controller::ImageControllerRHI>();
     
     if (!m_controller) {
         spdlog::error("QmlContextSetup::createController: Failed to create ImageController (out of memory or constructor threw).");
@@ -97,7 +97,7 @@ bool QmlContextSetup::createOperationModels()
 }
 
 // Connects models and display item to controller
-[[nodiscard]] bool QmlContextSetup::connectObjects()
+bool QmlContextSetup::connectObjects()
 {
     spdlog::debug("QmlContextSetup::connectObjects: Connecting objects...");
 
@@ -126,7 +126,7 @@ bool QmlContextSetup::createOperationModels()
 }
 
 // Registers necessary objects to QML context
-[[nodiscard]] bool QmlContextSetup::registerToQml(QQmlContext* context)
+bool QmlContextSetup::registerToQml(QQmlContext* context)
 {
     spdlog::debug("QmlContextSetup::registerToQml: Registering objects to QML...");
 
