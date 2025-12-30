@@ -134,6 +134,21 @@ public:
     [[nodiscard]] virtual int imageWidth() const = 0;
 
     /**
+     * @brief Gets a pointer to the mutex protecting the image data.
+     * This method provides access to the mutex for thread-safe operations.
+     * The mutex is mutable, so it can be locked even on a const object.
+     * @return A pointer to the image mutex.
+     */
+    [[nodiscard]] QMutex* getImageMutex() const { return const_cast<QMutex*>(&m_image_mutex); };
+
+    /**
+     * @brief Gets the shared pointer to the full image data.
+     * This method provides access to the internal image data pointer.
+     * @return A shared pointer to the ImageRegion.
+     */
+    [[nodiscard]] std::shared_ptr<ImageRegion> getFullImage() const { return m_full_image; };
+
+    /**
      * @brief Get the height of the image.
      * @return The image height in pixels, or 0 if no image is loaded.
      */
