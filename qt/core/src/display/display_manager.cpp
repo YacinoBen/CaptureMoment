@@ -18,11 +18,15 @@ DisplayManager::DisplayManager(QObject* parent)
 
 void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
 {
+    spdlog::info("DisplayManager::setRenderingItem: RHIItem/Painted/SGS item connected: {}", m_rendering_item ? "valid" : "null");
+
     if (m_rendering_item == item) {
         return;
     }
     
     m_rendering_item = item;
+
+    spdlog::info("DisplayManager::setRenderingItem: m_rendering_item assigned, value is now {}", m_rendering_item ? "valid" : "null");
     
     if (m_rendering_item) {
         spdlog::info("DisplayManager::setRenderingItem Rendering item connected");
