@@ -18,9 +18,10 @@ DisplayManager::DisplayManager(QObject* parent)
 
 void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
 {
-    spdlog::info("DisplayManager::setRenderingItem: RHIItem/Painted/SGS item connected: {}", m_rendering_item ? "valid" : "null");
+    spdlog::info("DisplayManager::setRenderingItem: RHIItem/Painted/SGS item connected: {}", item ? "valid" : "null");
 
     if (m_rendering_item == item) {
+        spdlog::info("DisplayManager::setRenderingItem: Item {} is already connected, skipping.", item ? "valid" : "null");
         return;
     }
     
