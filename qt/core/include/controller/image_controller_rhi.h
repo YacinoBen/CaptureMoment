@@ -96,21 +96,6 @@ signals:
      * QML can use this signal to react to the change in the associated RHId item.
     */
     void rhiImageItemChanged();
-
-protected :
-    /**
-     * @brief Perform actual image load (runs on worker thread).
-     * Implementation specific to updating via RHIImageItem.
-     * @param filePath Path to the image file to load.
-     */
-    void doLoadImage(const QString& filePath) override;
-
-    /**
-     * @brief Perform actual operations (runs on worker thread).
-     * Implementation specific to updating via RHIImageItem.
-     * @param operations Vector of operation descriptors to apply.
-     */
-    void doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations) override;
 };
 
 } // namespace Controller
