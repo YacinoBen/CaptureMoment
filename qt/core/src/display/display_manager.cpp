@@ -29,7 +29,8 @@ void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
 
     spdlog::info("DisplayManager::setRenderingItem: m_rendering_item assigned, value is now {}", m_rendering_item ? "valid" : "null");
     
-    if (m_rendering_item) {
+    if (m_rendering_item)
+    {
         spdlog::info("DisplayManager::setRenderingItem Rendering item connected");
         m_rendering_item->setZoom(m_zoom);
         m_rendering_item->setPan(m_pan);
@@ -46,7 +47,8 @@ void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::Imag
     m_source_image = source_image;
 
     QSize newSourceSize(source_image->m_width, source_image->m_height);
-    if (m_source_image_size != newSourceSize) {
+    if (m_source_image_size != newSourceSize)
+    {
         m_source_image_size = newSourceSize;
         emit sourceImageSizeChanged(m_source_image_size);
     }
@@ -144,7 +146,8 @@ void DisplayManager::setZoom(float zoom)
 {
     zoom = std::clamp(zoom, 0.1f, 10.0f);
     
-    if (!qFuzzyCompare(m_zoom, zoom)) {
+    if (!qFuzzyCompare(m_zoom, zoom))
+    {
         m_zoom = zoom;
         constrainPan();
         
@@ -196,7 +199,8 @@ void DisplayManager::fitToView()
     m_zoom = 1.0f;
     m_pan = QPointF(0, 0);
     
-    if (m_rendering_item) {
+    if (m_rendering_item)
+    {
         m_rendering_item->setZoom(m_zoom);
         m_rendering_item->setPan(m_pan);
     }
@@ -292,7 +296,8 @@ std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
         return nullptr;
     }
     
-    if (source.m_width == target_width && source.m_height == target_height) {
+    if (source.m_width == target_width && source.m_height == target_height)
+    {
         auto copy = std::make_shared<Core::Common::ImageRegion>();
         *copy = source;
         return copy;
