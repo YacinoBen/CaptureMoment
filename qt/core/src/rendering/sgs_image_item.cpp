@@ -118,9 +118,9 @@ void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& 
 QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
 {
     // Cast the existing node to QSGSimpleTextureNode, or create a new one if it doesn't exist.
-    auto* textureNode = dynamic_cast<QSGSimpleTextureNode*>(node);
-    if (!textureNode) {
-        textureNode = new QSGSimpleTextureNode();
+    auto* texture_node = dynamic_cast<QSGSimpleTextureNode*>(node);
+    if (!texture_node) {
+        texture_node = new QSGSimpleTextureNode();
         spdlog::info("SGSImageItem::updatePaintNode: Created new QSGSimpleTextureNode");
     } else {
         spdlog::info("SGSImageItem::updatePaintNode: Reusing existing QSGSimpleTextureNode");
@@ -159,15 +159,15 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
             }
 
             // 2. Creation of the QSGTexture on the render thread using the converted QImage
-            QSGTexture* old_texture = textureNode->texture(); // Store the old texture pointer
+            QSGTexture* old_texture = texture_node->texture(); // Store the old texture pointer
 
             // Create the new texture using the window's RHI context (safe on render thread)
             QSGTexture* new_texture = window()->createTextureFromImage(qimage);
 
             if (new_texture) // Check if texture creation was successful
             {
-                textureNode->setTexture(new_texture); // Assign the new texture to the node
-                textureNode->setOwnsTexture(true);    // Let the node manage the texture's lifetime
+                texture_node->setTexture(new_texture); // Assign the new texture to the node
+                texture_node->setOwnsTexture(true);    // Let the node manage the texture's lifetime
 
                 // The old texture will be deleted automatically by Qt Quick when the node is destroyed
                 // or when a new texture is set (if setOwnsTexture(true) was called before).
@@ -183,7 +183,7 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
 
     // Configure the texture node's rendering properties (rect, filtering)
     // This happens regardless of whether the texture was updated or not.
-    if (textureNode->texture()) // Only configure if a texture exists
+    if (texture_node->texture()) // Only configure if a texture exists
     {
         // Calculate the display size based on zoom
         float display_width = m_image_width * m_zoom; // Use core image width and zoom level
@@ -195,19 +195,19 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
         float y_pos = (height() - display_height) / 2.0f + m_pan.y(); // Use item height and pan y
 
         // Set the rectangle where the texture will be drawn
-        textureNode->setRect(x_pos, y_pos, display_width, display_height);
+        texture_node->setRect(x_pos, y_pos, display_width, display_height);
 
         // Set the texture filtering (e.g., linear for smooth scaling)
-        textureNode->setFiltering(QSGTexture::Linear);
+        texture_node->setFiltering(QSGTexture::Linear);
     } else {
         // If no texture is available, clear the node's rect
-        textureNode->setRect(0, 0, 0, 0);
+        texture_node->setRect(0, 0, 0, 0);
         spdlog::warn("SGSImageItem::updatePaintNode: No texture available for rendering");
     }
 
     spdlog::info("SGSImageItem::updatePaintNode: Node updated, texture set");
     // Return the render node to the scene graph.
-    return textureNode;
+    return texture_node;
 }
 
 // Sets the zoom level.
