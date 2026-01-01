@@ -73,6 +73,7 @@ void RHIImageItemRenderer::synchronize(QQuickRhiItem *item)
     {
         QMutexLocker lock(rhiItem->getImageMutex()); // Use the mutex from the item
 
+        spdlog::info("RHIImageItemRenderer::synchronize: enter lock rhiItem->textureNeedsUpdate(): {}", rhiItem->textureNeedsUpdate());
         // Check if texture needs update
         if (rhiItem->textureNeedsUpdate() && rhiItem->getFullImage())
         {

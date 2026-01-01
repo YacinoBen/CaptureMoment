@@ -32,9 +32,9 @@ void ImageControllerRHI::setRHIImageItem(CaptureMoment::UI::Rendering::RHIImageI
         m_display_manager->setRenderingItem(m_rhi_image_item); // Ensure IRenderingItemBase is compatible or RHIImageItem implements it
         emit rhiImageItemChanged();
         if (m_rhi_image_item) {
-            spdlog::info("ImageControllerRHI: RHIImageItem connected and passed to DisplayManager");
+            spdlog::info("ImageControllerRHI::RHIImageItem connected and passed to DisplayManager");
         } else {
-            spdlog::debug("ImageControllerRHI: RHIImageItem disconnected (set to nullptr)");
+            spdlog::debug("ImageControllerRHI::RHIImageItem disconnected (set to nullptr)");
         }
     } else {
          spdlog::warn("ImageControllerRHI: DisplayManager not available, cannot connect RHIImageItem");
@@ -44,10 +44,11 @@ void ImageControllerRHI::setRHIImageItem(CaptureMoment::UI::Rendering::RHIImageI
 void ImageControllerRHI::setRHIImageItemFromQml(CaptureMoment::UI::Rendering::RHIImageItem* item)
 {
     if (item) {
+        spdlog::info("ImageControllerRHI::setRHIImageItemFromQml try to connect from QML");
         setRHIImageItem(item);
-        spdlog::info("ImageControllerRHI: RHIImageItem connected from QML");
+        spdlog::info("ImageControllerRHI::setRHIImageItemFromQml RHIImageItem connected from QML");
     } else {
-        spdlog::warn("ImageControllerRHI: Received nullptr RHIImageItem from QML");
+        spdlog::warn("ImageControllerRHI::setRHIImageItemFromQml Received nullptr RHIImageItem from QML");
     }
 }
 

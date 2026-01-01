@@ -49,9 +49,11 @@ void RHIImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& im
         m_image_height = image->m_height;
         // Signal that the GPU texture needs to be updated from the new image data.
         m_texture_needs_update = true;
+        spdlog::info("RHIImageItem::setImage: Texture update flag set to true");
     }
 
     // Trigger a repaint to reflect the new image.
+    spdlog::info("RHIImageItem::setImage: Calling update()");
     update();
 }
 
