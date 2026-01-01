@@ -4,6 +4,7 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 import CaptureMoment.UI.Rendering.Painted 1.0
 import CaptureMoment.UI.Rendering.SGS 1.0
+import CaptureMoment.UI.Rendering.RHI 1.0
 
 import CaptureMoment.desktop
 
@@ -14,20 +15,22 @@ Rectangle {
     
     signal openImageClicked()
 
-    QMLPaintedImageItem {
+    QMLRHIImageItem {
         id: imageDisplay
         anchors.fill: parent
 
         onImageSizeChanged: {
-            console.log("DisplayArea.qml::onImageDimensionsChanged: width: ", imageDisplay.imageWidth)
+            console.log("DisplayArea.qml::onHeightChanged: width: ", imageDisplay.imageWidth)
             console.log("DisplayArea.qml::onWidthChanged: height: ", imageDisplay.imageHeight)
         }
     }
 
     // Setup image display when loaded
     Component.onCompleted: {
-        controller.setPaintedImageItemFromQml(imageDisplay)
+        //controller.setPaintedImageItemFromQml(imageDisplay)
         //controller.setSGSImageItemFromQml(imageDisplay)
+        controller.setRHIImageItemFromQml(imageDisplay)
+
         if (controller.displayManager) {
             controller.displayManager.setViewportSize(Qt.size(width, height))
         }
