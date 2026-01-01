@@ -117,6 +117,15 @@ void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& 
 // Creates or updates the QSGSimpleTextureNode responsible for rendering.
 QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
 {
+
+    {
+        QMutexLocker lock(&m_image_mutex);
+        if (!m_full_image && !node) {
+            spdlog::info("SGSImageItem::updatePaintNode: Created no node");
+            return nullptr;
+        }
+    }
+
     // Cast the existing node to QSGSimpleTextureNode, or create a new one if it doesn't exist.
     auto* texture_node = dynamic_cast<QSGSimpleTextureNode*>(node);
     if (!texture_node) {
