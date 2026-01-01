@@ -35,7 +35,7 @@ void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
     }
 }
 
-void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::ImageRegion>& sourceImage)
+void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::ImageRegion>& source_image)
 {
     if (!source_image || !source_image->isValid()) {
         spdlog::warn("DisplayManager::createDisplayImage: Invalid source image");
@@ -83,7 +83,7 @@ void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::Imag
     }
 }
 
-void DisplayManager::updateDisplayTile(const std::shared_ptr<Core::Common::ImageRegion>& sourceTile)
+void DisplayManager::updateDisplayTile(const std::shared_ptr<Core::Common::ImageRegion>& source_tile)
 {
     if (!source_tile || !source_tile->isValid()) {
         spdlog::warn("DisplayManager::updateDisplayTile: Invalid source tile");
@@ -283,15 +283,15 @@ QSize DisplayManager::calculateDisplaySize(const QSize& source_size, const QSize
 
 std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
     const Core::Common::ImageRegion& source,
-    int targetWidth,
-    int targetHeight
+    int target_width,
+    int target_height
 ) const
 {
     if (!source.isValid() || target_width <= 0 || target_height <= 0) {
         return nullptr;
     }
     
-    if (source.m_width == targetWidth && source.m_height == targetHeight) {
+    if (source.m_width == target_width && source.m_height == target_height) {
         auto copy = std::make_shared<Core::Common::ImageRegion>();
         *copy = source;
         return copy;

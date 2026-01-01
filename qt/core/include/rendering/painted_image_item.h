@@ -115,7 +115,7 @@ private:
      * @param region The ImageRegion to convert.
      * @return The resulting QImage.
      */
-    [[nodiscard]] QImage convertImageRegionToQImage(const ImageRegion& region) const;
+    [[nodiscard]] QImage convertImageRegionToQImage(const Core::Common::ImageRegion& region) const;
 
 
 signals:

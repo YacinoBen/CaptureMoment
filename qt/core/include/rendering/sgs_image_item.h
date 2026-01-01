@@ -88,7 +88,7 @@ public:
      *
      * @param tile A shared pointer to the ImageRegion containing the processed tile data.
      */
-    void updateTile(const std::shared_ptr<ImageRegion>& tile) override;
+    void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) override;
 
     // Zoom/Pan (Implementation provided by BaseImageItem, setters implemented here)
     /**

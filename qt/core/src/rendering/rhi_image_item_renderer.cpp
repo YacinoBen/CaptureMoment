@@ -403,7 +403,7 @@ void RHIImageItemRenderer::updateTexture()
 }
 
 // Uploads pixel data from an ImageRegion to the GPU texture.
-void RHIImageItemRenderer::uploadPixelData(const std::shared_ptr<ImageRegion>& image)
+void RHIImageItemRenderer::uploadPixelData(const std::shared_ptr<Core::Common::ImageRegion>& image)
 {
     spdlog::info("RHIImageItemRenderer::uploadPixelData: Start, image size: {}x{}", image->m_width, image->m_height);
 

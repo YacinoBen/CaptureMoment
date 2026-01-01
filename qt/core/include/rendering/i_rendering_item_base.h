@@ -146,7 +146,7 @@ public:
      * This method provides access to the internal image data pointer.
      * @return A shared pointer to the ImageRegion.
      */
-    [[nodiscard]] std::shared_ptr<ImageRegion> getFullImage() const { return m_full_image; };
+    [[nodiscard]] std::shared_ptr<Core::Common::ImageRegion> getFullImage() const { return m_full_image; };
 
     /**
      * @brief Get the height of the image.
