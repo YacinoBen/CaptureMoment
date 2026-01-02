@@ -16,6 +16,12 @@ BaseImageItem::BaseImageItem()
     spdlog::debug("BaseImageItem: Created");
 }
 
+bool BaseImageItem::isImageValid() const
+{
+    QMutexLocker lock(&m_image_mutex);
+    return m_full_image && m_full_image->isValid();
+}
+
 // Gets the width of the image.
 int BaseImageItem::imageWidth() const
 {

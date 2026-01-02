@@ -46,6 +46,13 @@ public:
      * @return The image height in pixels.
      */
     [[nodiscard]] virtual int imageHeight() const override;
+
+    /**
+     * @brief Checks if the full image data is loaded and valid.
+     * This method provides thread-safe access to check the image state.
+     * @return True if the image is valid, false otherwise.
+     */
+    [[nodiscard]] bool isImageValid() const;
 };
 
 } // namespace Rendering
