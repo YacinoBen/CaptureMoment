@@ -66,9 +66,13 @@ void SGSImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& im
 // Merges the tile data into the full image buffer (CPU side) and marks the internal state for update.
 void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
 {
-    if (!tile || !tile->isValid())
-    {
+    if (!tile || !tile->isValid()){
         spdlog::warn("SGSImageItem::updateTile: Invalid tile");
+        return;
+    }
+
+    if (!isImageValid()){
+        spdlog::warn("SGSImageItem::updateTile: No base image loaded or base image is invalid");
         return;
     }
 
@@ -76,11 +80,6 @@ void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& 
     // This lock is held while updating the core image data.
     {
         QMutexLocker lock(&m_image_mutex);
-        if (!m_full_image)
-        {
-            spdlog::warn("SGSImageItem::updateTile: No base image loaded");
-            return;
-        }
 
         // Check bounds to ensure the tile fits within the main image region
         if (tile->m_x < 0 || tile->m_y < 0 ||
@@ -117,13 +116,9 @@ void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& 
 // Creates or updates the QSGSimpleTextureNode responsible for rendering.
 QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
 {
-
-    {
-        QMutexLocker lock(&m_image_mutex);
-        if (!m_full_image && !node) {
-            spdlog::info("SGSImageItem::updatePaintNode: Created no node");
-            return nullptr;
-        }
+    if (!isImageValid() && !node) {
+        spdlog::info("SGSImageItem::updatePaintNode: No valid image data yet, returning null node.");
+        return nullptr;
     }
 
     // Cast the existing node to QSGSimpleTextureNode, or create a new one if it doesn't exist.
