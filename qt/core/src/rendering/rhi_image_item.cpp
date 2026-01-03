@@ -67,14 +67,15 @@ void RHIImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& 
         return;
     }
 
+    if (!isImageValid())
+    {
+        spdlog::warn("RHIImageItem::updateTile: No base image loaded or base image is invalid");
+        return;
+    }
+
     // Protect access to shared data (m_full_image, m_texture_needs_update)
     {
         QMutexLocker lock(&m_image_mutex);
-        if (!m_full_image)
-        {
-            spdlog::warn("RHIImageItem::updateTile: No base image loaded");
-            return;
-        }
 
         // Iterate through the pixels of the tile.
         for (int y = 0; y < tile->m_height; ++y)
