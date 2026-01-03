@@ -274,7 +274,6 @@ QSize DisplayManager::calculateDisplaySize(const QSize& source_size, const QSize
         display_width = static_cast<int>(display_height * source_aspect);
     }
 
-    // ✅ S'assurer que les dimensions sont valides
     display_width = std::max(1, display_width);
     display_height = std::max(1, display_height);
 
