@@ -1,3 +1,4 @@
+# 🧱 Architecture UI Core
 
 ## 🧱 Key Components
 
@@ -11,6 +12,7 @@
     *   Manage the `DisplayManager`.
 *   **Base Class:** `ImageControllerBase` (abstract, defines common interface and threading).
 *   **Concrete Implementations:** `ImageControllerPainted`, `ImageControllerRHI`, `ImageControllerSGS` (handle specific rendering paths).
+*   **Common Logic:** `doLoadImage` and `doApplyOperations` are now implemented **in `ImageControllerBase`** for commonality, reducing duplication.
 
 ### 2. Display Management (`display/`)
 
@@ -26,15 +28,18 @@
 
 *   **Purpose:** Implement Qt Quick items responsible for **displaying images** on screen using various Qt Quick rendering techniques.
 *   **Responsibilities:**
-    *   Provide `QQuickItem` subclasses (e.g., `QQuickPaintedItem`, `QSGRenderNode`).
+    *   Provide `QQuickItem` subclasses (e.g., `QQuickPaintedItem`, `QSGRenderNode`, `QQuickRhiItem`).
     *   Interface with Qt's Rendering Hardware Interface (`QRhi`) for high-performance GPU rendering.
     *   Handle texture updates, geometry, and shader management.
     *   Implement zoom and pan transformations.
 *   **Base Interface:** `IRenderingItemBase` (defines common methods like `setImage`, `updateTile`, common data members like `m_zoom`, `m_pan`, `m_image_width`, `m_image_height`, `m_image_mutex`).
-*   **Base Implementation:** `BaseImageItem` (provides common implementations for `imageWidth()` and `imageHeight()` using `m_image_mutex` from `IRenderingItemBase`).
-*   **Concrete Items:** `RHIImageItem`, `PaintedImageItem`, `SGSImageItem`. These classes inherit from their specific Qt Quick base (`QQuickItem` for SGS/RHI, `QQuickPaintedItem` for Painted) and from `BaseImageItem` to get common data and logic. They implement the remaining methods of `IRenderingItemBase` (e.g., `setImage`, `updateTile`, `setZoom`, `setPan`) and declare their own QML properties and signals (`Q_PROPERTY`, `signals`).
+*   **Base Implementation:** `BaseImageItem` (provides common implementations for `imageWidth()` and `imageHeight()` using `m_image_mutex` from `IRenderingItemBase`, and provides `isImageValid()` method).
+*   **Concrete Items:** `RHIImageItem`, `PaintedImageItem`, `SGSImageItem`. These classes inherit from their specific Qt Quick base (`QQuickRhiItem` for RHI, `QQuickItem` for SGS, `QQuickPaintedItem` for Painted) and from `BaseImageItem` to get common data and logic. They implement the remaining methods of `IRenderingItemBase` (e.g., `setImage`, `updateTile`, `setZoom`, `setPan`) and declare their own QML properties and signals (`Q_PROPERTY`, `signals`).
 *   **QML Wrapper Classes:** `QMLSGSImageItem`, `QMLPaintedImageItem`, `QMLRHIImageItem`. These classes inherit from the concrete rendering items and re-declare `Q_PROPERTY` for seamless QML binding.
-*   **Node Implementation:** `RHIImageNode` (used by `RHIImageItem` for QRhi rendering).
+*   **Node Implementation:**
+    *   **RHI:** `RHIImageItem` now inherits from `QQuickRhiItem` and uses a **separate renderer class** `RHIImageItemRenderer` (implementing `QQuickRhiItemRenderer`) for QRhi rendering logic, separating item logic from render logic.
+    *   **SGS:** Uses `QSGSimpleTextureNode` via `updatePaintNode`.
+    *   **Painted:** Uses `QQuickPaintedItem` and `QPainter` via `paint`.
 
 ### 4. Operation Models (`models/operations/`)
 
@@ -68,9 +73,9 @@
 6.  **Core -> Controller:** The core engine returns the processed image data (e.g., via `task->result()`).
 7.  **Controller -> Display:** The controller passes the result to the `DisplayManager`.
 8.  **Display -> Rendering:** The `DisplayManager` downsamples the image (if necessary) and sends it to the appropriate rendering item (e.g., `RHIImageItem`).
-9.  **Rendering -> GPU:** The rendering item (e.g., `RHIImageItem` via `RHIImageNode`) updates the GPU texture and renders the image via `QRhi` or `QPainter`.
+9.  **Rendering -> GPU:** The rendering item (e.g., `RHIImageItem` via `RHIImageItemRenderer`, `SGSImageItem` via `updatePaintNode`, `PaintedImageItem` via `paint`) updates the GPU texture or QPainter image and renders the image via `QRhi` or `QPainter`.
 
-**Important : RHI and SGS are now working correctly with the new rendering architecture.**
+**Important : RHI, SGS, and Painted are now working correctly with the new rendering architecture.**
 
 ## 🛠️ How to Contribute
 
@@ -89,9 +94,9 @@
 
 ### Adding a New Rendering Item (e.g., VulkanImageItem)
 
-1.  **Implement QQuickItem:** Create `VulkanImageItem` inheriting from `QQuickItem` (or `QSGRenderNode` or `QQuickPaintedItem`).
-2.  **Integrate QRhi/Vulkan:** Implement `updatePaintNode` or `prepare`/`render` methods using `QRhi` for Vulkan/Metal/DirectX or `paint` for `QQuickPaintedItem`.
-3.  **Inherit from Base:** `VulkanImageItem` should inherit from its specific Qt Quick base class (`QQuickItem`/`QQuickPaintedItem`) and from `BaseImageItem` to get common data members and implementations (`imageWidth`, `imageHeight`).
+1.  **Implement QQuickItem:** Create `VulkanImageItem` inheriting from `QQuickItem` (or `QQuickRhiItem` for new RHI-based approach, or `QSGRenderNode` or `QQuickPaintedItem`).
+2.  **Integrate QRhi/Vulkan:** Implement `createRenderer` (for `QQuickRhiItem`) or `updatePaintNode` or `prepare`/`render` methods using `QRhi` for Vulkan/Metal/DirectX or `paint` for `QQuickPaintedItem`.
+3.  **Inherit from Base:** `VulkanImageItem` should inherit from its specific Qt Quick base class (`QQuickItem`/`QQuickRhiItem`/`QQuickPaintedItem`) and from `BaseImageItem` to get common data members and implementations (`imageWidth`, `imageHeight`, `isImageValid`).
 4.  **Implement IRenderingItemBase:** Implement the remaining pure virtual methods from `IRenderingItemBase` (e.g., `setImage`, `updateTile`, `setZoom`, `setPan`) in `VulkanImageItem`.
 5.  **Declare QML Properties/Signals:** Declare `Q_PROPERTY` and `signals` in `VulkanImageItem` for QML exposure.
 6.  **Create QML Wrapper:** Create `QMLVulkanImageItem` inheriting from `VulkanImageItem` and re-declaring `Q_PROPERTY`.
