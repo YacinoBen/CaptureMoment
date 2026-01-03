@@ -20,17 +20,16 @@ PaintedImageItem::PaintedImageItem(QQuickItem* parent)
     spdlog::info("PaintedImageItem: Created");
 }
 
-    // Sets the full image to be displayed.
-    // Updates the internal image data and schedules a repaint.
-    void PaintedImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
-    {
-        if (!image || !image->isValid())
-        {
+// Sets the full image to be displayed.
+// Updates the internal image data and schedules a repaint.
+void PaintedImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
+{
+    if (!image || !image->isValid()){
             spdlog::warn("PaintedImageItem::setImage: Invalid image region");
             return;
         }
         
-        spdlog::info("PaintedImageItem::setImage: {}x{}", image->m_width, image->m_height);
+    spdlog::info("PaintedImageItem::setImage: {}x{}", image->m_width, image->m_height);
 
     // Protect access to shared data (m_current_qimage, m_image_width, m_image_height)
     {
@@ -60,21 +59,21 @@ PaintedImageItem::PaintedImageItem(QQuickItem* parent)
     update();
 }
 
-    // Updates a specific tile of the displayed image.
-    // Merges the tile data into the internal QImage buffer and schedules a repaint.
-    void PaintedImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
-    {
-         if (!tile || !tile->isValid()) {
+// Updates a specific tile of the displayed image.
+// Merges the tile data into the internal QImage buffer and schedules a repaint.
+void PaintedImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
+{
+    if (!tile || !tile->isValid()) {
         spdlog::warn("PaintedImageItem::updateTile: Invalid tile");
         return;
     }
 
-    QMutexLocker lock(&m_image_mutex);
-
-    if (m_current_qimage.isNull()) {
-        spdlog::warn("PaintedImageItem::updateTile: No base image loaded");
+    if (!isImagePaintValid()) {
+        spdlog::warn("PaintedImageItem::paint: No source image or no converted image to paint");
         return;
     }
+
+    QMutexLocker lock(&m_image_mutex);
 
     spdlog::info("PaintedImageItem::updateTile: tile {}x{} at ({},{})",
                  tile->m_width, tile->m_height, tile->m_x, tile->m_y);
@@ -118,13 +117,13 @@ void PaintedImageItem::paint(QPainter* painter)
         return;
     }
 
-    // Protect access to the shared image data during painting
-    QMutexLocker lock(&m_image_mutex);
-
-    if (m_current_qimage.isNull()) {
-        spdlog::warn("PaintedImageItem::paint: No image to paint");
+    if (!isImagePaintValid()) {
+        spdlog::warn("PaintedImageItem::paint: No source image or no converted image to paint");
         return;
     }
+
+    // Protect access to the shared image data during painting
+    QMutexLocker lock(&m_image_mutex);
 
     spdlog::trace("PaintedImageItem::paint: About to draw image");
     spdlog::info("PaintedImageItem::paint: Drawing m_current_qimage width: {}, m_current_qimage height {}, sample pixel (0,0) RGB: {},{},{}",
@@ -238,6 +237,11 @@ void PaintedImageItem::paint(QPainter* painter)
     spdlog::debug("PaintedImageItem::convertImageRegionToQImage: Converted {}x{} ({} channels) to QImage",
                   region.m_width, region.m_height, region.m_channels);
     return qimg;
+}
+
+bool PaintedImageItem::isImagePaintValid() const
+{
+    return (isImageValid() && !m_current_qimage.isNull());
 }
 
 // Sets the zoom level.

@@ -117,6 +117,21 @@ private:
      */
     [[nodiscard]] QImage convertImageRegionToQImage(const Core::Common::ImageRegion& region) const;
 
+    /**
+     * @brief Checks if the source image is valid AND the converted QImage is not null.
+     *
+     * This method provides a convenient way to check if both the source image data
+     * (managed by BaseImageItem/IRenderingItemBase) is valid and the internal
+     * QImage representation (m_current_qimage) used for painting is ready.
+     * It combines the checks from isImageValid() and m_current_qimage.isNull().
+     *
+     * This method is intended for use within PaintedImageItem methods like paint()
+     * and updateTile() to avoid redundant checks and potential deadlocks from
+     * calling isImageValid() inside a mutex-locked scope.
+     *
+     * @return True if both the source image is valid and m_current_qimage is not null, false otherwise.
+     */
+    [[nodiscard]] bool isImagePaintValid() const;
 
 signals:
     /**
