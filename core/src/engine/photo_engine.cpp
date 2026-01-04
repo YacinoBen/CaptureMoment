@@ -75,18 +75,18 @@ std::shared_ptr<Domain::IProcessingTask> PhotoEngine::createTask(
     const size_t region_data_size = static_cast<size_t>(width) * height * m_working_image->m_channels;
     tile_unique_ptr->m_data.resize(region_data_size);
 
-    // Copy data from the working image to the region
-    for (int py = 0; py < height; ++py) {
-        for (int px = 0; px < width; ++px) {
-            for (int c = 0; c < m_working_image->m_channels; ++c) {
-                // Calculate source index in m_working_image
-                size_t src_idx = ((y + py) * m_working_image->m_width + (x + px)) * m_working_image->m_channels + c;
-                // Calculate destination index in tile_unique_ptr
-                size_t dst_idx = (py * width + px) * m_working_image->m_channels + c;
-                tile_unique_ptr->m_data[dst_idx] = m_working_image->m_data[src_idx];
-            }
-        }
+    // Get the original tile from the source manager for the requested ROI
+    auto original_tile = m_source_manager->getTile(x, y, width, height);
+    if (!original_tile) {
+        spdlog::error("PhotoEngine::createTask: Failed to get original tile from SourceManager for ROI ({},{},{},{}).", x, y, width, height);
+        return nullptr;
     }
+
+    // Now, tile_unique_ptr holds the original data
+    tile_unique_ptr = std::move(original_tile);
+    tile_unique_ptr->m_x = x; // Update coordinates if necessary, getTile might reset them
+    tile_unique_ptr->m_y = y;
+    // width, height, channels, format should already be correct from getTile
 
     if (!tile_unique_ptr) {
         spdlog::warn("PhotoEngine::createTask: Failed to create a valid tile from working image for ROI ({},{},{},{}).", x, y, width, height);
