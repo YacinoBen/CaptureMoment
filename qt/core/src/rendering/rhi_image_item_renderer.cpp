@@ -19,13 +19,15 @@ namespace CaptureMoment::UI::Rendering {
 
 // Constructor: Initializes the renderer.
 RHIImageItemRenderer::RHIImageItemRenderer(RHIImageItem* item)
-        : m_item(item) {
-        spdlog::debug("RHIImageItemRenderer: Created");
+    : m_item(item)
+{
+    spdlog::debug("RHIImageItemRenderer: Created");
 }
 
 // Destructor: Cleans up resources.
-RHIImageItemRenderer::~RHIImageItemRenderer() {
-        spdlog::debug("RHIImageItemRenderer: Destroyed (resources cleaned up by unique_ptr)");
+RHIImageItemRenderer::~RHIImageItemRenderer()
+{
+    spdlog::debug("RHIImageItemRenderer: Destroyed (resources cleaned up by unique_ptr)");
 }
 
 // Initializes the RHI resources (pipeline, buffers, etc.).
@@ -38,66 +40,70 @@ void RHIImageItemRenderer::initialize(QRhiCommandBuffer *cb)
         return;
     }
 
-    createGeometry();
-    if (!m_vertex_buffer || !m_index_buffer || !m_uniform_buffer) {
-        spdlog::error("RHIImageItemRenderer::initialize: createGeometry() failed");
-        return;
-    }
-    spdlog::info("RHIImageItemRenderer::initialize: Geometry created successfully");
+    if (!m_initialized)
+    {
+        createGeometry();
+        if (!m_vertex_buffer || !m_index_buffer || !m_uniform_buffer) {
+            spdlog::error("RHIImageItemRenderer::initialize: createGeometry() failed");
+            return;
+        }
+        spdlog::info("RHIImageItemRenderer::initialize: Geometry created successfully");
 
-    createPipeline();
-    if (!m_pipeline || !m_srb) {
-        spdlog::error("RHIImageItemRenderer::initialize: createPipeline() failed");
-        return;
-    }
-    spdlog::info("RHIImageItemRenderer::initialize: Pipeline created successfully");
+        createPipeline();
+        if (!m_pipeline || !m_srb) {
+            spdlog::error("RHIImageItemRenderer::initialize: createPipeline() failed");
+            return;
+        }
+        spdlog::info("RHIImageItemRenderer::initialize: Pipeline created successfully");
 
-    // Only mark as initialized if EVERYTHING succeeded
-    m_initialized = true;
-    spdlog::info("RHIImageItemRenderer::initialize: Complete - Ready to render");
+        // Only mark as initialized if EVERYTHING succeeded
+        m_initialized = true;
+        spdlog::info("RHIImageItemRenderer::initialize: Complete - Ready to render");
+    }
 }
 
 // Synchronizes state from the GUI thread to the render thread.
 void RHIImageItemRenderer::synchronize(QQuickRhiItem *item)
 {
     // Cast the item to our specific type
-    RHIImageItem* rhiItem = static_cast<RHIImageItem*>(item);
-    if (!rhiItem) {
+    RHIImageItem* rhi_item = static_cast<RHIImageItem*>(item);
+    if (!rhi_item) {
         spdlog::error("RHIImageItemRenderer::synchronize: Invalid item cast");
         return;
     }
 
-    spdlog::info("RHIImageItemRenderer::synchronize: Start");
+    spdlog::info("RHIImageItemRenderer::synchronize: Texture update marked for renderer");
 
-    // Lock to access the item's data safely
+    if(rhi_item->isImageValid() && m_initialized)
     {
-        QMutexLocker lock(rhiItem->getImageMutex()); // Use the mutex from the item
-
-        spdlog::info("RHIImageItemRenderer::synchronize: enter lock rhiItem->textureNeedsUpdate(): {}", rhiItem->textureNeedsUpdate());
-        // Check if texture needs update
-        if (rhiItem->textureNeedsUpdate() && rhiItem->getFullImage())
         {
-            spdlog::info("RHIImageItemRenderer::synchronize: Texture update required");
-            updateTexture(); // This function should handle the conversion and upload
-            rhiItem->setTextureNeedsUpdate(false);
-            spdlog::info("RHIImageItemRenderer::synchronize: Texture update flag reset");
+            QMutexLocker lock(rhi_item->getImageMutex());
+            spdlog::info("RHIImageItemRenderer::synchronize start lock getImageMutex()");
+
+            if (rhi_item->textureNeedsUpdate() && rhi_item->getFullImage())
+            {
+                spdlog::info("RHIImageItemRenderer::synchronize: Texture update required");
+                m_render_image_data = rhi_item->getFullImage();
+                m_render_texture_needs_update = true;
+                rhi_item->setTextureNeedsUpdate(false);
+
+                m_render_image_width = rhi_item->imageWidth();
+                m_render_image_height = rhi_item->imageHeight();
+                spdlog::info("RHIImageItemRenderer::synchronize: Texture update marked for renderer");
+            }
+
+            spdlog::info("RHIImageItemRenderer::synchronize: Update m_render width and height");
         }
-        // If m_full_image is not valid, m_image_width/height might be 0 initially
-        m_render_image_width = rhiItem->imageWidth();
-        m_render_image_height = rhiItem->imageHeight();
-    }
 
-    // Lock to update our local render state (zoom, pan)
-    {
-        QMutexLocker lock(&m_render_state_mutex);
-        // Copy zoom and pan from the item's state to our local render state
-        // These are safe to read here because BaseImageItem provides thread-safe getters
-        // (or they are accessed only on the main thread, so we assume they are stable during sync)
-        m_render_zoom = rhiItem->zoom(); // Use getter from BaseImageItem
-        m_render_pan = rhiItem->pan();   // Use getter from BaseImageItem
-    }
+        {
+            QMutexLocker lock(&m_render_state_mutex);
+            spdlog::info("RHIImageItemRenderer::synchronize start lock m_render_state_mutex for zoom and pan ");
 
-    spdlog::info("RHIImageItemRenderer::synchronize: End");
+            m_render_zoom = rhi_item->zoom();
+            m_render_pan = rhi_item->pan();
+        }
+        spdlog::info("RHIImageItemRenderer::synchronize: End");
+    }
 }
 
 // Performs the actual rendering commands using QRhi.
@@ -108,6 +114,21 @@ void RHIImageItemRenderer::render(QRhiCommandBuffer *cb)
     if (!m_initialized || !rhi() || !m_pipeline) {
         spdlog::warn("RHIImageItemRenderer::render: Not initialized");
         return;
+    }
+
+    if (m_render_texture_needs_update && m_render_image_data)
+    {
+        spdlog::info("RHIImageItemRenderer::render: Processing pending texture update in render()");
+        uploadPixelData(m_render_image_data);
+        m_render_texture_needs_update = false;
+        m_render_image_data.reset();
+        spdlog::info("RHIImageItemRenderer::render: Texture update completed");
+    }
+
+    if (m_pending_upload_batch) {
+        cb->resourceUpdate(m_pending_upload_batch);
+        m_pending_upload_batch = nullptr;
+        spdlog::info("RHIImageItemRenderer::render: Pending texture update batch submitted");
     }
 
     // Retrieve render state safely
@@ -131,6 +152,7 @@ void RHIImageItemRenderer::render(QRhiCommandBuffer *cb)
     // Apply pan and zoom transformations
     matrix.translate(current_pan.x(), current_pan.y());
     matrix.scale(current_zoom);
+    matrix.scale(current_width, current_height);
 
     spdlog::info("RHIImageItemRenderer::render: Setting uniform buffer with matrix (pan: {}, {}, zoom: {})",
                  current_pan.x(), current_pan.y(), current_zoom);
@@ -194,18 +216,18 @@ void RHIImageItemRenderer::createGeometry() {
     // Define vertices for a quad covering the image size (initially 1x1, will be scaled by uniform matrix)
     // Texture coordinates are set for top-left origin (0,0) to bottom-right (1,1)
     Vertex vertices[] =
-    {
-        { 0.0f, 0.0f, 0.0f, 0.0f }, // Top-left
-        { 1.0f, 0.0f, 1.0f, 0.0f }, // Top-right
-        { 1.0f, 1.0f, 1.0f, 1.0f }, // Bottom-right
-        { 0.0f, 1.0f, 0.0f, 1.0f }  // Bottom-left
-    };
+        {
+            { 0.0f, 0.0f, 0.0f, 0.0f }, // Top-left
+            { 1.0f, 0.0f, 1.0f, 0.0f }, // Top-right
+            { 1.0f, 1.0f, 1.0f, 1.0f }, // Bottom-right
+            { 0.0f, 1.0f, 0.0f, 1.0f }  // Bottom-left
+        };
     uint16_t indices[] = { 0, 1, 2, 0, 2, 3 }; // Two triangles
 
     // Create vertex buffer using QRhi factory method
     m_vertex_buffer.reset(rhi()->newBuffer(
         QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, sizeof(vertices)
-    ));
+        ));
     if (!m_vertex_buffer || !m_vertex_buffer->create()) {
         spdlog::error("RHIImageItemRenderer::createGeometry: Failed to create vertex buffer");
         return;
@@ -214,8 +236,8 @@ void RHIImageItemRenderer::createGeometry() {
 
     // Create index buffer using QRhi factory method
     m_index_buffer.reset(rhi()->newBuffer(
-            QRhiBuffer::Immutable, QRhiBuffer::IndexBuffer, sizeof(indices)
-    ));
+        QRhiBuffer::Immutable, QRhiBuffer::IndexBuffer, sizeof(indices)
+        ));
     if (!m_index_buffer || !m_index_buffer->create()) {
         spdlog::error("RHIImageItemRenderer::createGeometry: Failed to create index buffer");
         return;
@@ -225,7 +247,7 @@ void RHIImageItemRenderer::createGeometry() {
     // Create uniform buffer using QRhi factory method
     m_uniform_buffer.reset(rhi()->newBuffer(
         QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, 64 // 16 floats * 4 bytes = 64 bytes for a 4x4 matrix
-    ));
+        ));
     if (!m_uniform_buffer || !m_uniform_buffer->create()) {
         spdlog::error("RHIImageItemRenderer::createGeometry: Failed to create uniform buffer");
         return;
@@ -288,7 +310,7 @@ void RHIImageItemRenderer::createPipeline()
         QRhiSampler::None,                        // Mipmap mode (None for non-mipmapped textures)
         QRhiSampler::ClampToEdge,                 // Wrap mode for U coordinate
         QRhiSampler::ClampToEdge                  // Wrap mode for V coordinate
-    ));
+        ));
     if (!m_sampler || !m_sampler->create()) {
         spdlog::error("RHIImageItemRenderer::createPipeline: Failed to create sampler.");
         return;
@@ -304,7 +326,7 @@ void RHIImageItemRenderer::createPipeline()
     m_texture.reset(rhi()->newTexture(
         QRhiTexture::RGBA8, // Common format
         QSize(initial_width, initial_height)
-    ));
+        ));
     if (!m_texture || !m_texture->create()) {
         spdlog::error("RHIImageItemRenderer::createPipeline: Failed to create initial placeholder texture ({}x{}).", initial_width, initial_height);
         return;
@@ -321,12 +343,12 @@ void RHIImageItemRenderer::createPipeline()
             QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage, // Stages that use this buffer
             m_uniform_buffer.get() // Pointer to the QRhiBuffer object
             ),
-    // Binding 1: Combined texture and sampler
+        // Binding 1: Combined texture and sampler
         QRhiShaderResourceBinding::sampledTexture(
-                1, // Binding point number in the shader (layout(binding = 1) ... )
-                QRhiShaderResourceBinding::FragmentStage, // Stage that uses this texture/sampler
-                m_texture.get(), // Pointer to the QRhiTexture object
-                m_sampler.get()  // Pointer to the QRhiSampler object
+            1, // Binding point number in the shader (layout(binding = 1) ... )
+            QRhiShaderResourceBinding::FragmentStage, // Stage that uses this texture/sampler
+            m_texture.get(), // Pointer to the QRhiTexture object
+            m_sampler.get()  // Pointer to the QRhiSampler object
             )
     };
 
@@ -416,10 +438,10 @@ void RHIImageItemRenderer::uploadPixelData(const std::shared_ptr<Core::Common::I
 
     // --- Convert pixel data format (float32 → uint8) ---
     // Prepare a buffer to hold the converted pixel data.
-    std::vector<uint8_t> pixelData;
+    std::vector<uint8_t> pixel_data;
     // Resize the buffer to fit the entire image (width * height * 4 channels).
-    pixelData.resize(image->m_width * image->m_height * 4);
-    spdlog::info("RHIImageItemRenderer::uploadPixelData: Resized pixel data buffer to {}", pixelData.size());
+    pixel_data.resize(image->m_width * image->m_height * 4);
+    spdlog::info("RHIImageItemRenderer::uploadPixelData: Resized pixel data buffer to {}", pixel_data.size());
 
     // Iterate through the source float data and convert/clamp each value to uint8.
     for (int y = 0; y < image->m_height; ++y)
@@ -435,37 +457,45 @@ void RHIImageItemRenderer::uploadPixelData(const std::shared_ptr<Core::Common::I
                 float a = (image->m_channels == 4) ? std::clamp(image->m_data[baseIdx + 3], 0.0f, 1.0f) : 1.0f;
 
                 size_t dstIdx = (y * image->m_width + x) * 4;
-                pixelData[dstIdx + 0] = static_cast<uint8_t>(r * 255.0f);
-                pixelData[dstIdx + 1] = static_cast<uint8_t>(g * 255.0f);
-                pixelData[dstIdx + 2] = static_cast<uint8_t>(b * 255.0f);
-                pixelData[dstIdx + 3] = static_cast<uint8_t>(a * 255.0f);
+                pixel_data[dstIdx + 0] = static_cast<uint8_t>(r * 255.0f);
+                pixel_data[dstIdx + 1] = static_cast<uint8_t>(g * 255.0f);
+                pixel_data[dstIdx + 2] = static_cast<uint8_t>(b * 255.0f);
+                pixel_data[dstIdx + 3] = static_cast<uint8_t>(a * 255.0f);
             }
         }
     }
-    spdlog::info("RHIImageItemRenderer::uploadPixelData: Conversion from float32 to uint8 completed");
 
-    bool textureRecreated = false;
+    spdlog::info("RHIImageItemRenderer::uploadPixelData: Conversion from float32 to uint8 completed");
+    spdlog::info("RHIImageItemRenderer::uploadPixelData: First pixel (0,0) RGBA = {}, {}, {}, {}",
+                 pixel_data[0], pixel_data[1], pixel_data[2], pixel_data[3]);
+    spdlog::info("RHIImageItemRenderer::uploadPixelData: Last pixel (0, {}) RGBA = {}, {}, {}, {}",
+                 image->m_height-1, pixel_data[(image->m_height-1) * image->m_width * 4],
+                 pixel_data[(image->m_height-1) * image->m_width * 4 + 1],
+                 pixel_data[(image->m_height-1) * image->m_width * 4 + 2],
+                 pixel_data[(image->m_height-1) * image->m_width * 4 + 3]);
+
+    bool is_texture_recreated = false;
 
     // --- Check if texture needs recreation (size changed) ---
-    QSize currentTextureSize = m_texture ? m_texture->pixelSize() : QSize(0,0);
+    QSize current_texture_size = m_texture ? m_texture->pixelSize() : QSize(0,0);
 
-    if (!m_texture || currentTextureSize != QSize(image->m_width, image->m_height))
+    if (!m_texture || current_texture_size != QSize(image->m_width, image->m_height))
     {
         spdlog::info("RHIImageItemRenderer::uploadPixelData: Recreating texture, old size: {}x{}, new size: {}x{}",
-                     currentTextureSize.width(), currentTextureSize.height(), image->m_width, image->m_height);
+                     current_texture_size.width(), current_texture_size.height(), image->m_width, image->m_height);
 
         // Créer la nouvelle texture
         m_texture.reset(rhi()->newTexture(
             QRhiTexture::RGBA8,
             QSize(image->m_width, image->m_height)
-        ));
+            ));
 
         if (!m_texture || !m_texture->create()) {
             spdlog::error("RHIImageItemRenderer::uploadPixelData: Failed to create texture ({}x{})", image->m_width, image->m_height);
             return;
         }
 
-        textureRecreated = true;
+        is_texture_recreated = true;
         spdlog::info("RHIImageItemRenderer::uploadPixelData: Texture ({}x{}) recreated successfully", image->m_width, image->m_height);
 
         // IMPORTANT: Recreate the SRB because it references the old texture
@@ -474,13 +504,13 @@ void RHIImageItemRenderer::uploadPixelData(const std::shared_ptr<Core::Common::I
                 0, // Binding point number in the shader (layout(binding = 0) ... )
                 QRhiShaderResourceBinding::VertexStage | QRhiShaderResourceBinding::FragmentStage, // Stages that use this buffer
                 m_uniform_buffer.get() // Pointer to the QRhiBuffer object
-            ),
+                ),
             QRhiShaderResourceBinding::sampledTexture(
                 1, // Binding point number in the shader (layout(binding = 1) ... )
                 QRhiShaderResourceBinding::FragmentStage, // Stage that uses this texture/sampler
                 m_texture.get(), // Pointer to the NEW QRhiTexture object
                 m_sampler.get()  // Pointer to the QRhiSampler object
-            )
+                )
         };
 
         m_srb->setBindings(bindings, bindings + 2); // Set the array of bindings (size 2)
@@ -506,39 +536,33 @@ void RHIImageItemRenderer::uploadPixelData(const std::shared_ptr<Core::Common::I
 
     // --- Configure the texture upload description for Qt 6.9 API ---
     // 1. Describe the *specific part* (subresource) of the texture to update.
-    QRhiTextureSubresourceUploadDescription subDesc;
+    QRhiTextureSubresourceUploadDescription sub_desc;
     // Set the pixel data buffer (converted from ImageRegion) to be uploaded.
-    subDesc.setData(QByteArray(
-        reinterpret_cast<const char*>(pixelData.data()), // Source data pointer (cast to char*)
-        pixelData.size()                                 // Size of the data buffer in bytes
-    ));
+    sub_desc.setData(QByteArray(
+        reinterpret_cast<const char*>(pixel_data.data()), // Source data pointer (cast to char*)
+        pixel_data.size()                                 // Size of the data buffer in bytes
+        ));
     // Set the top-left corner in the destination texture where the data should be placed (offset 0, 0).
-    subDesc.setDestinationTopLeft(QPoint(0, 0));
+    sub_desc.setDestinationTopLeft(QPoint(0, 0));
 
     // 2. Describe the *entry* for the upload batch, specifying the mip level and the subresource description.
     QRhiTextureUploadEntry entry;
     // Set the mip level to update (0 for the base level).
     entry.setLevel(0);
     // Associate the subresource description (containing data and destination offset) with this entry.
-    entry.setDescription(subDesc);
+    entry.setDescription(sub_desc);
 
     // 3. Create the *overall* upload description containing the entry.
-    QRhiTextureUploadDescription uploadDesc(entry); // Constructor with a single entry
+    QRhiTextureUploadDescription upload_desc(entry); // Constructor with a single entry
 
     // --- Queue the upload command ---
     // Add the upload command (for the specified texture and upload description) to the batch.
-    batch->uploadTexture(m_texture.get(), uploadDesc);
+    batch->uploadTexture(m_texture.get(), upload_desc);
 
-    // Submit the batch directly here, as it's during synchronize
-    QRhiCommandBuffer* cb = nullptr;
-    if (rhi()->beginOffscreenFrame(&cb) == QRhi::FrameOpSuccess)
-    {
-        cb->resourceUpdate(batch);
-        rhi()->endOffscreenFrame();
-    }
+    m_pending_upload_batch = batch;
 
-    spdlog::debug("RHIImageItemRenderer::uploadPixelData: Uploaded {}x{} to GPU",
-                     image->m_width, image->m_height);
+    spdlog::debug("RHIImageItemRenderer::uploadPixelData: Prepared upload for {}x{} to GPU",
+                  image->m_width, image->m_height);
 }
 
 } // namespace CaptureMoment::UI::Rendering

@@ -106,7 +106,34 @@ private:
      */
     mutable QMutex m_render_state_mutex;
 
+    /**
+     * @brief Image data to be displayed, copied from RHIImageItem for the render thread.
+     *
+     * This shared pointer holds the image (in ImageRegion format) to be rendered.
+     * It is updated via the receiveImageData() method from the main (GUI) thread.
+     */
+    std::shared_ptr<Core::Common::ImageRegion> m_render_image_data;
+
+    /**
+     * @brief Flag indicating if the GPU texture needs to be updated.
+     *
+     * This flag is updated via receiveImageData(). When true, it signals that
+     * `m_render_image_data` contains new data that needs to be transferred
+     * to the GPU texture in the render() method.
+     */
+    bool m_render_texture_needs_update{false};
+
+    /**
+     * @brief Pending RHI resource update batch waiting to be submitted.
+     *
+     * This pointer stores a QRhiResourceUpdateBatch prepared (e.g., for
+     * texture update) within render() or a method called from render().
+     * This batch is then submitted to render()'s command buffer.
+     */
+    QRhiResourceUpdateBatch* m_pending_upload_batch{nullptr};
+
 public:
+
     /**
      * @brief Constructs a new RHIImageItemRenderer.
      * @param item The RHIImageItem instance that owns this renderer.
@@ -147,7 +174,7 @@ public:
      * @param cb The command buffer to record rendering commands into.
      */
     void render(QRhiCommandBuffer *cb) override;
-            
+
 private:
     /**
      * @brief Creates the vertex and index buffers for the geometry (e.g., a quad).

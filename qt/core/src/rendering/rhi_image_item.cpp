@@ -33,8 +33,7 @@ void RHIImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& im
     spdlog::info("RHIImageItem::setImage: CALLED with image {}x{}",
                  image ? image->m_width : -1, image ? image->m_height : -1);
 
-    if (!image || !image->isValid())
-    {
+    if (!image || !image->isValid()) {
         spdlog::warn("RHIImageItem::setImage: Invalid image region");
         return;
     }
@@ -52,8 +51,10 @@ void RHIImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& im
         spdlog::info("RHIImageItem::setImage: Texture update flag set to true");
     }
 
+    emit imageSizeChanged();
+
     // Trigger a repaint to reflect the new image.
-    spdlog::info("RHIImageItem::setImage: Calling update()");
+    spdlog::info("RHIImageItem::setImage: {}x{}, triggering update", image->m_width, image->m_height);
     update();
 }
 
@@ -95,7 +96,7 @@ void RHIImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& 
         // Signal that the GPU texture needs to be updated due to the tile change.
         m_texture_needs_update = true;
     }
-    spdlog::debug("RHIImageItem::updateTile: Merged tile at ({}, {})", tile->m_x, tile->m_y);
+    spdlog::info("RHIImageItem::updateTile: Merged tile at ({}, {})", tile->m_x, tile->m_y);
     // Trigger a repaint to reflect the updated tile.
     update();
 }
@@ -139,8 +140,7 @@ void RHIImageItem::setPan(const QPointF& pan)
 // Creates the renderer instance responsible for RHI rendering.
 QQuickRhiItemRenderer *RHIImageItem::createRenderer()
 {
-    // Create and return a new instance of the custom renderer.
-    return new RHIImageItemRenderer(this); // Pass 'this' to the renderer if needed
+    return new RHIImageItemRenderer(this);
 }
 
 } // namespace CaptureMoment::UI::Rendering
