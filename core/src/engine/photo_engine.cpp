@@ -22,14 +22,13 @@ bool PhotoEngine::loadImage(std::string_view path)
 {
     // Check if the source manager is valid before attempting to load.
     if (!m_source_manager) {
-        // Error handling: SourceManager is required.
-        spdlog::error("PhotoEngine::LoadImage : error to load m_source_manager");
+        spdlog::error("PhotoEngine::loadImage: SourceManager is null.");
         return false;
     }
 
     // 1. Load original data into SourceManager (The Truth)
     if (!m_source_manager->loadFile(path)) {
-        spdlog::error("PhotoEngine::LoadImage : error to loadFile(path) from m_source_manager");
+        spdlog::error("PhotoEngine::loadImage: Failed to load file '{}' via SourceManager.", path);
         return false;
     }
 
@@ -38,11 +37,12 @@ bool PhotoEngine::loadImage(std::string_view path)
     resetWorkingImage();
 
     if (!m_working_image) {
-        spdlog::error("PhotoEngine::LoadImage : error resetWorkingImage()");
+        spdlog::error("PhotoEngine::loadImage: Failed to initialize working image after load.");
         return false;
     }
 
-    return m_source_manager->loadFile(path);
+    spdlog::info("PhotoEngine::loadImage: Successfully loaded and initialized working image for '{}'.", path);
+    return true;
 }
 
 // Creates a processing task (Implementation of IProcessingBackend interface).
@@ -126,59 +126,66 @@ bool PhotoEngine::commitResult(const std::shared_ptr<Domain::IProcessingTask>& t
 {
     // Check if the task pointer is valid.
     if (!task) {
-        // Error handling: The task pointer is null.
-        spdlog::error("PhotoEngine::commitResult Failed task");
+        spdlog::error("PhotoEngine::commitResult: Task is null.");
         return false;
     }
 
     auto result = task->result();
     if (!result) {
-        spdlog::error("PhotoEngine::commitResult Failed task result");
+        spdlog::error("PhotoEngine::commitResult: Task '{}' produced no result.", task->id());
         return false; // Task failed or has no result
     }
+
+    spdlog::info("PhotoEngine::commitResult: Task result - x: {}, y: {}, width: {}, height: {}, channels: {}",
+                 result->m_x, result->m_y, result->m_width, result->m_height, result->m_channels);
 
     // Ensure Working Image exists and matches dimensions
     if (!m_working_image ||
         m_working_image->m_width != width() ||
         m_working_image->m_height != height())
     {
-        spdlog::warn("PhotoEngine::commitResult Working image invalid or resized. Resetting.");
+        spdlog::warn("PhotoEngine::commitResult: Working image invalid or resized. Resetting.");
         resetWorkingImage();
         if (!m_working_image) {
-            spdlog::error("PhotoEngine::commitResult Failed Working Image exists and matches dimensions");
+            spdlog::error("PhotoEngine::commitResult: Failed to reset working image.");
             return false;
         }
     }
 
+    spdlog::info("PhotoEngine::commitResult: Working image - width: {}, height: {}, channels: {}",
+                 m_working_image->m_width, m_working_image->m_height, m_working_image->m_channels);
+
     // Update the Working Image buffer with the processed tile data
-    // We copy pixel by pixel (or memcpy row by row) from Result -> WorkingImage
+    // We copy pixel by pixel from Result -> WorkingImage
     // based on the result's coordinates (x, y).
 
     // Note: ImageRegion should support this copy logic. Assuming direct access here.
-    auto& resRef = *result;
 
     // Safety check bounds
-    if (resRef.m_x + resRef.m_width > m_working_image->m_width ||
-        resRef.m_y + resRef.m_height > m_working_image->m_height) {
-        spdlog::error("PhotoEngine: Result tile is out of bounds of Working Image.");
+    if (result->m_x + result->m_width > m_working_image->m_width ||
+        result->m_y + result->m_height > m_working_image->m_height) {
+        spdlog::error("PhotoEngine::commitResult: Result tile (x:{}, y:{}, w:{}, h:{}) is out of bounds of Working Image (w:{}, h:{}).",
+                      result->m_x, result->m_y, result->m_width, result->m_height,
+                      m_working_image->m_width, m_working_image->m_height);
         return false;
     }
 
     // Merge logic (Copy result into working buffer)
-    for (int y = 0; y < resRef.m_height; ++y) {
-        for (int x = 0; x < resRef.m_width; ++x) {
-            for (int c = 0; c < resRef.m_channels; ++c) {
+    for (int y = 0; y < result->m_height; ++y) {
+        for (int x = 0; x < result->m_width; ++x) {
+            for (int c = 0; c < result->m_channels; ++c) {
                 // Determine destination index in Working Image
-                int destY = resRef.m_y + y;
-                int destX = resRef.m_x + x;
+                int destY = result->m_y + y;
+                int destX = result->m_x + x;
 
-                // Use operator() or direct access if available
-                (*m_working_image)(destY, destX, c) = resRef(y, x, c);
+                // Use operator()
+                (*m_working_image)(destY, destX, c) = (*result)(y, x, c);
             }
         }
     }
 
-    spdlog::info("PhotoEngine::commitResult Result merged into Working Image.");
+    spdlog::info("PhotoEngine::commitResult: Successfully merged result tile (x:{}, y:{}, w:{}, h:{}) into Working Image.",
+                 result->m_x, result->m_y, result->m_width, result->m_height);
     return true;
 }
 

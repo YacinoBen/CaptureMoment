@@ -12,7 +12,6 @@
 #include <QThread>
 
 #include "engine/photo_engine.h"
-#include "common/image_region.h"
 #include "models/operations/i_operation_model.h"
 #include "display/display_manager.h"
 
@@ -86,6 +85,21 @@ public:
      */
     CaptureMoment::UI::Display::DisplayManager* displayManager() { return m_display_manager.get(); }
 
+
+    /**
+     * @brief Perform actual image load (runs on worker thread).
+     * This method contains the common logic for loading and updating the display.
+     * @param filePath Path to the image file to load.
+     */
+    void doLoadImage(const QString& file_path);
+
+    /**
+     * @brief Perform actual operations (runs on worker thread).
+     * This method contains the common logic for applying operations and updating the display.
+     * @param operations Vector of operation descriptors to apply.
+     */
+    void doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations);
+
 private :
     /**
      * @brief Worker thread for non-blocking operations
@@ -110,6 +124,7 @@ public slots:
      * @param operations Vector of operation descriptors
      */
     void applyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations);
+
     /**
      * @brief Internal: Handle load image result
      * @param success Whether load succeeded
@@ -174,16 +189,6 @@ protected:
      * @brief Current image height
      */
     int m_image_height{0};
-
-    /**
-     * @brief Perform actual image load (runs on worker thread)
-     */
-    virtual void doLoadImage(const QString& filePath) = 0;
-    
-    /**
-     * @brief Perform actual operations (runs on worker thread)
-     */
-    virtual void doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations) = 0;
 };
 
 } // namespace Controller

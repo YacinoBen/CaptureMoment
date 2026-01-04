@@ -32,6 +32,9 @@ qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "config"
 )
 
 set(QOBJECT_HEADERS
+    include/utils/qml_context_setup.h
+
+    # Rendering QML
     include/rendering/qml_rhi_image_item.h
     include/rendering/qml_sgs_image_item.h
     include/rendering/qml_painted_image_item.h    
@@ -41,7 +44,7 @@ set(CORE_SOURCES
        src/main.cpp
        src/utils/qml_context_setup.cpp
 
-       #QML
+       # Rendering QML
        src/rendering/qml_rhi_image_item.cpp
        src/rendering/qml_sgs_image_item.cpp
        src/rendering/qml_painted_image_item.cpp
@@ -50,7 +53,7 @@ set(CORE_SOURCES
 set(CORE_HEADERS
         /utils/qml_context_setup.h
 
-        # QML
+        # Rendering QML
         /rendering/qml_rhi_image_item.h
         /rendering/qml_sgs_image_item.h
         /rendering/qml_painted_image_item.h

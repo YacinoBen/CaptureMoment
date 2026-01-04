@@ -13,71 +13,82 @@ namespace CaptureMoment::UI::Display {
 DisplayManager::DisplayManager(QObject* parent)
     : QObject(parent)
 {
-    spdlog::debug("DisplayManager: Created");
+    spdlog::debug("DisplayManager::DisplayManager Created");
 }
 
 void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
 {
+    spdlog::info("DisplayManager::setRenderingItem: RHIItem/Painted/SGS item connected: {}", item ? "valid" : "null");
+
     if (m_rendering_item == item) {
+        spdlog::info("DisplayManager::setRenderingItem: Item {} is already connected, skipping.", item ? "valid" : "null");
         return;
     }
     
     m_rendering_item = item;
+
+    spdlog::info("DisplayManager::setRenderingItem: m_rendering_item assigned, value is now {}", m_rendering_item ? "valid" : "null");
     
-    if (m_rendering_item) {
-        spdlog::info("DisplayManager: Rendering item connected");
+    if (m_rendering_item)
+    {
+        spdlog::info("DisplayManager::setRenderingItem Rendering item connected");
         m_rendering_item->setZoom(m_zoom);
         m_rendering_item->setPan(m_pan);
     }
 }
 
-void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::ImageRegion>& sourceImage)
+void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::ImageRegion>& source_image)
 {
-    if (!sourceImage || !sourceImage->isValid()) {
+    if (!source_image || !source_image->isValid()) {
         spdlog::warn("DisplayManager::createDisplayImage: Invalid source image");
         return;
     }
 
-    m_source_image = sourceImage;
-    
-    QSize newSourceSize(sourceImage->m_width, sourceImage->m_height);
-    if (m_source_image_size != newSourceSize) {
+    m_source_image = source_image;
+
+    QSize newSourceSize(source_image->m_width, source_image->m_height);
+    if (m_source_image_size != newSourceSize)
+    {
         m_source_image_size = newSourceSize;
         emit sourceImageSizeChanged(m_source_image_size);
     }
-    
-    QSize newDisplaySize = calculateDisplaySize(m_source_image_size, m_viewport_size);
-    if (m_display_image_size != newDisplaySize) {
-        m_display_image_size = newDisplaySize;
+
+    QSize new_display_size = calculateDisplaySize(m_source_image_size, m_viewport_size);
+    if (m_display_image_size != new_display_size)
+    {
+        m_display_image_size = new_display_size;
         emit displayImageSizeChanged(m_display_image_size);
     }
-    
+
     float new_scale = static_cast<float>(m_display_image_size.width()) / m_source_image_size.width();
-    if (!qFuzzyCompare(m_display_scale, new_scale)) {
+    if (!qFuzzyCompare(m_display_scale, new_scale))
+    {
         m_display_scale = new_scale;
         emit displayScaleChanged(m_display_scale);
     }
-    
-    spdlog::info("DisplayManager: Source {}x{} -> Display {}x{} (scale: {:.3f})",
+
+    spdlog::info("DisplayManager::createDisplayImage: Source {}x{} -> Display {}x{} (scale: {:.6f})",
                  m_source_image_size.width(), m_source_image_size.height(),
                  m_display_image_size.width(), m_display_image_size.height(),
                  m_display_scale);
-    
+
+    // DOWNSAMPLE
     auto displayImage = downsampleImage(
-        *sourceImage,
+        *source_image,
         m_display_image_size.width(),
         m_display_image_size.height()
-    );
-    
-    if (displayImage && m_rendering_item) {
+        );
+
+    if (displayImage && m_rendering_item)
+    {
         m_rendering_item->setImage(displayImage);
-        spdlog::debug("DisplayManager: Display image sent to rendering item");
+        spdlog::info("DisplayManager::createDisplayImage: Display image set to rendering item");
     }
 }
 
-void DisplayManager::updateDisplayTile(const std::shared_ptr<Core::Common::ImageRegion>& sourceTile)
+void DisplayManager::updateDisplayTile(const std::shared_ptr<Core::Common::ImageRegion>& source_tile)
 {
-    if (!sourceTile || !sourceTile->isValid()) {
+    if (!source_tile || !source_tile->isValid()) {
         spdlog::warn("DisplayManager::updateDisplayTile: Invalid source tile");
         return;
     }
@@ -87,16 +98,47 @@ void DisplayManager::updateDisplayTile(const std::shared_ptr<Core::Common::Image
         return;
     }
 
+    m_source_image = source_tile;
+
+    int display_width = m_display_image_size.width();
+    int display_height = m_display_image_size.height();
+
+    if (display_width <= 0 || display_height <= 0)
+    {
+        spdlog::warn("DisplayManager::updateDisplayTile: Invalid display size {}x{}",
+                     display_width, display_height);
+        return;
+    }
+
+    spdlog::info("DisplayManager::updateDisplayTile: Downsampling {}x{} to EXACT {}x{}",
+                 source_tile->m_width, source_tile->m_height,
+                 display_width, display_height);
+
+    // Downsample
     auto displayTile = downsampleImage(
-        *sourceTile,
-        static_cast<int>(sourceTile->m_width * m_display_scale),
-        static_cast<int>(sourceTile->m_height * m_display_scale)
+        *source_tile,
+        display_width,
+        display_height
         );
 
-    if (displayTile) {
-        displayTile->m_x = static_cast<int>(sourceTile->m_x * m_display_scale);
-        displayTile->m_y = static_cast<int>(sourceTile->m_y * m_display_scale);
+    if (displayTile)
+    {
+        displayTile->m_x = 0;
+        displayTile->m_y = 0;
+        spdlog::info("DisplayManager::updateDisplayTile: Created display tile {}x{} (expected {}x{})",
+                     displayTile->m_width, displayTile->m_height,
+                     display_width, display_height);
+
+        if (displayTile->m_width != display_width || displayTile->m_height != display_height) {
+            spdlog::error("DisplayManager::updateDisplayTile: SIZE MISMATCH! "
+                          "Expected {}x{}, got {}x{}",
+                          display_width, display_height,
+                          displayTile->m_width, displayTile->m_height);
+        }
+
         m_rendering_item->updateTile(displayTile);
+    } else {
+        spdlog::error("DisplayManager::updateDisplayTile: downsampleImage returned nullptr");
     }
 }
 
@@ -104,7 +146,8 @@ void DisplayManager::setZoom(float zoom)
 {
     zoom = std::clamp(zoom, 0.1f, 10.0f);
     
-    if (!qFuzzyCompare(m_zoom, zoom)) {
+    if (!qFuzzyCompare(m_zoom, zoom))
+    {
         m_zoom = zoom;
         constrainPan();
         
@@ -118,7 +161,8 @@ void DisplayManager::setZoom(float zoom)
 
 void DisplayManager::setPan(const QPointF& pan)
 {
-    if (m_pan != pan) {
+    if (m_pan != pan)
+    {
         m_pan = pan;
         constrainPan();
         
@@ -130,10 +174,10 @@ void DisplayManager::setPan(const QPointF& pan)
     }
 }
 
-void DisplayManager::zoomAt(const QPointF& point, float zoomDelta)
+void DisplayManager::zoomAt(const QPointF& point, float zoom_delta)
 {
     float old_zoom = m_zoom;
-    float new_zoom = std::clamp(old_zoom * zoomDelta, 0.1f, 10.0f);
+    float new_zoom = std::clamp(old_zoom * zoom_delta, 0.1f, 10.0f);
     
     QPointF adjusted_pan = point - (point - m_pan) * (new_zoom / old_zoom);
     
@@ -155,7 +199,8 @@ void DisplayManager::fitToView()
     m_zoom = 1.0f;
     m_pan = QPointF(0, 0);
     
-    if (m_rendering_item) {
+    if (m_rendering_item)
+    {
         m_rendering_item->setZoom(m_zoom);
         m_rendering_item->setPan(m_pan);
     }
@@ -172,9 +217,10 @@ void DisplayManager::setViewportSize(const QSize& size) {
 
     if (!m_source_image_size.isEmpty() && m_source_image)
     {
-        QSize newDisplaySize = calculateDisplaySize(m_source_image_size, m_viewport_size);
-        if (m_display_image_size != newDisplaySize) {
-            m_display_image_size = newDisplaySize;
+        QSize new_display_size = calculateDisplaySize(m_source_image_size, m_viewport_size);
+        if (m_display_image_size != new_display_size)
+        {
+            m_display_image_size = new_display_size;
             m_display_scale = static_cast<float>(m_display_image_size.width()) / m_source_image_size.width();
 
             auto newDisplayImage = downsampleImage(
@@ -192,52 +238,65 @@ void DisplayManager::setViewportSize(const QSize& size) {
     }
 }
 
-QPointF DisplayManager::mapBackendToDisplay(int backendX, int backendY) const
+QPointF DisplayManager::mapBackendToDisplay(int backend_x, int backend_y) const
 {
-    return QPointF(backendX * m_display_scale, backendY * m_display_scale);
+    return QPointF(backend_x * m_display_scale, backend_y * m_display_scale);
 }
 
-QPoint DisplayManager::mapDisplayToBackend(float displayX, float displayY) const
+QPoint DisplayManager::mapDisplayToBackend(float display_x, float display_y) const
 {
     return QPoint(
-        static_cast<int>(displayX / m_display_scale),
-        static_cast<int>(displayY / m_display_scale)
+        static_cast<int>(display_x / m_display_scale),
+        static_cast<int>(display_y / m_display_scale)
     );
 }
 
-QSize DisplayManager::calculateDisplaySize(const QSize& sourceSize, const QSize& viewportSize) const
+QSize DisplayManager::calculateDisplaySize(const QSize& source_size, const QSize& viewport_size) const
 {
-    if (sourceSize.isEmpty() || viewportSize.isEmpty()) {
+    if (source_size.isEmpty() || viewport_size.isEmpty())
+    {
+        spdlog::warn("DisplayManager::calculateDisplaySize: source_size.isEmpty() || viewport_size.isEmpty() false");
         return QSize();
     }
-    
-    float source_aspect = static_cast<float>(sourceSize.width()) / sourceSize.height();
-    float viewport_aspect = static_cast<float>(viewportSize.width()) / viewportSize.height();
-    
+
+    float source_aspect = static_cast<float>(source_size.width()) / source_size.height();
+    float viewport_aspect = static_cast<float>( viewport_size.width()) /  viewport_size.height();
+
     int display_width, display_height;
-    
-    if (source_aspect > viewport_aspect) {
-        display_width = viewportSize.width();
+
+    if (source_aspect > viewport_aspect)
+    {
+        display_width =  viewport_size.width();
         display_height = static_cast<int>(display_width / source_aspect);
-    } else {
-        display_height = viewportSize.height();
+    } else
+    {
+        display_height =  viewport_size.height();
         display_width = static_cast<int>(display_height * source_aspect);
     }
-    
-    return QSize(std::max(1, display_width), std::max(1, display_height));
+
+    display_width = std::max(1, display_width);
+    display_height = std::max(1, display_height);
+
+    spdlog::info("DisplayManager::calculateDisplaySize: Source {}x{}, Viewport {}x{} -> Display {}x{}",
+                 source_size.width(), source_size.height(),
+                  viewport_size.width(),  viewport_size.height(),
+                 display_width, display_height);
+
+    return QSize(display_width, display_height);
 }
 
 std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
     const Core::Common::ImageRegion& source,
-    int targetWidth,
-    int targetHeight
+    int target_width,
+    int target_height
 ) const
 {
-    if (!source.isValid() || targetWidth <= 0 || targetHeight <= 0) {
+    if (!source.isValid() || target_width <= 0 || target_height <= 0) {
         return nullptr;
     }
     
-    if (source.m_width == targetWidth && source.m_height == targetHeight) {
+    if (source.m_width == target_width && source.m_height == target_height)
+    {
         auto copy = std::make_shared<Core::Common::ImageRegion>();
         *copy = source;
         return copy;
@@ -246,17 +305,33 @@ std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
     auto downsampled = std::make_shared<Core::Common::ImageRegion>();
     downsampled->m_x = 0;
     downsampled->m_y = 0;
-    downsampled->m_width = targetWidth;
-    downsampled->m_height = targetHeight;
+    downsampled->m_width = target_width;
+    downsampled->m_height = target_height;
     downsampled->m_channels = source.m_channels;
     downsampled->m_format = source.m_format;
-    downsampled->m_data.resize(targetWidth * targetHeight * source.m_channels);
+    downsampled->m_data.resize(target_width * target_height * source.m_channels);
     
-    float x_ratio = static_cast<float>(source.m_width - 1) / targetWidth;
-    float y_ratio = static_cast<float>(source.m_height - 1) / targetHeight;
+    float x_ratio = static_cast<float>(source.m_width - 1) / target_width;
+    float y_ratio = static_cast<float>(source.m_height - 1) / target_height;
     
-    for (int y = 0; y < targetHeight; ++y) {
-        for (int x = 0; x < targetWidth; ++x) {
+    spdlog::info("downsampleImage: Creating {}x{} from {}x{}",
+                 target_width, target_height,
+                 source.m_width, source.m_height);
+
+    int last_src_idx = ((source.m_height - 1) * source.m_width + 0) * source.m_channels;
+    if (last_src_idx + 2 < source.m_data.size())
+    {
+        spdlog::info("downsampleImage: Last source pixel (0, {}): {:.3f},{:.3f},{:.3f}",
+                     source.m_height - 1,
+                     source.m_data[last_src_idx],
+                     source.m_data[last_src_idx+1],
+                     source.m_data[last_src_idx+2]);
+    }
+
+    for (int y = 0; y < target_height; ++y)
+    {
+        for (int x = 0; x < target_width; ++x)
+        {
             float src_x = x * x_ratio;
             float src_y = y * y_ratio;
             
@@ -282,10 +357,16 @@ std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
             }
         }
     }
+
+    spdlog::info("downsampleImage: Last downsampled pixel (0, {}): {:.3f},{:.3f},{:.3f}",
+                 target_height - 1,
+                 downsampled->m_data[((target_height-1) * target_width + 0) * source.m_channels],
+                 downsampled->m_data[((target_height-1) * target_width + 0) * source.m_channels + 1],
+                 downsampled->m_data[((target_height-1) * target_width + 0) * source.m_channels + 2]);
     
     spdlog::trace("DisplayManager: Downsampled {}x{} -> {}x{}",
                   source.m_width, source.m_height,
-                  targetWidth, targetHeight);
+                  target_width, target_height);
     
     return downsampled;
 }
@@ -293,6 +374,7 @@ std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
 void DisplayManager::constrainPan()
 {
     if (m_display_image_size.isEmpty()) {
+        spdlog::error("DisplayManager::constrainPan: m_display_image_size is empty");
         return;
     }
     

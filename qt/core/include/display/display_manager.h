@@ -136,9 +136,9 @@ public:
     /**
      * @brief Performs a zoom centered on a specific point.
      * @param point The point (usually cursor position) to zoom toward.
-     * @param zoomDelta The multiplier to apply to current zoom.
+     * @param zoom_delta The multiplier to apply to current zoom.
      */
-    Q_INVOKABLE void zoomAt(const QPointF& point, float zoomDelta);
+    Q_INVOKABLE void zoomAt(const QPointF& point, float zoom_delta);
     
     /** @brief Adjusts zoom and pan to fit the entire image within the viewport. */
     Q_INVOKABLE void fitToView();
@@ -163,19 +163,19 @@ public:
     
     /**
      * @brief Maps backend (full-res) coordinates to screen coordinates.
-     * @param backendX X coordinate in the source image.
-     * @param backendY Y coordinate in the source image.
+     * @param backend_x x coordinate in the source image.
+     * @param backend_y y coordinate in the source image.
      * @return Transformed coordinates on the display.
      */
-    Q_INVOKABLE QPointF mapBackendToDisplay(int backendX, int backendY) const;
+    Q_INVOKABLE QPointF mapBackendToDisplay(int backend_x, int backend_y) const;
     
     /**
      * @brief Maps screen coordinates back to backend (full-res) coordinates.
-     * @param displayX X coordinate on the display.
-     * @param displayY Y coordinate on the display.
+     * @param display_x x coordinate on the display.
+     * @param display_y y coordinate on the display.
      * @return Corresponding coordinates in the source image.
      */
-    Q_INVOKABLE QPoint mapDisplayToBackend(float displayX, float displayY) const;
+    Q_INVOKABLE QPoint mapDisplayToBackend(float display_x, float display_y) const;
     
     /** @return The original source image size. */
     QSize sourceImageSize() const { return m_source_image_size; }
@@ -185,7 +185,7 @@ public:
     
     /** @return The scaling ratio between source and display. */
     float displayScale() const { return m_display_scale; }
-    
+
 signals:
     /** @brief Emitted when the zoom level changes. */
     void zoomChanged(float zoom);
@@ -207,13 +207,13 @@ private:
      * @param viewportSize UI container dimensions.
      * @return Calculated display dimensions.
      */
-    QSize calculateDisplaySize(const QSize& sourceSize, const QSize& viewportSize) const;
+    QSize calculateDisplaySize(const QSize& source_size, const QSize& viewport_size) const;
     
     /**
      * @brief Performs the actual downsampling logic.
      * @param source Source ImageRegion data.
-     * @param targetWidth Desired width.
-     * @param targetHeight Desired height.
+     * @param target_width Desired width.
+     * @param target_height Desired height.
      * @return A new downsampled ImageRegion.
      */
     std::shared_ptr<Core::Common::ImageRegion> downsampleImage(
