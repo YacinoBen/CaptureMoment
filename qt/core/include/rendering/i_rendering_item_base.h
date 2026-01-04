@@ -139,7 +139,7 @@ public:
      * The mutex is mutable, so it can be locked even on a const object.
      * @return A pointer to the image mutex.
      */
-    [[nodiscard]] QMutex* getImageMutex() const { return const_cast<QMutex*>(&m_image_mutex); };
+    [[nodiscard]] QMutex* getImageMutex() const { return &m_image_mutex; };
 
     /**
      * @brief Gets the shared pointer to the full image data.
