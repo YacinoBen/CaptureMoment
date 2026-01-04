@@ -72,8 +72,10 @@ set(CORE_SOURCES
     # Rendering
     src/rendering/rhi_image_node.cpp
     src/rendering/rhi_image_item.cpp
+    src/rendering/rhi_image_item_renderer.cpp
     src/rendering/sgs_image_item.cpp
     src/rendering/painted_image_item.cpp
+    src/rendering/base_image_item.cpp
 
     # Operations
     src/models/operations/brightness_model.cpp
@@ -84,8 +86,10 @@ set(QOBJECT_HEADERS
     include/rendering/i_rendering_item_base.h
     include/rendering/rhi_image_node.h
     include/rendering/rhi_image_item.h
+    include/rendering/rhi_image_item_renderer.h
     include/rendering/sgs_image_item.h
     include/rendering/painted_image_item.h
+    include/rendering/base_image_item.h
 
     # Display
     include/display/display_manager.h
@@ -120,8 +124,10 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
 
             # Rendering
             rendering/i_rendering_item_base.h
+            rendering/base_image_item.h
             rendering/rhi_image_node.h
             rendering/rhi_image_item.h
+            rendering/rhi_image_item_renderer.h
             rendering/sgs_image_item.h
             rendering/painted_image_item.h
 

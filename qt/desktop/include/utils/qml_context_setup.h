@@ -17,9 +17,6 @@ namespace CaptureMoment::UI {
     class BrightnessModel;
     namespace Controller {
         class ImageControllerBase;
-        class ImageControllerPainted;
-        class ImageControllerRHI;
-        class ImageControllerSGS;
     }
 }
 
@@ -69,33 +66,33 @@ private:
      * @brief Create the central ImageController orchestrator.
      * @return true if the controller was created successfully, false otherwise.
      */
-    static bool createController();
+    [[nodiscard]] static bool createController();
 
     /**
      * @brief Create the operation model objects (e.g., BrightnessModel).
      * @return true if all models were created successfully, false otherwise.
      */
-    static bool createOperationModels();
+    [[nodiscard]] static bool createOperationModels();
 
     /**
      * @brief Connect models and display item to controller
      * @return true if all connections were successful, false otherwise.
      */
-    static bool connectObjects();
+    [[nodiscard]] static bool connectObjects();
 
     /**
      * @brief Register necessary objects to QML context
      * @param context The QML context
      * @return true if registration was successful, false otherwise.
      */
-    static bool registerToQml(QQmlContext* context);
+    [[nodiscard]] static bool registerToQml(QQmlContext* context);
 
     /**
      * @brief Register necessary Models  to QML context
      * @param context The QML context
      * @return true if registration was successful, false otherwise.
      */
-    static bool registerModelsToQml(QQmlContext* context);
+    [[nodiscard]] static bool registerModelsToQml(QQmlContext* context);
     };
 
 } // namespace CaptureMoment::UI

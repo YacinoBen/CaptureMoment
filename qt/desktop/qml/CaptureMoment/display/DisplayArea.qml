@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
-import CaptureMoment.UI.Painted.Rendering 1.0
-import CaptureMoment.desktop
+import CaptureMoment.UI.Rendering.Painted 1.0
+import CaptureMoment.UI.Rendering.SGS 1.0
+import CaptureMoment.UI.Rendering.RHI 1.0
 
 Rectangle {
     id: displayArea
@@ -11,45 +12,56 @@ Rectangle {
     color: "#1a1a1a"
     
     signal openImageClicked()
-    
-    QMLPaintedImageItem {
+
+    QMLSGSImageItem {
         id: imageDisplay
-     //   anchors.fill: parent
+        anchors.fill: parent
+
+        onImageSizeChanged: {
+            console.log("DisplayArea.qml::onHeightChanged: width: ", imageDisplay.imageWidth)
+            console.log("DisplayArea.qml::onWidthChanged: height: ", imageDisplay.imageHeight)
+        }
     }
-    
+
     // Setup image display when loaded
     Component.onCompleted: {
-        controller.setPaintedImageItemFromQml(imageDisplay)
+        //controller.setPaintedImageItemFromQml(imageDisplay)
+        controller.setSGSImageItemFromQml(imageDisplay)
+        //controller.setRHIImageItemFromQml(imageDisplay)
+
         if (controller.displayManager) {
             controller.displayManager.setViewportSize(Qt.size(width, height))
         }
     }
-    
+
     // Update viewport on resize
     onWidthChanged: {
+        console.log("DisplayArea.qml::onWidthChanged: ", imageDisplay.imageWidth)
         if (controller.displayManager) {
             controller.displayManager.setViewportSize(Qt.size(width, height))
         }
     }
-    
+
     onHeightChanged: {
+        console.log("DisplayArea.qml::onWidthChanged: ", imageDisplay.imageHeight)
+
         if (controller.displayManager) {
             controller.displayManager.setViewportSize(Qt.size(width, height))
         }
     }
-    
+
     // Empty state
     ColumnLayout {
         anchors.centerIn: parent
         spacing: 20
         visible: controller.imageWidth === 0
-        
+
         Text {
             text: "📷"
             font.pixelSize: 64
             Layout.alignment: Qt.AlignHCenter
         }
-        
+
         Text {
             text: "No Image Loaded"
             color: "white"
@@ -57,7 +69,7 @@ Rectangle {
             font.bold: true
             Layout.alignment: Qt.AlignHCenter
         }
-        
+
         Text {
             text: "Click 'Open Image' to start editing"
             color: "#AAAAAA"
@@ -65,7 +77,7 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
         }
     }
-    
+
     // Info overlay (bottom-left)
     Text {
         anchors.bottom: parent.bottom
@@ -78,12 +90,12 @@ Rectangle {
         font.pixelSize: 12
         visible: controller.imageWidth > 0
     }
-    
+
     // File Dialog
     FileDialog {
         id: fileDialog
         title: "Open Image"
-        
+
         onAccepted: {
             var path = selectedFile.toString()
             path = path.replace(/^(file:\/{3})|(qrc:\/{2})|(http:\/{2})/, "")
@@ -92,14 +104,14 @@ Rectangle {
             controller.loadImage(cleanPath)
         }
     }
-    
+
 
     // Monitor signals from the controller
     Connections {
         target: controller
 
         function onImageLoaded(width, height) {
-            console.log("✅ Image loaded:", width, "x", height)
+            console.log("DisplayArea::onImageLoaded, Image loaded:", width, "x", height)
 
             if (controller.displayManager) {
                 controller.displayManager.setViewportSize(Qt.size(window.width * 0.65, window.height * 0.85))
@@ -108,7 +120,7 @@ Rectangle {
         }
 
         function onImageLoadFailed(error) {
-            console.error("❌ Load failed:", error)
+            console.error("DisplayArea::onImageLoadedFailed, Load failed:", error)
         }
     }
 

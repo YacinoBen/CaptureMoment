@@ -17,7 +17,7 @@ void main()
     // Transform vertex position using MVP matrix
     // z=0.0, w=1.0 for 2D rendering
     gl_Position = mvp * vec4(position, 0.0, 1.0);
-    
+
     // Pass texture coordinates to fragment shader
     vTexCoord = texCoord;
 }

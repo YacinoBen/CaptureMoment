@@ -12,226 +12,230 @@
 #include <QSGTexture>
 #include <QQuickWindow>
 #include <QImage>
-#include <algorithm> // Pour std::clamp
-#include <cstring>   // Pour std::memcpy si nécessaire
+#include <algorithm>
+#include <cstring>
 
 namespace CaptureMoment::UI::Rendering {
 
-    // Constructor: Initializes the item and sets the flag for custom content.
-    SGSImageItem::SGSImageItem(QQuickItem* parent)
-        : QQuickItem(parent) 
+// Constructor: Initializes the item and sets the flag for custom content.
+SGSImageItem::SGSImageItem(QQuickItem* parent)
+    : QQuickItem(parent) // Appel du constructeur de QQuickItem
+{
+    // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
+    setFlag(QQuickItem::ItemHasContents, true);
+    spdlog::info("SGSImageItem: Created");
+}
+
+// Destructor: Cleans up resources.
+SGSImageItem::~SGSImageItem() {
+    // The deletion of textures managed by QSGNodes is handled by Qt Quick
+    // when the nodes are destroyed.
+    spdlog::debug("SGSImageItem: Destroyed");
+}
+
+// Sets the full image to be displayed.
+// Updates the internal image data and marks the internal state for update.
+void SGSImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
+{
+    if (!image || !image->isValid())
     {
-        // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
-        setFlag(QQuickItem::ItemHasContents, true);
-        setSize(QSizeF(800, 600)); // Taille par défaut
-        spdlog::info("SGSImageItem: Created");
+        spdlog::warn("SGSImageItem::setImage: Invalid image region");
+        return;
     }
 
-    // Destructor: Cleans up resources.
-    SGSImageItem::~SGSImageItem() {
-        delete m_cached_texture; // Nettoyer la texture si elle existe
-        spdlog::debug("SGSImageItem: Destroyed");
+    spdlog::info("SGSImageItem::setImage: {}x{}", image->m_width, image->m_height);
+
+    // Protect access to shared data (m_full_image, m_image_width, m_image_height, m_image_dirty)
+    // This lock is held while updating the core image data members.
+    {
+        QMutexLocker lock(&m_image_mutex);
+        m_full_image = image; // Update the core image data pointer
+        m_image_width = image->m_width; // Update the core image width
+        m_image_height = image->m_height; // Update the core image height
+        m_image_dirty = true; // Flag to indicate the image data has changed
     }
 
-    // Sets the full image to be displayed.
-    // Updates the internal image data and marks the GPU texture for update.
-    void SGSImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
-    {
-        if (!image || !image->isValid())
-        {
-            spdlog::warn("SGSImageItem::setImage: Invalid image region");
-            return;
-        }
-        
-        spdlog::info("SGSImageItem::setImage: {}x{}", image->m_width, image->m_height);
+    // Emit signal for QML binding (BaseImageItem manages the signal emission)
+    emit imageSizeChanged();
 
-        // Protect access to shared data (m_full_image, m_image_width, m_image_height, m_texture_needs_update)
-        {
-            QMutexLocker lock(&m_image_mutex);
-            m_full_image = image;
-            m_image_width = image->m_width;
-            m_image_height = image->m_height;
-            // Signal that the GPU texture needs to be updated from the new image data.
-            m_texture_needs_update = true;
-        }
-        
-        // Emit signal for QML binding
-        emit imageSizeChanged();
+    // Trigger a repaint to reflect the new image.
+    update();
+}
 
-        // Trigger a repaint to reflect the new image.
-        update();
+// Updates a specific tile of the displayed image.
+// Merges the tile data into the full image buffer (CPU side) and marks the internal state for update.
+void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
+{
+    if (!tile || !tile->isValid()){
+        spdlog::warn("SGSImageItem::updateTile: Invalid tile");
+        return;
     }
 
-    // Sets the zoom level.
-    void SGSImageItem::setZoom(float zoom) 
-    {
-        if (!qFuzzyCompare(m_zoom, zoom)) {
-            m_zoom = zoom;
-            emit zoomChanged(m_zoom); // Emit signal for QML binding
-            update(); // Trigger repaint
-        }
+    if (!isImageValid()){
+        spdlog::warn("SGSImageItem::updateTile: No base image loaded or base image is invalid");
+        return;
     }
 
-    // Sets the pan offset.
-    void SGSImageItem::setPan(const QPointF& pan)
+    // Protect access to shared data (m_full_image, m_image_dirty)
+    // This lock is held while updating the core image data.
     {
-        if (m_pan != pan) {
-            m_pan = pan;
-            emit panChanged(m_pan); // Emit signal for QML binding
-            update(); // Trigger repaint
-        }
-    }
+        QMutexLocker lock(&m_image_mutex);
 
-    // Updates a specific tile of the displayed image.
-    // Merges the tile data into the full image buffer (CPU side) and marks the GPU texture for update.
-    void SGSImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
-    {
-        if (!tile || !tile->isValid())
-        {
-            spdlog::warn("SGSImageItem::updateTile: Invalid tile");
+        // Check bounds to ensure the tile fits within the main image region
+        if (tile->m_x < 0 || tile->m_y < 0 ||
+            tile->m_x + tile->m_width > m_full_image->m_width ||
+            tile->m_y + tile->m_height > m_full_image->m_height) {
+            spdlog::warn("SGSImageItem::updateTile: Tile out of bounds");
             return;
         }
 
-        // Protect access to shared data (m_fullImage, m_textureNeedsUpdate)
+        // Iterate through the pixels of the tile and copy data into the main image
+        for (int y = 0; y < tile->m_height; ++y)
         {
-            QMutexLocker lock(&m_image_mutex);
-            if (!m_full_image) 
+            for (int x = 0; x < tile->m_width; ++x)
             {
-                spdlog::warn("SGSImageItem::updateTile: No base image loaded");
-                return;
-            }
-            
-            // Check bounds
-            if (tile->m_x < 0 || tile->m_y < 0 ||
-                tile->m_x + tile->m_width > m_full_image->m_width ||
-                tile->m_y + tile->m_height > m_full_image->m_height) {
-                spdlog::warn("SGSImageItem::updateTile: Tile out of bounds");
-                return;
-            }
-
-            // Iterate through the pixels of the tile.
-            for (int y = 0; y < tile->m_height; ++y)
-            {
-                for (int x = 0; x < tile->m_width; ++x)
+                // Iterate through the channels (e.g., RGBA).
+                for (int c = 0; c < tile->m_channels; ++c)
                 {
-                    // Iterate through the channels (e.g., RGBA).
-                    for (int c = 0; c < tile->m_channels; ++c)
-                    {
-                        // Copy the pixel value from the tile to the correct position in the full image.
-                        // This assumes Core::Common::ImageRegion supports operator() for (x, y, c) access.
-                        // Adjust the indexing if Core::Common::ImageRegion uses (y, x, c) or another convention.
-                        // (*m_full_image)(tile->m_y + y, tile->m_x + x, c) = (*tile)(y, x, c);
-                        // Ou, si Core::Common::ImageRegion utilise (x, y, c) :
-                        (*m_full_image)(tile->m_x + x, tile->m_y + y, c) = (*tile)(x, y, c);
+                    // Copy the pixel value from the tile to the correct position in the full image.
+                    // Use the operator() of ImageRegion assuming (y, x, c) indexing.
+                    (*m_full_image)(tile->m_y + y, tile->m_x + x, c) = (*tile)(y, x, c);
+                }
+            }
+        }
+        m_image_dirty = true; // Flag to indicate the image data has changed due to tile update
+    }
+
+    spdlog::info("SGSImageItem::updateTile: Merged tile at ({}, {}) {}x{}",
+                 tile->m_x, tile->m_y, tile->m_width, tile->m_height);
+    // Trigger a repaint to reflect the updated tile.
+    update();
+}
+
+// Updates the scene graph node for this item.
+// Creates or updates the QSGSimpleTextureNode responsible for rendering.
+QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
+{
+    if (!isImageValid() && !node) {
+        spdlog::info("SGSImageItem::updatePaintNode: No valid image data yet, returning null node.");
+        return nullptr;
+    }
+
+    // Cast the existing node to QSGSimpleTextureNode, or create a new one if it doesn't exist.
+    auto* texture_node = dynamic_cast<QSGSimpleTextureNode*>(node);
+    if (!texture_node) {
+        texture_node = new QSGSimpleTextureNode();
+        spdlog::info("SGSImageItem::updatePaintNode: Created new QSGSimpleTextureNode");
+    } else {
+        spdlog::info("SGSImageItem::updatePaintNode: Reusing existing QSGSimpleTextureNode");
+    }
+
+    // This function runs on the render thread.
+    // Check if the image data has changed and needs to be converted to a texture.
+    {
+        QMutexLocker lock(&m_image_mutex); // Lock to access m_image_dirty and m_full_image safely
+        if (m_image_dirty && m_full_image) // Only proceed if data is dirty and available
+        {
+            spdlog::debug("SGSImageItem::updatePaintNode: Converting ImageRegion to QImage and QSGTexture");
+
+            // 1. Conversion: ImageRegion (float32) -> QImage (uint8) on the render thread
+            int w = m_image_width; // Use the core image width
+            int h = m_image_height; // Use the core image height
+            int ch = m_full_image->m_channels; // Use the core image channel count
+            QImage::Format qimage_format = (ch == 3) ? QImage::Format_RGB888 : QImage::Format_RGBA8888;
+            QImage qimage(w, h, qimage_format);
+
+            // Iterate through the pixels of the ImageRegion and convert to uint8
+            for (int y = 0; y < h; ++y)
+            {
+                uchar* line = qimage.scanLine(y); // Get pointer to the scanline for direct pixel access
+                for (int x = 0; x < w; ++x)
+                {
+                    size_t idx = (y * w + x) * ch; // Calculate the index in the flat data array
+                    // Clamp the float value to [0.0, 1.0] and scale to [0, 255]
+                    line[x * ch + 0] = static_cast<uchar>(std::clamp(m_full_image->m_data[idx + 0], 0.0f, 1.0f) * 255);
+                    line[x * ch + 1] = static_cast<uchar>(std::clamp(m_full_image->m_data[idx + 1], 0.0f, 1.0f) * 255);
+                    line[x * ch + 2] = static_cast<uchar>(std::clamp(m_full_image->m_data[idx + 2], 0.0f, 1.0f) * 255);
+                    if (ch == 4) { // Handle alpha channel if present
+                        line[x * ch + 3] = static_cast<uchar>(std::clamp(m_full_image->m_data[idx + 3], 0.0f, 1.0f) * 255);
                     }
                 }
             }
-             // Signal that the GPU texture needs to be updated due to the tile change.
-            m_texture_needs_update = true;
-        }
-        
-        spdlog::debug("SGSImageItem::updateTile: Merged tile at ({}, {}) {}x{}", 
-                     tile->m_x, tile->m_y, tile->m_width, tile->m_height);
-        // Trigger a repaint to reflect the updated tile.
-        update();
-    }
 
-    // Updates the scene graph node for this item.
-    // Creates or updates the QSGSimpleTextureNode responsible for rendering.
-    QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
-    {
-        // Cast the existing node to SGSImageNode, or create a new one if it doesn't exist.
-        auto* textureNode = dynamic_cast<QSGSimpleTextureNode*>(node);
-        if (!textureNode) {
-            textureNode = new QSGSimpleTextureNode();
-            spdlog::info("SGSImageItem::updatePaintNode: Created new QSGSimpleTextureNode");
-        } else {
-            spdlog::info("SGSImageItem::updatePaintNode: Reusing existing QSGSimpleTextureNode");
-        }
+            // 2. Creation of the QSGTexture on the render thread using the converted QImage
+            QSGTexture* old_texture = texture_node->texture(); // Store the old texture pointer
 
-        // Check if texture needs update (thread-safe check)
-        if (m_texture_needs_update) {
-            updateCachedTexture(); // Convert Core::Common::ImageRegion -> QImage -> QSGTexture
-            m_texture_needs_update = false; // Reset flag
-        }
+            // Create the new texture using the window's RHI context (safe on render thread)
+            QSGTexture* new_texture = window()->createTextureFromImage(qimage);
 
-        // Set the texture on the node if we have one cached
-        if (m_cached_texture) {
-             
-            textureNode->setTexture(m_cached_texture);
-            textureNode->setRect(0, 0, m_image_width * m_zoom, m_image_height * m_zoom); // Apply zoom/pan via node rect or transform
-            textureNode->setFiltering(QSGTexture::Linear); // Or Nearest, depending on preference
+            if (new_texture) // Check if texture creation was successful
+            {
+                texture_node->setTexture(new_texture); // Assign the new texture to the node
+                texture_node->setOwnsTexture(true);    // Let the node manage the texture's lifetime
 
-            // Apply pan/zoom via a transform node if needed, instead of just scaling the rect
-            // This gives more control over the anchor point of zoom/pan.
-            // For now, let's assume zoom/pan are handled by adjusting the rect or by a parent transform node.
-            // QSGTransformNode could be used if precise control over the transformation matrix is needed.
-        } else {
-            // If no texture is available, clear the node's texture and set its rect to zero.
-            textureNode->setTexture(nullptr);
-            textureNode->setRect(0, 0, 0, 0);
-            spdlog::warn("SGSImageItem::updatePaintNode: No cached texture available");
-        }
-
-        spdlog::trace("SGSImageItem::updatePaintNode: Node updated, texture set: {}", m_cached_texture ? "yes" : "no");
-        // Return the render node to the scene graph.
-        return textureNode;
-    }
-
-    // Converts the internal Core::Common::ImageRegion to a QSGTexture.
-    void SGSImageItem::updateCachedTexture() {
-        QMutexLocker lock(&m_image_mutex);
-
-        if (!m_full_image) {
-            spdlog::warn("SGSImageItem::updateCachedTexture: No image data");
-            delete m_cached_texture; // Clean up old texture if present
-            m_cached_texture = nullptr;
-            return;
-        }
-
-        spdlog::debug("SGSImageItem::updateCachedTexture: Converting Core::Common::ImageRegion ({}x{}) to QImage",
-                     m_full_image->m_width, m_full_image->m_height);
-
-        // --- Convert Core::Common::ImageRegion (float32) to QImage (uint8) ---
-        QImage qimage(m_full_image->m_width, m_full_image->m_height, QImage::Format_RGBA8888);
-
-        for (int y = 0; y < m_full_image->m_height; ++y) {
-            for (int x = 0; x < m_full_image->m_width; ++x) {
-                QRgb pixelValue = 0;
-                size_t baseIdx = (y * m_full_image->m_width + x) * 4; // Supposons 4 canaux (RGBA)
-                if (baseIdx + 3 < m_full_image->m_data.size()) {
-                    float r = std::clamp(m_full_image->m_data[baseIdx + 0], 0.0f, 1.0f);
-                    float g = std::clamp(m_full_image->m_data[baseIdx + 1], 0.0f, 1.0f);
-                    float b = std::clamp(m_full_image->m_data[baseIdx + 2], 0.0f, 1.0f);
-                    float a = std::clamp(m_full_image->m_data[baseIdx + 3], 0.0f, 1.0f); // Supposons un canal alpha
-
-                    pixelValue = qRgba(
-                        static_cast<uchar>(r * 255),
-                        static_cast<uchar>(g * 255),
-                        static_cast<uchar>(b * 255),
-                        static_cast<uchar>(a * 255)
-                    );
-                }
-                qimage.setPixel(x, y, pixelValue);
-            }
-        }
-
-        // --- Clean up old texture ---
-        delete m_cached_texture;
-        m_cached_texture = nullptr;
-
-        // --- Create new QSGTexture from QImage ---
-        // This method creates the texture on the GPU via the window's RHI context.
-        if (window()) {
-            m_cached_texture = window()->createTextureFromImage(qimage);
-            if (m_cached_texture) {
-                spdlog::debug("SGSImageItem::updateCachedTexture: QSGTexture created successfully from QImage");
+                // The old texture will be deleted automatically by Qt Quick when the node is destroyed
+                // or when a new texture is set (if setOwnsTexture(true) was called before).
+                // If setOwnsTexture was not called, old_texture would need manual deletion here.
+                // Since we call it here, the old texture is managed by the node.
             } else {
-                spdlog::error("SGSImageItem::updateCachedTexture: Failed to create QSGTexture from QImage");
+                spdlog::error("SGSImageItem::updatePaintNode: Failed to create QSGTexture from QImage");
             }
-        } else {
-            spdlog::error("SGSImageItem::updateCachedTexture: No window available to create texture");
+
+            m_image_dirty = false; // Reset the dirty flag after processing
         }
     }
+
+    // Configure the texture node's rendering properties (rect, filtering)
+    // This happens regardless of whether the texture was updated or not.
+    if (texture_node->texture()) // Only configure if a texture exists
+    {
+        // Calculate the display size based on zoom
+        float display_width = m_image_width * m_zoom; // Use core image width and zoom level
+        float display_height = m_image_height * m_zoom; // Use core image height and zoom level
+
+        // Calculate the position (x, y) to apply pan offset relative to the item's center
+        // This centers the image within the item's bounds and applies pan translation.
+        float x_pos = (width() - display_width) / 2.0f + m_pan.x(); // Use item width and pan x
+        float y_pos = (height() - display_height) / 2.0f + m_pan.y(); // Use item height and pan y
+
+        // Set the rectangle where the texture will be drawn
+        texture_node->setRect(x_pos, y_pos, display_width, display_height);
+
+        // Set the texture filtering (e.g., linear for smooth scaling)
+        texture_node->setFiltering(QSGTexture::Linear);
+    } else {
+        // If no texture is available, clear the node's rect
+        texture_node->setRect(0, 0, 0, 0);
+        spdlog::warn("SGSImageItem::updatePaintNode: No texture available for rendering");
+    }
+
+    spdlog::info("SGSImageItem::updatePaintNode: Node updated, texture set");
+    // Return the render node to the scene graph.
+    return texture_node;
+}
+
+// Sets the zoom level.
+void SGSImageItem::setZoom(float zoom)
+{
+    // Check if the zoom value is different and positive
+    if (!qFuzzyCompare(m_zoom, zoom) && zoom > 0.0f)
+    {
+        m_zoom = zoom; // Update the core zoom value (from BaseImageItem)
+        emit zoomChanged(m_zoom); // Emit signal for QML binding
+        update(); // Trigger repaint to reflect the new zoom level
+    }
+}
+
+// Sets the pan offset.
+void SGSImageItem::setPan(const QPointF& pan)
+{
+    // Check if the pan value is different
+    if (m_pan != pan)
+    {
+        m_pan = pan; // Update the core pan value (from BaseImageItem)
+        emit panChanged(m_pan); // Emit signal for QML binding
+        update(); // Trigger repaint to reflect the new pan offset
+    }
+}
 
 } // namespace CaptureMoment::UI::Rendering

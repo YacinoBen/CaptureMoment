@@ -9,9 +9,8 @@
 
 #include <QQuickPaintedItem>
 #include <QImage>
-#include <QMutex>
 
-#include "rendering/i_rendering_item_base.h"
+#include "rendering/base_image_item.h"
 
 namespace CaptureMoment::UI {
 
@@ -33,8 +32,11 @@ namespace Rendering {
  * This is suitable for basic image display where custom RHI shaders are not needed
  * and ease of implementation is preferred over peak GPU performance for the display itself.
  * The core image *processing* (brightness, etc.) still happens on the CPU via Halide.
+ *
+ * Imossible to use BaseImageItem due to QQuickItem.
  */
-class PaintedImageItem : public QQuickPaintedItem, public IRenderingItemBase {
+class PaintedImageItem : public QQuickPaintedItem, public BaseImageItem {
+
     Q_OBJECT
 
 private:
@@ -45,13 +47,6 @@ private:
      * It's protected by m_image_mutex.
      */
     QImage m_current_qimage{QSize(800,600),QImage::Format_RGB32};
-
-    /**
-     * @brief Mutex protecting access to m_full_image and related state.
-     * 
-     * Ensures thread-safe updates to the image data.
-     */
-    mutable QMutex m_image_mutex;
 
 public:
     /**
@@ -86,54 +81,17 @@ public:
      */
     void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) override;
     
-    // Zoom/Pan
     /**
      * @brief Sets the zoom level.
      * @param zoom The new zoom factor (e.g., 1.0f for original size).
      */
     void setZoom(float zoom) override;
-    /**
-     * @brief Gets the current zoom level.
-     * @return The current zoom factor.
-     */
-    float zoom() const { return m_zoom; }
+
     /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
     void setPan(const QPointF& pan) override;
-    /**
-     * @brief Gets the current pan offset.
-     * @return The current pan offset.
-     */
-    QPointF pan() const { return m_pan; }
-
-    /**
-     * @brief Get the width of the image.
-     * @return The image width in pixels, or 0 if no image is loaded.
-     */
-    int imageWidth() const override;
-    /**
-     * @brief Get the height of the image.
-     * @return The image height in pixels, or 0 if no image is loaded.
-     */
-    int imageHeight() const override;
-
-signals:
-    /**
-     * @brief Signal emitted when the zoom value changes.
-     * @param zoom The new zoom factor.
-     */
-    void zoomChanged(float zoom);
-    /**
-     * @brief Signal emitted when the pan offset changes.
-     * @param pan The new pan offset.
-     */
-    void panChanged(const QPointF& pan);
-    /**
-     * @brief Signal emitted when the image dimensions change (width or height).
-     */
-    void imageDimensionsChanged();
 
 protected:
     // QQuickPaintedItem override
@@ -157,7 +115,41 @@ private:
      * @param region The ImageRegion to convert.
      * @return The resulting QImage.
      */
-    QImage convertImageRegionToQImage(const Core::Common::ImageRegion& region) const;
+    [[nodiscard]] QImage convertImageRegionToQImage(const Core::Common::ImageRegion& region) const;
+
+    /**
+     * @brief Checks if the source image is valid AND the converted QImage is not null.
+     *
+     * This method provides a convenient way to check if both the source image data
+     * (managed by BaseImageItem/IRenderingItemBase) is valid and the internal
+     * QImage representation (m_current_qimage) used for painting is ready.
+     * It combines the checks from isImageValid() and m_current_qimage.isNull().
+     *
+     * This method is intended for use within PaintedImageItem methods like paint()
+     * and updateTile() to avoid redundant checks and potential deadlocks from
+     * calling isImageValid() inside a mutex-locked scope.
+     *
+     * @return True if both the source image is valid and m_current_qimage is not null, false otherwise.
+     */
+    [[nodiscard]] bool isImagePaintValid() const;
+
+signals:
+    /**
+     * @brief Signal emitted when the zoom value changes.
+     * @param zoom The new zoom factor.
+     */
+    void zoomChanged(float zoom);
+
+    /**
+     * @brief Signal emitted when the pan offset changes.
+     * @param pan The new pan offset.
+     */
+    void panChanged(const QPointF& pan);
+
+    /**
+     * @brief Signal emitted when the image dimensions change (width or height).
+     */
+    void imageSizeChanged();
 };
 
 } // namespace Rendering

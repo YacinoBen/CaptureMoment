@@ -60,11 +60,11 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 }
 
 // Creates the central ImageController orchestrator.
-[[nodiscard]] bool QmlContextSetup::createController()
+bool QmlContextSetup::createController()
 {
     spdlog::debug("QmlContextSetup::createController: Creating ImageController...");
 
-    m_controller = std::make_shared<Controller::ImageControllerPainted>();
+    m_controller = std::make_shared<Controller::ImageControllerSGS>();
     
     if (!m_controller) {
         spdlog::error("QmlContextSetup::createController: Failed to create ImageController (out of memory or constructor threw).");
@@ -77,7 +77,7 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 
 
 // Creates the operation model objects (e.g., BrightnessModel).
-[[nodiscard]] bool QmlContextSetup::createOperationModels()
+bool QmlContextSetup::createOperationModels()
 {
     spdlog::debug("QmlContextSetup::createOperationModels: Creating operation models...");
 
@@ -97,7 +97,7 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 }
 
 // Connects models and display item to controller
-[[nodiscard]] bool QmlContextSetup::connectObjects()
+bool QmlContextSetup::connectObjects()
 {
     spdlog::debug("QmlContextSetup::connectObjects: Connecting objects...");
 
@@ -126,7 +126,7 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
 }
 
 // Registers necessary objects to QML context
-[[nodiscard]] bool QmlContextSetup::registerToQml(QQmlContext* context)
+bool QmlContextSetup::registerToQml(QQmlContext* context)
 {
     spdlog::debug("QmlContextSetup::registerToQml: Registering objects to QML...");
 
@@ -152,7 +152,7 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
     return true;
 }
 
-[[nodiscard]] bool QmlContextSetup::registerModelsToQml(QQmlContext* context)
+bool QmlContextSetup::registerModelsToQml(QQmlContext* context)
 {
     spdlog::debug("QmlContextSetup::registerModelsToQml: Registering objects to QML...");
 
