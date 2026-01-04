@@ -6,8 +6,6 @@ import CaptureMoment.UI.Rendering.Painted 1.0
 import CaptureMoment.UI.Rendering.SGS 1.0
 import CaptureMoment.UI.Rendering.RHI 1.0
 
-import CaptureMoment.desktop
-
 Rectangle {
     id: displayArea
     
@@ -15,7 +13,7 @@ Rectangle {
     
     signal openImageClicked()
 
-    QMLRHIImageItem {
+    QMLSGSImageItem {
         id: imageDisplay
         anchors.fill: parent
 
@@ -28,8 +26,8 @@ Rectangle {
     // Setup image display when loaded
     Component.onCompleted: {
         //controller.setPaintedImageItemFromQml(imageDisplay)
-        //controller.setSGSImageItemFromQml(imageDisplay)
-        controller.setRHIImageItemFromQml(imageDisplay)
+        controller.setSGSImageItemFromQml(imageDisplay)
+        //controller.setRHIImageItemFromQml(imageDisplay)
 
         if (controller.displayManager) {
             controller.displayManager.setViewportSize(Qt.size(width, height))

@@ -64,7 +64,7 @@ bool QmlContextSetup::createController()
 {
     spdlog::debug("QmlContextSetup::createController: Creating ImageController...");
 
-    m_controller = std::make_shared<Controller::ImageControllerRHI>();
+    m_controller = std::make_shared<Controller::ImageControllerSGS>();
     
     if (!m_controller) {
         spdlog::error("QmlContextSetup::createController: Failed to create ImageController (out of memory or constructor threw).");
