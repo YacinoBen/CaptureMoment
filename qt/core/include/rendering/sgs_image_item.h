@@ -36,18 +36,10 @@ namespace Rendering {
  * Inherits from QQuickItem for Qt Quick integration and BaseImageItem for common state
  * (zoom, pan, image dimensions) and QML properties/signals.
  */
-class SGSImageItem : public QQuickItem, public BaseImageItem { // Hérite des deux
+class SGSImageItem : public QQuickItem, public BaseImageItem {
     Q_OBJECT
 
 private:
-    /**
-     * @brief Mutex protecting access to m_full_image and related state.
-     *
-     * Ensures thread-safe updates to the image data (from the main thread)
-     * and safe reading during the rendering process (on the render thread).
-     */
-    mutable QMutex m_image_mutex;
-
     /**
      * @brief Flag indicating if the internal image data has changed and needs conversion.
      *
