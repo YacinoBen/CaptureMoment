@@ -13,7 +13,7 @@ void main()
 {
     // Sample color from texture at interpolated texture coordinate
     vec4 sampledColor = texture(inputTexture, vTexCoord);
-    
+
     // Output the sampled color directly
     // Note: Ready for future modifications (brightness, contrast, effects, etc.)
     fragColor = sampledColor;
