@@ -137,11 +137,6 @@ bool QmlContextSetup::createOperationModels()
     }
     spdlog::debug("ShadowsModel created.");
 
-    // TODO: Create more models as needed (e.g., ContrastModel, SaturationModel)
-    // m_contrast_model = std::make_shared<ContrastModel>();
-    // if (!m_contrast_model) { ... return false; }
-    // spdlog::debug("  ✓ ContrastModel created.");
-
     return true; // Succès
 }
 
