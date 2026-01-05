@@ -102,3 +102,6 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 This organization clarifies the role of each component and prevents naming collisions.
 
 ---
+
+## Operations
+* [🟦 **Operations**](OPERATIONS.md).

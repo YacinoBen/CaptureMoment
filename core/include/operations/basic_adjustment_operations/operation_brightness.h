@@ -1,12 +1,12 @@
 /**
- * @file brightness_operation.h
+ * @file operation_brightness.h
  * @brief Concrete implementation of Brightness adjustment
  * @author CaptureMoment Team
  * @date 2025
  */
 
 #pragma once
-#include "i_operation.h"
+#include "operations/i_operation.h"
 
 namespace CaptureMoment::Core {
 

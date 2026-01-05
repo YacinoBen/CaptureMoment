@@ -78,8 +78,13 @@ set (QML_FILE
     qml/CaptureMoment/controls/DropdownControl.qml
     qml/CaptureMoment/controls/SliderControl.qml
 
-    # Operations
+    # Operations basic adjustment
     qml/CaptureMoment/operations/BrightnessOperation.qml
+    qml/CaptureMoment/operations/ContrastOperation.qml
+    qml/CaptureMoment/operations/HighlightsOperation.qml
+    qml/CaptureMoment/operations/ShadowsOperation.qml
+    qml/CaptureMoment/operations/WhitesOperation.qml
+    qml/CaptureMoment/operations/BlacksOperation.qml
 
     # Panels
     qml/CaptureMoment/panels/OperationsView.qml
@@ -107,6 +112,7 @@ qt_add_qml_module(${CAPTUREMOMENT_DESKTOP_TARGET}
        ${QML_FILE}
        ${RESSOURCE_FILE}
 )
+
 target_sources(${CAPTUREMOMENT_DESKTOP_TARGET}
     PRIVATE
        ${CORE_SOURCES}
