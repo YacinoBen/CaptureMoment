@@ -27,18 +27,18 @@ public:
     /**
      * @brief Get operation name
      */
-    virtual QString name() const = 0;
+    [[nodiscard]] virtual QString name() const = 0;
 
     /**
      * @brief Check if operation is active (non-default)
      */
-    [[no_discard]] virtual bool isActive() const = 0;
+    [[nodiscard]] virtual bool isActive() const = 0;
 
     /**
      * @brief Gets the type of this operation.
      * @return OperationType::Brightness.
      */
-    virtual Core::Operations::OperationType getType() const = 0;
+    [[nodiscard]] virtual Core::Operations::OperationType getType() const = 0;
 
       /**
      * @brief Creates and returns an OperationDescriptor representing the current state of this model.
@@ -46,7 +46,7 @@ public:
      * and other metadata required by the core processing engine (PipelineEngine).
      * @return OperationDescriptor representing the current brightness state.
      */
-    virtual Core::Operations::OperationDescriptor getDescriptor() const = 0;
+    [[nodiscard]] virtual Core::Operations::OperationDescriptor getDescriptor() const = 0;
 
     /**
      * @brief Reset to default state
@@ -54,4 +54,4 @@ public:
     virtual void reset() = 0;
 };
 
-} // namespace CaptureMoment::UI
+} // namespace Models::Operations

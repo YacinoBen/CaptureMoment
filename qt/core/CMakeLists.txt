@@ -101,6 +101,7 @@ set(QOBJECT_HEADERS
     include/controller/image_controller_rhi.h
 
     # Operations
+    include/models/operations/i_operation_model.h
     include/models/operations/operation_provider.h
     include/models/operations/brightness_model.h
 )
