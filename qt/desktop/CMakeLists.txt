@@ -82,7 +82,7 @@ set (QML_FILE
     qml/CaptureMoment/operations/BrightnessOperation.qml
     qml/CaptureMoment/operations/ContrastOperation.qml
     qml/CaptureMoment/operations/HighlightsOperation.qml
-
+    qml/CaptureMoment/operations/ShadowsOperation.qml
 
     # Panels
     qml/CaptureMoment/panels/OperationsView.qml
