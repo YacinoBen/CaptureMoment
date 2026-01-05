@@ -80,6 +80,7 @@ set(CORE_SOURCES
     # Operations
     src/models/operations/base_adjustment_model.cpp
     src/models/operations/brightness_model.cpp
+    src/models/operations/contrast_model.cpp
 )
 
 set(QOBJECT_HEADERS
@@ -105,7 +106,10 @@ set(QOBJECT_HEADERS
     include/models/operations/base_adjustment_model.h
     include/models/operations/i_operation_model.h
     include/models/operations/operation_provider.h
+
+    # List Operations
     include/models/operations/brightness_model.h
+    include/models/operations/contrast_model.h
 )
 
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
@@ -138,8 +142,11 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             domain/operation_parameters.h
             models/operations/i_operation_model.h
             models/operations/operation_provider.h
-            /models/operations/base_adjustment_model.h
+            models/operations/base_adjustment_model.h
+
+            # List Operations
             models/operations/brightness_model.h
+            models/operations/contrast_model.h
 )
 
 # --- Configuration---
