@@ -34,8 +34,10 @@ qt/desktop/qml/
     │   ├── operations/                        # Individual operation widgets
     │   │   ├── BrightnessOperation.qml
     │   │   ├── ContrastOperation.qml
-    │   │   ├── ExposureOperation.qml
-    │   │   └── SaturationOperation.qml
+    │   │   ├── HighlightsOperation.qml
+    │   │   ├── ShadowsOperation.qml
+    │   │   ├── WhitesOperation.qml
+    │   │   └── BlacksOperation.qml
     │   │
     │   └── styles/                            # Theme & styling
     │       └── Icons.qml                      # Icon constants
@@ -70,13 +72,16 @@ qt/desktop/qml/
               │     └── HistorySection
               │
               ├── CenterPanel
-              │     └── QMLPaintedImageItem
+              │     └── QMLSGSImageItem (or QMLPaintedImageItem/RHIImageItem)
               │
               ├── RightPanel (ScrollView)
               │     ├── TonePanel
               │     │     ├── BrightnessOperation
               │     │     ├── ContrastOperation
-              │     │     └── ExposureOperation
+              │     │     ├── HighlightsOperation
+              │     │     ├── ShadowsOperation
+              │     │     ├── WhitesOperation
+              │     │     └── BlacksOperation
               │     │
               │     ├── ColorPanel
               │     │     ├── SaturationOperation
@@ -99,10 +104,10 @@ Create C++ Class ContrastModel
 * **Method:** setValue(real value)
 * **Signam:** valueChanged(real newValue)
 * Similarstructure to BrightnessModel
+* Inherits from BaseAdjustmentModel
 
-
-* Register in QML via the class QmlContextSetup
-* context->setContextProperty("contrastControl", m_contrast_model.get())
+* Register in QML via the class QmlContextSetup (via OperationModelManager)
+* context->setContextProperty("contrastControl", m_contrast_model.get()) (handled by OperationModelManager)
 * Create ContrastOperation.qml in /operations
 * Pattern: SliderControl bound to C++ model
 * One SliderControl per operation
@@ -117,7 +122,7 @@ Create C++ Class ContrastModel
 * Add multiple operations in contentItem
 * Add operations inside (SaturationOperation, VibranceOperation, etc.)
 * Create each operation widget
-* Register C++ models
+* Register C++ models (via OperationModelManager)
 * Add ColorPanel to OperationsView.qml
 
 ### Adding a New Control
