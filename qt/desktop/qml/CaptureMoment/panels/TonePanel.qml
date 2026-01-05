@@ -23,5 +23,10 @@ CollapsiblePanel {
             id: contrastOp
             Layout.fillWidth: true
         }
+
+        HighlightsOperation {
+            id: highlightsOp
+            Layout.fillWidth: true
+        }
     }
 }

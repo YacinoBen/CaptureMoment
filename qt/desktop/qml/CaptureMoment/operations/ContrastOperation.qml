@@ -12,7 +12,7 @@ Item {
         id: sliderControl
         anchors.fill: parent
 
-        label: "Contrast"
+        label: qsTr("Contrast")
         value: contrastControl.value
         from: contrastControl.minimum
         to: contrastControl.maximum
