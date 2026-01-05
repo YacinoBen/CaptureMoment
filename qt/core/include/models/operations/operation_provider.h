@@ -45,13 +45,13 @@ protected :
     /**
      * @brief Set ImageController reference
      */
-
     virtual void setImageController(Controller::ImageControllerBase* controller) = 0;
+
     /**
      * @brief Pointer to the ImageController responsible for coordinating operations.
      * This allows the operation model to communicate back to the central controller.
      */
-    Controller::ImageControllerBase* m_image_controller_base {nullptr};
+    Controller::ImageControllerBase* m_image_controller {nullptr};
 
 public slots:
     /**
