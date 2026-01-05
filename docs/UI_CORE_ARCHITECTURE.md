@@ -50,7 +50,9 @@
     *   Communicate with the `ImageController` to trigger the application of the operation.
     *   Hold operation-specific parameters (`RelativeAdjustmentParams`, etc.).
 *   **Base Class:** `OperationProvider` (provides common Qt infrastructure).
-*   **Example:** `BrightnessModel`.
+*   **Base Adjustment Class:** `BaseAdjustmentModel` (inherits from `OperationProvider`, provides common properties and logic for single-value adjustments like Brightness, Contrast, etc.).
+*   **Manager Class:** `OperationModelManager` (located in `models/manager/`, centralizes the creation, connection, and registration of multiple operation models, reducing boilerplate code in `QmlContextSetup`).
+*   **Example:** `BrightnessModel` inherits from `BaseAdjustmentModel`.
 
 ### 5. Shaders (`shaders/glsl/`)
 
@@ -82,13 +84,13 @@
 ### Adding a New Operation Model (e.g., ContrastModel)
 
 1.  **Create C++ Model:**
-    *   Define `ContrastModel` inheriting from `OperationProvider` (or implementing `IOperationModel` directly).
-    *   Declare `Q_PROPERTY` for `value`, `minimum`, `maximum`, `name`, `active`.
-    *   Implement `Q_INVOKABLE setValue(real value)` and emit `valueChanged`.
-    *   Implement `getType()`, `getDescriptor()`, `isActive()`, etc.
-    *   Store parameters using a struct like `RelativeAdjustmentParams`.
-    *   Handle `setValue` by updating parameters, emitting signals, and triggering `ImageController::applyOperations`.
-2.  **Register in C++:** Add `m_contrast_model` to `QmlContextSetup` and register it via `setContextProperty`.
+    *   Define `ContrastModel` inheriting from `BaseAdjustmentModel` (which inherits from `OperationProvider`).
+    *   Declare `Q_PROPERTY` for `value`, `minimum`, `maximum`, `name`, `active` (inherited from `BaseAdjustmentModel`).
+    *   Implement `Q_INVOKABLE setValue(real value)` and emit `valueChanged` (inherited from `BaseAdjustmentModel`).
+    *   Implement `getType()`, `getDescriptor()`, `isActive()`, `reset()`, `setImageController`, `onOperationCompleted`, `onOperationFailed` in `ContrastModel`.
+    *   Store parameters using a struct like `RelativeAdjustmentParams` (inherited from `BaseAdjustmentModel`).
+    *   Handle `setValue` by updating parameters, emitting signals, and triggering `ImageController::applyOperations` (inherited from `BaseAdjustmentModel`).
+2.  **Add to OperationModelManager:** Add `Models::Operations::ContrastModel` to the template list in `OperationModelManager::createBasicAdjustmentModels()` or a new creation method if needed.
 3.  **Create QML Component:** Create `ContrastOperation.qml` in `qt/desktop/qml/components/operations/`, binding its slider/spinbox to `contrastControl.value` and calling `contrastControl.setValue` on change.
 4.  **Add to Panel:** Include `ContrastOperation.qml` in the relevant panel (e.g., `TonePanel.qml`).
 

@@ -78,7 +78,16 @@ set(CORE_SOURCES
     src/rendering/base_image_item.cpp
 
     # Operations
-    src/models/operations/brightness_model.cpp
+    src/models/manager/operation_model_manager.cpp
+    src/models/operations/base_adjustment_model.cpp
+
+    # Operations base adjustment
+    src/models/operations/base_adjustment_models/brightness_model.cpp
+    src/models/operations/base_adjustment_models/contrast_model.cpp
+    src/models/operations/base_adjustment_models/highlights_model.cpp
+    src/models/operations/base_adjustment_models/shadows_model.cpp
+    src/models/operations/base_adjustment_models/whites_model.cpp
+    src/models/operations/base_adjustment_models/blacks_model.cpp
 )
 
 set(QOBJECT_HEADERS
@@ -101,8 +110,18 @@ set(QOBJECT_HEADERS
     include/controller/image_controller_rhi.h
 
     # Operations
+    include/models/operations/i_operation_model.h
     include/models/operations/operation_provider.h
-    include/models/operations/brightness_model.h
+    include/models/manager/operation_model_manager.h
+
+    # List Operations base adjustment
+    include/models/operations/base_adjustment_model.h
+    include/models/operations/basic_adjustment_models/brightness_model.h
+    include/models/operations/basic_adjustment_models/contrast_model.h
+    include/models/operations/basic_adjustment_models/highlights_model.h
+    include/models/operations/basic_adjustment_models/shadows_model.h
+    include/models/operations/basic_adjustment_models/whites_model.h
+    include/models/operations/basic_adjustment_models/blacks_model.h
 )
 
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
@@ -135,7 +154,16 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             domain/operation_parameters.h
             models/operations/i_operation_model.h
             models/operations/operation_provider.h
-            models/operations/brightness_model.h
+            models/manager/operation_model_manager.h
+
+            # List Operations base adjustment
+            models/operations/base_adjustment_model.h
+            models/operations/base_adjustment_models/brightness_model.h
+            models/operations/base_adjustment_models/contrast_model.h
+            models/operations/base_adjustment_models/highlights_model.h
+            models/operations/base_adjustment_models/shadows_model.h
+            models/operations/base_adjustment_models/whites_model.h
+            models/operations/base_adjustment_models/blacks_model.h
 )
 
 # --- Configuration---
@@ -166,7 +194,6 @@ install(TARGETS ${CAPTUREMOMENT_QT_CORE_LIB}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} 
     FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/capturemoment_qt_core
 )
-
 
 install(DIRECTORY include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/capturemoment_qt_core

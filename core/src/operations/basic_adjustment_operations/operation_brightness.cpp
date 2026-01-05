@@ -1,11 +1,11 @@
 /**
- * @file brightness_operation.cpp
- * @brief Implementation of BrightnessOperation
+ * @file operation_brightness.cpp
+ * @brief Implementation of OperationBrightness
  * @author CaptureMoment Team
  * @date 2025
  */
 
-#include "operations/operation_brightness.h"
+#include "operations/basic_adjustment_operations/operation_brightness.h"
 #include <spdlog/spdlog.h>
 #include <Halide.h>
 

@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import CaptureMoment.desktop
 
 Item {
-    id: brightnessOperation
+    id: shadowsOperation
 
     implicitHeight: sliderControl.implicitHeight
 
@@ -12,15 +12,15 @@ Item {
         id: sliderControl
         anchors.fill: parent
 
-        label: qsTr("Brightness")
-        value: brightnessControl.value
-        from: brightnessControl.minimum
-        to: brightnessControl.maximum
+        label: qsTr("Shadows")
+        value: shadowsControl.value
+        from: shadowsControl.minimum
+        to: shadowsControl.maximum
         stepSize: 0.01
 
         onValueChanged: {
-            console.log("Value Brightness : ", value)
-            brightnessControl.setValue(value )
+            console.log("Value Shadows : ", value)
+            shadowsControl.setValue(value )
         }
     }
 }

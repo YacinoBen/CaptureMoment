@@ -18,5 +18,30 @@ CollapsiblePanel {
             id: brightnessOp
             Layout.fillWidth: true
         }
+
+        ContrastOperation {
+            id: contrastOp
+            Layout.fillWidth: true
+        }
+
+        HighlightsOperation {
+            id: highlightsOp
+            Layout.fillWidth: true
+        }
+
+        ShadowsOperation {
+            id: shadowsOp
+            Layout.fillWidth: true
+        }
+
+        WhitesOperation {
+            id: whitesOp
+            Layout.fillWidth: true
+        }
+
+        BlacksOperation {
+            id: blacksOp
+            Layout.fillWidth: true
+        }
     }
 }

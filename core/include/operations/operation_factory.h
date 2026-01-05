@@ -30,7 +30,7 @@ struct OperationDescriptor;
 class OperationFactory {
 public:
     /**
-     * @brief Register an operation creator for a given type
+     * @brief Register an operation creator for a given type using a template
      * @tparam T Concrete operation class (must inherit from Operation)
      * @param type OperationType identifier
      */
@@ -39,6 +39,15 @@ public:
         m_creators[type] = []() -> std::unique_ptr<IOperation> {
             return std::make_unique<T>();
         };
+    }
+
+    /**
+     * @brief Register an operation creator for a given type using a lambda/function
+     * @param type OperationType identifier
+     * @param creator Function/lambda that creates the operation instance
+     */
+    void registerCreator(OperationType type, std::function<std::unique_ptr<IOperation>()> creator) {
+        m_creators[type] = std::move(creator);
     }
 
     /**
