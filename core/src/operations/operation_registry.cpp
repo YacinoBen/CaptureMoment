@@ -8,6 +8,7 @@
 #include "operations/operation_registry.h"
 #include "operations/operation_brightness.h"
 #include "operations/operation_contrast.h"
+#include "operations/operation_highlights.h"
 // #include "operations/operation_saturation.h"       // TODO: Implement
 // #include "operations/operation_hue.h"              // TODO: Implement
 // #include "operations/operation_exposure.h"         // TODO: Implement
@@ -44,6 +45,10 @@ void OperationRegistry::registerToneAdjustments(OperationFactory& factory) {
     // Constrast
     factory.registerOperation<OperationContrast>(OperationType::Contrast);
     spdlog::trace("ok: Contrast");
+
+    // Highlights
+    factory.registerOperation<OperationHighlights>(OperationType::Highlights);
+    spdlog::trace("ok: Highlights");
     
     // factory.registerOperation<OperationExposure>(OperationType::Exposure);
     // spdlog::trace("ok: Exposure");
@@ -51,8 +56,7 @@ void OperationRegistry::registerToneAdjustments(OperationFactory& factory) {
     // factory.registerOperation<OperationShadows>(OperationType::Shadows);
     // spdlog::trace("ok: Shadows");
     
-    // factory.registerOperation<OperationHighlights>(OperationType::Highlights);
-    // spdlog::trace("ok: Highlights");
+
 }
 
 void OperationRegistry::registerColorOperations(OperationFactory& factory) {

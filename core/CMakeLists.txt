@@ -21,6 +21,7 @@ set(CORE_SOURCES
     # List Operations
     src/operations/operation_brightness.cpp
     src/operations/operation_constrast.cpp
+    src/operations/operation_highlights.cpp
 
     # Engine
     src/engine/photo_engine.cpp
