@@ -33,5 +33,10 @@ CollapsiblePanel {
             id: shadowsOp
             Layout.fillWidth: true
         }
+
+        WhitesOperation {
+            id: whitesOp
+            Layout.fillWidth: true
+        }
     }
 }

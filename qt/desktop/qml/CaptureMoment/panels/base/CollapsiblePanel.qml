@@ -31,7 +31,7 @@ Rectangle {
             id: contentContainer
 
             Layout.fillWidth: true
-            Layout.preferredHeight: collapsiblePanel.isCollapsed ? 0 : 250 // ~+50 for every operation added
+            Layout.preferredHeight: collapsiblePanel.isCollapsed ? 0 : 300 // ~+50 for every operation added
 
             color: Material.color(Material.BlueGrey)
 
