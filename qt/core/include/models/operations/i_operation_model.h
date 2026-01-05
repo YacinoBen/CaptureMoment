@@ -13,6 +13,7 @@
 #include "operations/operation_type.h"
 
 namespace CaptureMoment::UI {
+// TODO: ADD namespace Models::Operations
 
 /**
  * @brief Pure interface for operation models
@@ -54,4 +55,4 @@ public:
     virtual void reset() = 0;
 };
 
-} // namespace Models::Operations
+} // namespace CaptureMoment::UI
