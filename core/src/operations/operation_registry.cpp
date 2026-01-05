@@ -7,7 +7,7 @@
 
 #include "operations/operation_registry.h"
 #include "operations/operation_brightness.h"
-// #include "operations/operation_contrast.h"          // TODO: Implement
+#include "operations/operation_contrast.h"
 // #include "operations/operation_saturation.h"       // TODO: Implement
 // #include "operations/operation_hue.h"              // TODO: Implement
 // #include "operations/operation_exposure.h"         // TODO: Implement
@@ -41,9 +41,8 @@ void OperationRegistry::registerToneAdjustments(OperationFactory& factory) {
     factory.registerOperation<OperationBrightness>(OperationType::Brightness);
     spdlog::trace("ok: Brightness");
     
-    // TODO: Add more tone adjustments as they are implemented
-    // factory.registerOperation<OperationContrast>(OperationType::Contrast);
-    // spdlog::trace("ok: Contrast");
+    factory.registerOperation<OperationContrast>(OperationType::Contrast);
+    spdlog::trace("ok: Contrast");
     
     // factory.registerOperation<OperationExposure>(OperationType::Exposure);
     // spdlog::trace("ok: Exposure");

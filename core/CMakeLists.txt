@@ -33,7 +33,8 @@ foreach(source ${CORE_SOURCES})
 endforeach()
 
 # Create library
-add_library(capturemoment_core STATIC ${CORE_SOURCES})
+add_library(capturemoment_core STATIC ${CORE_SOURCES}
+    src/operations/operation_constrast.cpp)
 
 # Add headers for IDE
 file(GLOB_RECURSE HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
