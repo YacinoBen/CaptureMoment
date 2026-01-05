@@ -8,6 +8,7 @@
 #include "utils/qml_context_setup.h"
 #include "models/operations/brightness_model.h"
 #include "models/operations/contrast_model.h"
+#include "models/operations/highlights_model.h"
 #include "controller/image_controller_painted.h"
 #include "controller/image_controller_sgs.h"
 #include "controller/image_controller_rhi.h"
@@ -20,6 +21,7 @@ namespace CaptureMoment::UI {
 std::shared_ptr<Controller::ImageControllerBase> QmlContextSetup::m_controller = nullptr;
 std::shared_ptr<Models::Operations::BrightnessModel> QmlContextSetup::m_brightness_model = nullptr;
 std::shared_ptr<Models::Operations::ContrastModel> QmlContextSetup::m_contrast_model = nullptr;
+std::shared_ptr<Models::Operations::HighlightsModel> QmlContextSetup::m_highlights_model = nullptr;
 
 bool QmlContextSetup::setupContext(QQmlContext* context)
 {
@@ -91,8 +93,16 @@ bool QmlContextSetup::createOperationModels()
     spdlog::debug("BrightnessModel created.");
 
     m_contrast_model = std::make_shared<Models::Operations::ContrastModel>();
-    if (!m_brightness_model) {
+    if (!m_contrast_model) {
         spdlog::error("QmlContextSetup::createOperationModels: Failed to create ContrastModel (out of memory or constructor threw).");
+        return false;
+    }
+    spdlog::debug("ContrastModel created.");
+
+
+    m_highlights_model = std::make_shared<Models::Operations::HighlightsModel>();
+    if (!m_highlights_model) {
+        spdlog::error("QmlContextSetup::createOperationModels: Failed to create HighlightsModel (out of memory or constructor threw).");
         return false;
     }
     spdlog::debug("ContrastModel created.");
@@ -119,6 +129,14 @@ bool QmlContextSetup::connectObjects()
         spdlog::error("QmlContextSetup::connectObjects: BrightnessModel is null, cannot connect.");
         return false; 
     }
+    if (!m_contrast_model) {
+        spdlog::error("QmlContextSetup::connectObjects: ContrastModel is null, cannot connect.");
+        return false;
+    }
+    if (!m_highlights_model) {
+        spdlog::error("QmlContextSetup::connectObjects: HighlightsModel is null, cannot connect.");
+        return false;
+    }
 
     // --- Connect Operation Models to Controller ---
     // BrightnessModel needs to know the controller to communicate changes or register itself
@@ -127,7 +145,10 @@ bool QmlContextSetup::connectObjects()
     spdlog::debug("BrightnessModel connected to ImageController.");
 
     m_contrast_model->setImageController(m_controller.get());
-    spdlog::debug("ConrastModel connected to ImageController.");
+    spdlog::debug("ContrastModel connected to ImageController.");
+
+    m_highlights_model->setImageController(m_controller.get());
+    spdlog::debug("HighlightsModel connected to ImageController.");
 
     // TODO: Connect more models as they are created
     // m_contrast_model->setImageController(m_controller.get());
@@ -171,17 +192,23 @@ bool QmlContextSetup::registerModelsToQml(QQmlContext* context)
     if (m_brightness_model) {
         context->setContextProperty("brightnessControl", m_brightness_model.get());
         spdlog::debug("'brightnessControl' registered to QML context.");
-     } else {
-            spdlog::warn("QmlContextSetup::registerToQml: BrightnessControl is null, skipping registration.");
+    } else {
+        spdlog::warn("QmlContextSetup::registerToQml: brightnessControl is null, skipping registration.");
     }
 
-     if (m_contrast_model) {
-         context->setContextProperty("contrastControl", m_contrast_model.get());
-         spdlog::debug("'brightnessControl' registered to QML context.");
-     } else {
-         spdlog::warn("QmlContextSetup::registerToQml: BrightnessControl is null, skipping registration.");
-     }
+    if (m_contrast_model) {
+        context->setContextProperty("contrastControl", m_contrast_model.get());
+        spdlog::debug("'brightnessControl' registered to QML context.");
+    } else {
+        spdlog::warn("QmlContextSetup::registerToQml: contrastControl is null, skipping registration.");
+    }
 
+    if (m_highlights_model) {
+        context->setContextProperty("highlightsControl", m_highlights_model.get());
+        spdlog::debug("'highLightsControl' registered to QML context.");
+    } else {
+        spdlog::warn("QmlContextSetup::registerToQml: highlightsModel is null, skipping registration.");
+    }
 
     // Note: The internal models (like m_brightness_model) are NOT registered here.
     // They are managed by ImageController.

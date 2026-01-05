@@ -18,6 +18,7 @@ namespace CaptureMoment::UI {
 namespace Models::Operations {
 class BrightnessModel;
 class ContrastModel;
+class HighlightsModel;
 }
 
 namespace Controller {
@@ -62,8 +63,10 @@ public:
 private:
     // Shared pointers for lifetime management
     static std::shared_ptr<Controller::ImageControllerBase> m_controller;
+
     static std::shared_ptr<Models::Operations::BrightnessModel> m_brightness_model;
     static std::shared_ptr<Models::Operations::ContrastModel> m_contrast_model;
+    static std::shared_ptr<Models::Operations::HighlightsModel> m_highlights_model;
 
     /**
      * @brief Create the central ImageController orchestrator.
