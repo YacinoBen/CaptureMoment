@@ -15,9 +15,12 @@ set(CORE_SOURCES
 
     # Operations
     src/operations/operation_factory.cpp
-    src/operations/operation_brightness.cpp
     src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
+
+    # List Operations
+    src/operations/operation_brightness.cpp
+    src/operations/operation_constrast.cpp
 
     # Engine
     src/engine/photo_engine.cpp
@@ -33,8 +36,7 @@ foreach(source ${CORE_SOURCES})
 endforeach()
 
 # Create library
-add_library(capturemoment_core STATIC ${CORE_SOURCES}
-    src/operations/operation_constrast.cpp)
+add_library(capturemoment_core STATIC ${CORE_SOURCES})
 
 # Add headers for IDE
 file(GLOB_RECURSE HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
