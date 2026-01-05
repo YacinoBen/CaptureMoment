@@ -82,6 +82,7 @@ set(CORE_SOURCES
     src/models/operations/brightness_model.cpp
     src/models/operations/contrast_model.cpp
     src/models/operations/highlights_model.cpp
+    src/models/operations/shadows_model.cpp
 )
 
 set(QOBJECT_HEADERS
@@ -112,6 +113,7 @@ set(QOBJECT_HEADERS
     include/models/operations/brightness_model.h
     include/models/operations/contrast_model.h
     include/models/operations/highlights_model.h
+    include/models/operations/shadows_model.h
 )
 
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
@@ -150,6 +152,7 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             models/operations/brightness_model.h
             models/operations/contrast_model.h
             models/operations/highlights_model.h
+            models/operations/shadows_model.h
 )
 
 # --- Configuration---

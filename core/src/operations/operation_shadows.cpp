@@ -8,7 +8,6 @@
 #include "operations/operation_shadows.h"
 #include <spdlog/spdlog.h>
 #include <Halide.h>
-#include <algorithm>
 
 namespace CaptureMoment::Core::Operations {
 
