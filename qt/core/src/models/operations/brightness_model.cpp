@@ -9,7 +9,7 @@
 #include <spdlog/spdlog.h>
 #include <algorithm> // For std::clamp
 
-namespace CaptureMoment::UI {
+namespace CaptureMoment::UI::Models::Operations {
 
 // Constructor: Initializes the model with a default value of 0.0.
 BrightnessModel::BrightnessModel(QObject* parent)

@@ -12,6 +12,9 @@
 
 namespace CaptureMoment::UI {
 
+
+namespace Models::Operations {
+
 /**
  * @brief Brightness operation model
  * 
@@ -151,5 +154,7 @@ signals:
     */
     void valueChanged(float value); 
 };
+
+} // namespace Models::Operations
 
 } // namespace CaptureMoment::UI

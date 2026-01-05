@@ -14,15 +14,16 @@
 
 // Forward declarations
 namespace CaptureMoment::UI {
-    class BrightnessModel;
-    namespace Controller {
-        class ImageControllerBase;
-    }
+
+namespace Models::Operations {
+class BrightnessModel;
 }
 
-namespace CaptureMoment::UI {
+namespace Controller {
+class ImageControllerBase;
+}
 
-    /**
+/**
      * @brief Central manager for QML context setup
      *
      * Responsibilities:
@@ -60,7 +61,7 @@ public:
 private:
     // Shared pointers for lifetime management
     static std::shared_ptr<Controller::ImageControllerBase> m_controller;
-    static std::shared_ptr<BrightnessModel> m_brightness_model;
+    static std::shared_ptr<Models::Operations::BrightnessModel> m_brightness_model;
 
     /**
      * @brief Create the central ImageController orchestrator.
@@ -93,6 +94,6 @@ private:
      * @return true if registration was successful, false otherwise.
      */
     [[nodiscard]] static bool registerModelsToQml(QQmlContext* context);
-    };
+};
 
 } // namespace CaptureMoment::UI

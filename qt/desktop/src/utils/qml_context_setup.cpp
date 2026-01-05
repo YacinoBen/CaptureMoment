@@ -17,7 +17,7 @@ namespace CaptureMoment::UI {
 
 // Static member initialization (pointers are initialized to nullptr by default)
 std::shared_ptr<Controller::ImageControllerBase> QmlContextSetup::m_controller = nullptr;
-std::shared_ptr<BrightnessModel> QmlContextSetup::m_brightness_model = nullptr;
+std::shared_ptr<Models::Operations::BrightnessModel> QmlContextSetup::m_brightness_model = nullptr;
 
 bool QmlContextSetup::setupContext(QQmlContext* context)
 {
@@ -81,7 +81,7 @@ bool QmlContextSetup::createOperationModels()
 {
     spdlog::debug("QmlContextSetup::createOperationModels: Creating operation models...");
 
-    m_brightness_model = std::make_shared<BrightnessModel>();
+    m_brightness_model = std::make_shared<Models::Operations::BrightnessModel>();
     if (!m_brightness_model) {
         spdlog::error("QmlContextSetup::createOperationModels: Failed to create BrightnessModel (out of memory or constructor threw).");
         return false;

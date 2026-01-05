@@ -16,6 +16,9 @@ namespace CaptureMoment::UI {
 namespace Controller {
 class ImageControllerBase;
 }
+
+namespace Models::Operations {
+
 /**
  * @brief Generic base class providing Qt signals/slots infrastructure
  * 
@@ -84,5 +87,7 @@ signals:
      */
     void operationFailed(QString error);
 };
+
+} // namespace Models::Operations
 
 } // namespace CaptureMoment::UI
