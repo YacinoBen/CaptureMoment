@@ -7,6 +7,7 @@
 
 #include "utils/qml_context_setup.h"
 #include "models/operations/brightness_model.h"
+#include "models/operations/contrast_model.h"
 #include "controller/image_controller_painted.h"
 #include "controller/image_controller_sgs.h"
 #include "controller/image_controller_rhi.h"
@@ -18,6 +19,7 @@ namespace CaptureMoment::UI {
 // Static member initialization (pointers are initialized to nullptr by default)
 std::shared_ptr<Controller::ImageControllerBase> QmlContextSetup::m_controller = nullptr;
 std::shared_ptr<Models::Operations::BrightnessModel> QmlContextSetup::m_brightness_model = nullptr;
+std::shared_ptr<Models::Operations::ContrastModel> QmlContextSetup::m_contrast_model = nullptr;
 
 bool QmlContextSetup::setupContext(QQmlContext* context)
 {
@@ -86,7 +88,14 @@ bool QmlContextSetup::createOperationModels()
         spdlog::error("QmlContextSetup::createOperationModels: Failed to create BrightnessModel (out of memory or constructor threw).");
         return false;
     }
-        spdlog::debug("  ✓ BrightnessModel created.");
+    spdlog::debug("BrightnessModel created.");
+
+    m_contrast_model = std::make_shared<Models::Operations::ContrastModel>();
+    if (!m_brightness_model) {
+        spdlog::error("QmlContextSetup::createOperationModels: Failed to create ContrastModel (out of memory or constructor threw).");
+        return false;
+    }
+    spdlog::debug("ContrastModel created.");
 
     // TODO: Create more models as needed (e.g., ContrastModel, SaturationModel)
     // m_contrast_model = std::make_shared<ContrastModel>();
@@ -116,6 +125,9 @@ bool QmlContextSetup::connectObjects()
 
     m_brightness_model->setImageController(m_controller.get());
     spdlog::debug("BrightnessModel connected to ImageController.");
+
+    m_contrast_model->setImageController(m_controller.get());
+    spdlog::debug("ConrastModel connected to ImageController.");
 
     // TODO: Connect more models as they are created
     // m_contrast_model->setImageController(m_controller.get());
@@ -162,6 +174,14 @@ bool QmlContextSetup::registerModelsToQml(QQmlContext* context)
      } else {
             spdlog::warn("QmlContextSetup::registerToQml: BrightnessControl is null, skipping registration.");
     }
+
+     if (m_contrast_model) {
+         context->setContextProperty("contrastControl", m_contrast_model.get());
+         spdlog::debug("'brightnessControl' registered to QML context.");
+     } else {
+         spdlog::warn("QmlContextSetup::registerToQml: BrightnessControl is null, skipping registration.");
+     }
+
 
     // Note: The internal models (like m_brightness_model) are NOT registered here.
     // They are managed by ImageController.
