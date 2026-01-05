@@ -80,6 +80,7 @@ set (QML_FILE
 
     # Operations
     qml/CaptureMoment/operations/BrightnessOperation.qml
+    qml/CaptureMoment/operations/ContrastOperation.qml
 
     # Panels
     qml/CaptureMoment/panels/OperationsView.qml

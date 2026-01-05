@@ -18,5 +18,10 @@ CollapsiblePanel {
             id: brightnessOp
             Layout.fillWidth: true
         }
+
+        ContrastOperation {
+            id: contrastOp
+            Layout.fillWidth: true
+        }
     }
 }
