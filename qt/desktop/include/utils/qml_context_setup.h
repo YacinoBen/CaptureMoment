@@ -11,35 +11,28 @@
 #include <memory>
 
 #include "controller/image_controller_base.h"
+#include "models/manager/operation_model_manager.h"
 
 // Forward declarations
 namespace CaptureMoment::UI {
 
-namespace Models::Operations {
-class BrightnessModel;
-class ContrastModel;
-class HighlightsModel;
-class ShadowsModel;
-class WhitesModel;
-class BlacksModel;
-}
-
 namespace Controller {
 class ImageControllerBase;
+}
+
+namespace Models::Manager {
+class OperationModelManager;
 }
 
 /**
      * @brief Central manager for QML context setup
      *
      * Responsibilities:
-     * - Creates and manages all C++ objects (controller, models, display item)
-     * - Connects models to controller and display item to controller
-     * - Registers necessary objects to QML context
+     * - Creates and manages core objects (controller, display item)
+     * - Delegates operation model management to OperationModelManager
+     * - Registers core objects to QML context
      * - Lifetime management via shared_ptr
      * - Ensures objects are correctly initialized before use
-     *
-     * QML doesn't know about internal models directly, it calls controller methods.
-     * The display item (RhiImageItem) is also registered to QML for image rendering.
      */
 class QmlContextSetup {
 public:
@@ -48,15 +41,11 @@ public:
      *
      * Creates:
      * - ImageController (main orchestrator)
-     * - RHIImageItem (image display component)
-     * - BrightnessModel (image adjustment model)
-     * - All other operation models (TODO)
+     * - OperationModelManager (delegates model creation/connection/registration)
      *
      * Registers to QML:
      * - "controller" → ImageController
-     * - "rhiImageItem" → RHIImageItem (for display)
-     *
-     * Models stay internal and are managed here
+     * - Operation models are registered by OperationModelManager
      *
      * @param context The QML context to setup
      * @return true if setup was successful, false otherwise.
@@ -64,15 +53,8 @@ public:
     static bool setupContext(QQmlContext* context);
 
 private:
-    // Shared pointers for lifetime management
     static std::shared_ptr<Controller::ImageControllerBase> m_controller;
-
-    static std::shared_ptr<Models::Operations::BrightnessModel> m_brightness_model;
-    static std::shared_ptr<Models::Operations::ContrastModel> m_contrast_model;
-    static std::shared_ptr<Models::Operations::HighlightsModel> m_highlights_model;
-    static std::shared_ptr<Models::Operations::ShadowsModel> m_shadows_model;
-    static std::shared_ptr<Models::Operations::WhitesModel> m_whites_model;
-    static std::shared_ptr<Models::Operations::BlacksModel> m_blacks_model;
+    static std::unique_ptr<Models::Manager::OperationModelManager> m_operation_model_manager; // Nouveau membre
 
     /**
      * @brief Create the central ImageController orchestrator.
@@ -81,30 +63,9 @@ private:
     [[nodiscard]] static bool createController();
 
     /**
-     * @brief Create the operation model objects (e.g., BrightnessModel).
-     * @return true if all models were created successfully, false otherwise.
+     * @brief Register core objects (like controller) to QML context
      */
-    [[nodiscard]] static bool createOperationModels();
-
-    /**
-     * @brief Connect models and display item to controller
-     * @return true if all connections were successful, false otherwise.
-     */
-    [[nodiscard]] static bool connectObjects();
-
-    /**
-     * @brief Register necessary objects to QML context
-     * @param context The QML context
-     * @return true if registration was successful, false otherwise.
-     */
-    [[nodiscard]] static bool registerToQml(QQmlContext* context);
-
-    /**
-     * @brief Register necessary Models  to QML context
-     * @param context The QML context
-     * @return true if registration was successful, false otherwise.
-     */
-    [[nodiscard]] static bool registerModelsToQml(QQmlContext* context);
+    [[nodiscard]] static bool registerCoreToQml(QQmlContext* context);
 };
 
 } // namespace CaptureMoment::UI
