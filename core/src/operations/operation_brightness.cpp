@@ -1,6 +1,6 @@
 /**
- * @file brightness_operation.cpp
- * @brief Implementation of BrightnessOperation
+ * @file operation_brightness.cpp
+ * @brief Implementation of OperationBrightness
  * @author CaptureMoment Team
  * @date 2025
  */
