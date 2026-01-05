@@ -52,7 +52,6 @@ public:
      */
     virtual ~OperationProvider() = default;
 
-protected:
     /**
      * @brief Pure virtual method to set the ImageControllerBase reference.
      *
@@ -64,6 +63,7 @@ protected:
      */
     virtual void setImageController(Controller::ImageControllerBase* controller) = 0;
 
+protected:
     /**
      * @brief Pointer to the ImageController responsible for coordinating operations.
      * This allows the operation model to communicate back to the central controller.
