@@ -11,6 +11,7 @@
 #include "operations/operation_highlights.h"
 #include "operations/operation_shadows.h"
 #include "operations/operation_whites.h"
+#include "operations/operation_blacks.h"
 
 // #include "operations/operation_saturation.h"       // TODO: Implement
 // #include "operations/operation_hue.h"              // TODO: Implement
@@ -59,7 +60,12 @@ void OperationRegistry::registerToneAdjustments(OperationFactory& factory) {
 
     // Whites
     factory.registerCreator(OperationType::Whites, []() { return std::make_unique<OperationWhites>(); });
-    spdlog::trace("Factory register Shadows");
+    spdlog::trace("Factory register Whites");
+
+    // Blacks
+    factory.registerCreator(OperationType::Blacks, []() { return std::make_unique<OperationBlacks>(); });
+    spdlog::trace("Factory register Blacks");
+
     // factory.registerCreator(OperationType::Exposure, []() { return std::make_unique<OperationExposure>(); });
     // spdlog::trace("ok: Exposure");
 
