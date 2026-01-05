@@ -40,7 +40,8 @@ void OperationRegistry::registerToneAdjustments(OperationFactory& factory) {
     // Brightness
     factory.registerOperation<OperationBrightness>(OperationType::Brightness);
     spdlog::trace("ok: Brightness");
-    
+
+    // Constrast
     factory.registerOperation<OperationContrast>(OperationType::Contrast);
     spdlog::trace("ok: Contrast");
     
