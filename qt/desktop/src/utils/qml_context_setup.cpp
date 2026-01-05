@@ -11,6 +11,7 @@
 #include "models/operations/contrast_model.h"
 #include "models/operations/highlights_model.h"
 #include "models/operations/shadows_model.h"
+#include "models/operations/whites_model.h"
 
 #include "controller/image_controller_painted.h"
 #include "controller/image_controller_sgs.h"
@@ -26,6 +27,7 @@ std::shared_ptr<Models::Operations::BrightnessModel> QmlContextSetup::m_brightne
 std::shared_ptr<Models::Operations::ContrastModel> QmlContextSetup::m_contrast_model = nullptr;
 std::shared_ptr<Models::Operations::HighlightsModel> QmlContextSetup::m_highlights_model = nullptr;
 std::shared_ptr<Models::Operations::ShadowsModel> QmlContextSetup::m_shadows_model = nullptr;
+std::shared_ptr<Models::Operations::WhitesModel> QmlContextSetup::m_whites_model = nullptr;
 
 bool QmlContextSetup::setupContext(QQmlContext* context)
 {
@@ -118,6 +120,13 @@ bool QmlContextSetup::createOperationModels()
     }
     spdlog::debug("ShadowsModel created.");
 
+
+    m_whites_model = std::make_shared<Models::Operations::WhitesModel>();
+    if (!m_whites_model) {
+        spdlog::error("QmlContextSetup::createOperationModels: Failed to create WhitesModel (out of memory or constructor threw).");
+        return false;
+    }
+    spdlog::debug("ShadowsModel created.");
     // TODO: Create more models as needed (e.g., ContrastModel, SaturationModel)
     // m_contrast_model = std::make_shared<ContrastModel>();
     // if (!m_contrast_model) { ... return false; }
@@ -154,6 +163,11 @@ bool QmlContextSetup::connectObjects()
         return false;
     }
 
+
+    if (!m_whites_model) {
+        spdlog::error("QmlContextSetup::connectObjects: WhitesModel is null, cannot connect.");
+        return false;
+    }
     // --- Connect Operation Models to Controller ---
     // BrightnessModel needs to know the controller to communicate changes or register itself
 
@@ -169,6 +183,8 @@ bool QmlContextSetup::connectObjects()
     m_shadows_model->setImageController(m_controller.get());
     spdlog::debug("ShadowsModel connected to ImageController.");
 
+    m_whites_model->setImageController(m_controller.get());
+    spdlog::debug("WhitesModel connected to ImageController.");
     // TODO: Connect more models as they are created
     // m_contrast_model->setImageController(m_controller.get());
     // spdlog::debug("  ✓ ContrastModel connected to ImageController.");
@@ -236,6 +252,12 @@ bool QmlContextSetup::registerModelsToQml(QQmlContext* context)
         spdlog::warn("QmlContextSetup::registerToQml: shadowsModel is null, skipping registration.");
     }
 
+    if (m_whites_model) {
+        context->setContextProperty("whitesControl", m_whites_model.get());
+        spdlog::debug("'whitesControl' registered to QML context.");
+    } else {
+        spdlog::warn("QmlContextSetup::registerToQml: shadowsModel is null, skipping registration.");
+    }
     // Note: The internal models (like m_brightness_model) are NOT registered here.
     // They are managed by ImageController.
 

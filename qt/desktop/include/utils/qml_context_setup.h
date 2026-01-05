@@ -20,6 +20,7 @@ class BrightnessModel;
 class ContrastModel;
 class HighlightsModel;
 class ShadowsModel;
+class WhitesModel;
 }
 
 namespace Controller {
@@ -69,6 +70,7 @@ private:
     static std::shared_ptr<Models::Operations::ContrastModel> m_contrast_model;
     static std::shared_ptr<Models::Operations::HighlightsModel> m_highlights_model;
     static std::shared_ptr<Models::Operations::ShadowsModel> m_shadows_model;
+    static std::shared_ptr<Models::Operations::WhitesModel> m_whites_model;
 
     /**
      * @brief Create the central ImageController orchestrator.
