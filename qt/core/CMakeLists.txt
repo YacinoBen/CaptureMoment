@@ -84,6 +84,7 @@ set(CORE_SOURCES
     src/models/operations/highlights_model.cpp
     src/models/operations/shadows_model.cpp
     src/models/operations/whites_model.cpp
+    src/models/operations/blacks_model.cpp
 )
 
 set(QOBJECT_HEADERS
@@ -116,6 +117,7 @@ set(QOBJECT_HEADERS
     include/models/operations/highlights_model.h
     include/models/operations/shadows_model.h
     include/models/operations/whites_model.h
+    include/models/operations/blacks_model.h
 )
 
 target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
@@ -156,6 +158,7 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             models/operations/highlights_model.h
             models/operations/shadows_model.h
             models/operations/whites_model.h
+            models/operations/blacks_model.h
 )
 
 # --- Configuration---
