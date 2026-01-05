@@ -5,10 +5,9 @@
  * @date 2025
  */
 
-#include "operations/operation_whites.h"
+#include "operations/basic_adjustment_operations/operation_whites.h"
 #include <spdlog/spdlog.h>
 #include <Halide.h>
-#include <algorithm>
 
 namespace CaptureMoment::Core::Operations {
 

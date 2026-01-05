@@ -6,12 +6,13 @@
  */
 
 #include "operations/operation_registry.h"
-#include "operations/operation_brightness.h"
-#include "operations/operation_contrast.h"
-#include "operations/operation_highlights.h"
-#include "operations/operation_shadows.h"
-#include "operations/operation_whites.h"
-#include "operations/operation_blacks.h"
+
+#include "operations/basic_adjustment_operations/operation_brightness.h"
+#include "operations/basic_adjustment_operations/operation_contrast.h"
+#include "operations/basic_adjustment_operations/operation_highlights.h"
+#include "operations/basic_adjustment_operations/operation_shadows.h"
+#include "operations/basic_adjustment_operations/operation_whites.h"
+#include "operations/basic_adjustment_operations/operation_blacks.h"
 
 // #include "operations/operation_saturation.h"       // TODO: Implement
 // #include "operations/operation_hue.h"              // TODO: Implement

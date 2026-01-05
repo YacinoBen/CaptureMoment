@@ -7,12 +7,12 @@
 
 #include "utils/qml_context_setup.h"
 
-#include "models/operations/brightness_model.h"
-#include "models/operations/contrast_model.h"
-#include "models/operations/highlights_model.h"
-#include "models/operations/shadows_model.h"
-#include "models/operations/whites_model.h"
-#include "models/operations/blacks_model.h"
+#include "models/operations/basic_adjustment_models/brightness_model.h"
+#include "models/operations/basic_adjustment_models/contrast_model.h"
+#include "models/operations/basic_adjustment_models/highlights_model.h"
+#include "models/operations/basic_adjustment_models/shadows_model.h"
+#include "models/operations/basic_adjustment_models/whites_model.h"
+#include "models/operations/basic_adjustment_models/blacks_model.h"
 
 #include "controller/image_controller_painted.h"
 #include "controller/image_controller_sgs.h"

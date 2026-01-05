@@ -6,7 +6,7 @@
  */
 
 #pragma once
-#include "i_operation.h"
+#include "operations/i_operation.h"
 
 namespace CaptureMoment::Core {
 

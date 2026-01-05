@@ -5,7 +5,7 @@
  * @date 2025
  */
 
-#include "models/operations/shadows_model.h"
+#include "models/operations/basic_adjustment_models/shadows_model.h"
 #include "controller/image_controller_base.h"
 #include <spdlog/spdlog.h>
 

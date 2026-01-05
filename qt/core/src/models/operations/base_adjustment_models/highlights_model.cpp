@@ -5,7 +5,7 @@
  * @date 2025
  */
 
-#include "models/operations/highlights_model.h"
+#include "models/operations/basic_adjustment_models/highlights_model.h"
 #include "controller/image_controller_base.h"
 #include <spdlog/spdlog.h>
 

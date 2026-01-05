@@ -5,7 +5,7 @@
  * @date 2025
  */
 
-#include "operations/operation_highlights.h"
+#include "operations/basic_adjustment_operations/operation_highlights.h"
 #include <spdlog/spdlog.h>
 #include <Halide.h>
 

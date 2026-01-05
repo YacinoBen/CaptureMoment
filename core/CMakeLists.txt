@@ -19,12 +19,12 @@ set(CORE_SOURCES
     src/operations/operation_registry.cpp
 
     # List Operations base adjustment
-    src/operations/operation_brightness.cpp
-    src/operations/operation_constrast.cpp
-    src/operations/operation_highlights.cpp
-    src/operations/operation_shadows.cpp
-    src/operations/operation_whites.cpp
-    src/operations/operation_blacks.cpp
+    src/operations/basic_adjustment_operations/operation_brightness.cpp
+    src/operations/basic_adjustment_operations/operation_constrast.cpp
+    src/operations/basic_adjustment_operations/operation_highlights.cpp
+    src/operations/basic_adjustment_operations/operation_shadows.cpp
+    src/operations/basic_adjustment_operations/operation_whites.cpp
+    src/operations/basic_adjustment_operations/operation_blacks.cpp
 
     # Engine
     src/engine/photo_engine.cpp
