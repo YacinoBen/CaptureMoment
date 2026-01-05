@@ -271,8 +271,8 @@ bool QmlContextSetup::registerModelsToQml(QQmlContext* context)
         spdlog::warn("QmlContextSetup::registerToQml: shadowsModel is null, skipping registration.");
     }
 
-    if (m_whites_model) {
-        context->setContextProperty("blacksControl", m_whites_model.get());
+    if (m_blacks_model) {
+        context->setContextProperty("blacksControl", m_blacks_model.get());
         spdlog::debug("'blacksControl' registered to QML context.");
     } else {
         spdlog::warn("QmlContextSetup::registerToQml: blacksModel is null, skipping registration.");

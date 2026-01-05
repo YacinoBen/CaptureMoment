@@ -84,6 +84,7 @@ set (QML_FILE
     qml/CaptureMoment/operations/HighlightsOperation.qml
     qml/CaptureMoment/operations/ShadowsOperation.qml
     qml/CaptureMoment/operations/WhitesOperation.qml
+    qml/CaptureMoment/operations/BlacksOperation.qml
 
     # Panels
     qml/CaptureMoment/panels/OperationsView.qml
