@@ -18,7 +18,7 @@ set(CORE_SOURCES
     src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
 
-    # List Operations
+    # List Operations base adjustment
     src/operations/operation_brightness.cpp
     src/operations/operation_constrast.cpp
     src/operations/operation_highlights.cpp
