@@ -22,6 +22,7 @@ set(CORE_SOURCES
     src/operations/operation_brightness.cpp
     src/operations/operation_constrast.cpp
     src/operations/operation_highlights.cpp
+    src/operations/operation_shadows.cpp
 
     # Engine
     src/engine/photo_engine.cpp
