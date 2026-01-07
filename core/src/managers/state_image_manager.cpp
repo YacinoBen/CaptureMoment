@@ -99,7 +99,8 @@ bool StateImageManager::resetToOriginal()
 std::future<bool> StateImageManager::requestUpdate(std::optional<UpdateCallback> callback)
 {
     bool was_updating = m_is_updating.exchange(true);
-    if (was_updating) {
+    if (was_updating)
+    {
         spdlog::warn("StateImageManager::requestUpdate: Update already in progress, request ignored.");
         if (callback.has_value()) {
             callback.value()(false);
@@ -157,10 +158,13 @@ bool StateImageManager::performUpdate(
     spdlog::trace("StateImageManager::performUpdate: Using original path: '{}'", original_path);
 
     auto original_tile = m_source_manager->getTile(0, 0, m_source_manager->width(), m_source_manager->height());
-    if (!original_tile) {
+    if (!original_tile)
+    {
         spdlog::error("StateImageManager::performUpdate (thread {}): Failed to get original tile from SourceManager.", thread_id_str);
         success = false;
-    } else {
+    }
+    else
+    {
         new_working_image = std::move(original_tile);
 
         if (!m_operation_pipeline->applyOperations(*new_working_image, ops_to_apply, *m_operation_factory)) {

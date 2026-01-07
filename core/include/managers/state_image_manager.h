@@ -37,22 +37,22 @@ namespace Managers {
 class StateImageManager {
 public:
     /**
-         * @brief Callback type for reporting update progress or completion.
-         * Invoked on the worker thread after the update attempt.
-         * @param success True if the update was successful, false otherwise.
-         */
+     * @brief Callback type for reporting update progress or completion.
+     * Invoked on the worker thread after the update attempt.
+     * @param success True if the update was successful, false otherwise.
+     */
     using UpdateCallback = std::function<void(bool success)>;
 
     /**
-         * @brief Constructs a StateImageManager.
-         *
-         * Initializes the manager with required dependencies for image processing.
-         *
-         * @param source_manager Shared pointer to the SourceManager for original image access.
-         * @param operation_pipeline Shared pointer to the OperationPipeline for applying operations.
-         * @param operation_factory Shared pointer to the OperationFactory for operation creation.
-         * @throws std::invalid_argument if any dependency is null.
-         */
+     * @brief Constructs a StateImageManager.
+     *
+     * Initializes the manager with required dependencies for image processing.
+     *
+     * @param source_manager Shared pointer to the SourceManager for original image access.
+     * @param operation_pipeline Shared pointer to the OperationPipeline for applying operations.
+     * @param operation_factory Shared pointer to the OperationFactory for operation creation.
+     * @throws std::invalid_argument if any dependency is null.
+     */
     explicit StateImageManager(
         std::shared_ptr<Managers::SourceManager> source_manager,
         std::shared_ptr<Operations::OperationPipeline> operation_pipeline,
@@ -60,9 +60,9 @@ public:
         );
 
     /**
-         * @brief Destructor.
-         * Ensures clean shutdown of the manager.
-         */
+     * @brief Destructor.
+     * Ensures clean shutdown of the manager.
+     */
     ~StateImageManager();
 
     // Disable copy and assignment
@@ -70,77 +70,77 @@ public:
     StateImageManager& operator=(const StateImageManager&) = delete;
 
     /**
-         * @brief Sets the original image source path.
-         * This method must be called after the original image is loaded via PhotoEngine
-         * to establish the base for all subsequent operations.
-         *
-         * @param path Path of the loaded image file.
-         * @return true if the original image path was successfully set, false otherwise.
-         */
+     * @brief Sets the original image source path.
+     * This method must be called after the original image is loaded via PhotoEngine
+     * to establish the base for all subsequent operations.
+     *
+     * @param path Path of the loaded image file.
+     * @return true if the original image path was successfully set, false otherwise.
+     */
     [[nodiscard]] bool setOriginalImageSource(const std::string& path);
 
     /**
-         * @brief Adds a new operation to the active sequence.
-         * This operation is appended to the end of the list. The working image update is triggered.
-         * The update itself happens asynchronously.
-         *
-         * @param descriptor The operation descriptor to add.
-         * @return true if the operation was added successfully.
-         */
+     * @brief Adds a new operation to the active sequence.
+     * This operation is appended to the end of the list. The working image update is triggered.
+     * The update itself happens asynchronously.
+     *
+     * @param descriptor The operation descriptor to add.
+     * @return true if the operation was added successfully.
+     */
     [[nodiscard]] bool addOperation(const Operations::OperationDescriptor& descriptor);
 
     /**
-         * @brief Modifies an existing operation in the active sequence.
-         * The working image update is triggered after modification.
-         * The update itself happens asynchronously.
-         *
-         * @param index Index of the operation to modify within the active sequence.
-         * @param new_descriptor The new operation descriptor.
-         * @return true if the operation was modified successfully, false if index is out of bounds.
-         */
+     * @brief Modifies an existing operation in the active sequence.
+     * The working image update is triggered after modification.
+     * The update itself happens asynchronously.
+     *
+     * @param index Index of the operation to modify within the active sequence.
+     * @param new_descriptor The new operation descriptor.
+     * @return true if the operation was modified successfully, false if index is out of bounds.
+     */
     [[nodiscard]] bool modifyOperation(size_t index, const Operations::OperationDescriptor& new_descriptor);
 
     /**
-         * @brief Removes an operation from the active sequence.
-         * The working image update is triggered after removal.
-         * The update itself happens asynchronously.
-         *
-         * @param index Index of the operation to remove within the active sequence.
-         * @return true if the operation was removed successfully, false if index is out of bounds.
-         */
+     * @brief Removes an operation from the active sequence.
+     * The working image update is triggered after removal.
+     * The update itself happens asynchronously.
+     *
+     * @param index Index of the operation to remove within the active sequence.
+     * @return true if the operation was removed successfully, false if index is out of bounds.
+     */
     [[nodiscard]] bool removeOperation(size_t index);
 
     /**
-         * @brief Clears all active operations, resetting the working image to the original state.
-         * The working image update is triggered, effectively re-applying an empty operation list.
-         * The update itself happens asynchronously.
-         *
-         * @return true if the reset process was initiated successfully.
-         */
+     * @brief Clears all active operations, resetting the working image to the original state.
+     * The working image update is triggered, effectively re-applying an empty operation list.
+     * The update itself happens asynchronously.
+     *
+     * @return true if the reset process was initiated successfully.
+     */
     [[nodiscard]] bool resetToOriginal();
 
     /**
-         * @brief Requests an asynchronous update of the working image based on the current sequence of operations.
-         * This method initiates the update process on a separate worker thread using std::async.
-         * It captures the current state of active operations and the original image path to ensure
-         * consistency during the potentially long-running update process.
-         * If an update is already in progress, this request is ignored.
-         *
-         * @param callback Optional callback function to be executed on the worker thread after the update attempt.
-         *                 The callback receives a boolean indicating the success of the update.
-         * @return A std::future<bool> that can be used by the caller to wait for the update to complete
-         *         and retrieve the final success status. The future is ready when the update finishes.
-         */
+     * @brief Requests an asynchronous update of the working image based on the current sequence of operations.
+     * This method initiates the update process on a separate worker thread using std::async.
+     * It captures the current state of active operations and the original image path to ensure
+     * consistency during the potentially long-running update process.
+     * If an update is already in progress, this request is ignored.
+     *
+     * @param callback Optional callback function to be executed on the worker thread after the update attempt.
+     * The callback receives a boolean indicating the success of the update.
+     * @return A std::future<bool> that can be used by the caller to wait for the update to complete
+     * and retrieve the final success status. The future is ready when the update finishes.
+     */
     [[nodiscard]] std::future<bool> requestUpdate(std::optional<UpdateCallback> callback = std::nullopt);
 
     /**
-         * @brief Gets the current working image.
-         * This method is thread-safe and provides a snapshot of the working image at the time of the call.
-         * If an update is in progress, this method returns the image state as it was before the update started.
-         *
-         * @return Shared pointer to the current working ImageRegion.
-         *         Returns nullptr if no image is loaded or if the manager is in an invalid state.
-         */
+     * @brief Gets the current working image.
+     * This method is thread-safe and provides a snapshot of the working image at the time of the call.
+     * If an update is in progress, this method returns the image state as it was before the update started.
+     *
+     * @return Shared pointer to the current working ImageRegion.
+     * Returns nullptr if no image is loaded or if the manager is in an invalid state.
+     */
     [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImage() const;
 
     /**
@@ -196,17 +196,17 @@ private:
     std::shared_ptr<Operations::OperationFactory> m_operation_factory;
 
     /**
-         * @brief Performs the core image update logic on a worker thread.
-         * This private method is executed by std::async. It retrieves the original image,
-         * applies the given sequence of operations using the pipeline, and updates the internal
-         * m_working_image member in a thread-safe manner.
-         * It also handles the execution of the optional callback.
-         *
-         * @param ops_to_apply The sequence of operations to apply to the original image.
-         * @param original_path The path to the original image file (used for retrieval).
-         * @param callback Optional callback to execute after the update attempt.
-         * @return true if the update process (retrieval, processing, internal update) was successful, false otherwise.
-         */
+     * @brief Performs the core image update logic on a worker thread.
+     * This private method is executed by std::async. It retrieves the original image,
+     * applies the given sequence of operations using the pipeline, and updates the internal
+     * m_working_image member in a thread-safe manner.
+     * It also handles the execution of the optional callback.
+     *
+     * @param ops_to_apply The sequence of operations to apply to the original image.
+     * @param original_path The path to the original image file (used for retrieval).
+     * @param callback Optional callback to execute after the update attempt.
+     * @return true if the update process (retrieval, processing, internal update) was successful, false otherwise.
+     */
     [[nodiscard]] bool performUpdate(
         const std::vector<Operations::OperationDescriptor>& ops_to_apply,
         const std::string& original_path,
