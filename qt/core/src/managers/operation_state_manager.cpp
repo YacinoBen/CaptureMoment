@@ -6,29 +6,19 @@
  */
 
 #include "managers/operation_state_manager.h"
-#include "controller/image_controller_base.h"
-#include "engine/photo_engine.h"
 #include "operations/operation_descriptor.h"
 #include <spdlog/spdlog.h>
-#include <algorithm> // For std::find_if, std::remove_if, std::end, std::begin
+#include <algorithm>
 
 namespace CaptureMoment::UI::Managers {
 
-OperationStateManager::OperationStateManager(
-    Controller::ImageControllerBase* controller,
-    std::shared_ptr<Core::Engine::PhotoEngine> engine
-    )
-    : m_controller(controller)
-    , m_engine(std::move(engine))
+OperationStateManager::OperationStateManager()
 {
-    if (!m_controller || !m_engine) {
-        spdlog::critical("OperationStateManager: Null dependency provided during construction.");
-        throw std::invalid_argument("OperationStateManager: Null controller or engine provided.");
-    }
     spdlog::debug("OperationStateManager: Constructed.");
 }
 
-void OperationStateManager::addOrUpdateOperation(const Core::Operations::OperationDescriptor& descriptor) {
+void OperationStateManager::addOrUpdateOperation(const Core::Operations::OperationDescriptor& descriptor)
+{
     std::lock_guard lock(m_mutex);
     spdlog::debug("OperationStateManager::addOrUpdateOperation: Adding/updating operation '{}'.", descriptor.name);
 
@@ -45,11 +35,10 @@ void OperationStateManager::addOrUpdateOperation(const Core::Operations::Operati
         m_active_operations.push_back(descriptor);
         spdlog::debug("OperationStateManager::addOrUpdateOperation: Added new operation '{}'.", descriptor.name);
     }
-
-    applyCurrentOperationsToEngine();
 }
 
-void OperationStateManager::removeOperation(Core::Operations::OperationType type) {
+void OperationStateManager::removeOperation(Core::Operations::OperationType type)
+{
     std::lock_guard lock(m_mutex);
     spdlog::debug("OperationStateManager::removeOperation: Removing operation type '{}'.", static_cast<int>(type));
 
@@ -61,34 +50,23 @@ void OperationStateManager::removeOperation(Core::Operations::OperationType type
         );
 
     spdlog::debug("OperationStateManager::removeOperation: Operation type '{}' removed (if it existed).", static_cast<int>(type));
-    applyCurrentOperationsToEngine();
+    // Note: applyCurrentOperationsToEngine() is no longer called here.
+    // That responsibility belongs to ImageControllerBase.
 }
 
-void OperationStateManager::clearAllOperations() {
+void OperationStateManager::clearAllOperations()
+{
     std::lock_guard lock(m_mutex);
     spdlog::debug("OperationStateManager::clearAllOperations: Clearing all operations.");
 
     m_active_operations.clear();
     spdlog::debug("OperationStateManager::clearAllOperations: All operations cleared.");
-    applyCurrentOperationsToEngine();
 }
 
 std::vector<Core::Operations::OperationDescriptor> OperationStateManager::getActiveOperations() const {
     std::lock_guard lock(m_mutex);
     // Return a copy of the vector, safe for concurrent access by the caller
     return m_active_operations;
-}
-
-void OperationStateManager::applyCurrentOperationsToEngine() {
-    // Get a copy of the current operations list to pass to the engine
-    std::vector<Core::Operations::OperationDescriptor> ops_to_apply = getActiveOperations();
-
-    spdlog::debug("OperationStateManager::applyCurrentOperationsToEngine: Applying {} operations to PhotoEngine.", ops_to_apply.size());
-
-    // Delegate the application to the PhotoEngine
-    m_engine->applyOperations(ops_to_apply);
-
-    spdlog::debug("OperationStateManager::applyCurrentOperationsToEngine: Operations sent to PhotoEngine for update.");
 }
 
 } // namespace CaptureMoment::UI::Managers
