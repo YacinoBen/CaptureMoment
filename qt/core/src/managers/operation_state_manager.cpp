@@ -5,7 +5,7 @@
  * @date 2025
  */
 
-#include "managers/qoperation_state_manager.h"
+#include "managers/operation_state_manager.h"
 #include "controller/image_controller_base.h"
 #include "engine/photo_engine.h"
 #include "operations/operation_descriptor.h"
