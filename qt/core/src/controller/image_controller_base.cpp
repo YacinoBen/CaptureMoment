@@ -9,6 +9,10 @@
 #include "models/operations/i_operation_model.h"
 #include "operations/operation_registry.h"
 #include "display/display_manager.h"
+#include "managers/operation_state_manager.h"
+
+#include "models/operations/base_adjustment_model.h"
+#include <QMetaObject>
 
 #include <spdlog/spdlog.h>
 #include <QMetaObject>
@@ -19,20 +23,35 @@ namespace CaptureMoment::UI::Controller {
 ImageControllerBase::ImageControllerBase(QObject* parent)
     : QObject(parent)
 {
-    
+
     // Create Core components
     auto source = std::make_shared<Core::Managers::SourceManager>();
     auto factory = std::make_shared<Core::Operations::OperationFactory>();
+    auto pipeline = std::make_shared<Core::Operations::OperationPipeline>();
+
+    // Create the operation state manager
+    m_operation_state_manager = std::make_unique<CaptureMoment::UI::Managers::OperationStateManager>();
+    spdlog::info("ImageControllerBase: Initialized OperationStateManager");
+
+    // Create the operation mmodel manager
+    m_operation_model_manager = std::make_unique<CaptureMoment::UI::Models::Manager::OperationModelManager>();
+    spdlog::info("ImageControllerBase: Initialized OperationModelManager");
+
+    if (!m_operation_model_manager->createBasicAdjustmentModels())
+    {
+        spdlog::critical("ImageControllerBase: Failed to create basic adjustment models.");
+        throw std::runtime_error("ImageControllerBase: Critical failure during model creation.");
+    }
 
     // Create the display manager
     m_display_manager = std::make_unique<CaptureMoment::UI::Display::DisplayManager>(this);
-    
+    spdlog::info("ImageControllerBase: Initialized DisplayManager");
+
     // Register all operations (Brightness, Contrast, etc.)
     Core::Operations::OperationRegistry::registerAll(*factory);
-    
-    // Create PhotoEngine with registered operations
-    m_engine = std::make_shared<Core::Engine::PhotoEngine>(source, factory);
-    
+
+    // Create PhotoEngine with registered operations and new dependencies
+    m_engine = std::make_shared<Core::Engine::PhotoEngine>(source, factory, pipeline);
     spdlog::info("ImageControllerBase: Initialized with PhotoEngine");
 }
 
@@ -49,17 +68,17 @@ void ImageControllerBase::registerModel(IOperationModel* model)
         spdlog::warn("ImageControllerBase::registerModel: Attempting to register nullptr");
         return;
     }
-    
+
     // Check if already registered
     auto it = std::find(m_registered_models.begin(), m_registered_models.end(), model);
     if (it != m_registered_models.end()) {
         spdlog::warn("ImageControllerBase::registerModel: Model already registered");
         return;
     }
-    
+
     // Register the model
     m_registered_models.push_back(model);
-    spdlog::debug("ImageControllerBase::registerModel: Model registered. Total models: {}", 
+    spdlog::debug("ImageControllerBase::registerModel: Model registered. Total models: {}",
                   m_registered_models.size());
 }
 
@@ -70,7 +89,7 @@ void ImageControllerBase::loadImage(const QString& filePath)
         spdlog::warn("ImageControllerBase::loadImage: Empty file path");
         return;
     }
-    
+
     spdlog::info("ImageControllerBase::loadImage: calling method-thread doLoadImage() Loading {}", filePath.toStdString());
 
     // Run on worker thread to avoid blocking UI
@@ -81,32 +100,41 @@ void ImageControllerBase::loadImage(const QString& filePath)
 
 void ImageControllerBase::applyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
 {
-    if (!m_engine) {
+    if (!m_engine)
+    {
         emit operationFailed("No image loaded");
         spdlog::warn("ImageControllerBase::applyOperations: Engine Error load");
         return;
     }
-    
-    if (operations.empty()) {
+
+    if (operations.empty())
+    {
         emit operationFailed("No operations specified");
         spdlog::warn("ImageController::applyOperations: Empty operation list");
         return;
     }
-    
+
     spdlog::info("ImageControllerBase::applyOperations: Applying {} operation(s)", operations.size());
 
-    // Run on worker thread to avoid blocking UI
-    QMetaObject::invokeMethod(this, [this, operations]() {
-        doApplyOperations(operations);
-    }, Qt::QueuedConnection);
+    if (m_operation_state_manager)
+    {
+        auto active_ops = m_operation_state_manager->getActiveOperations();
+        // Run on worker thread to avoid blocking UI
+        QMetaObject::invokeMethod(this, [this, active_ops]() { // Capture by value to ensure validity in worker thread
+            doApplyOperations(active_ops);
+        }, Qt::QueuedConnection);
+    } else {
+        spdlog::error("ImageControllerBase::applyOperations: OperationStateManager is null during legacy applyOperations call!");
+        emit operationFailed("Internal error: OperationStateManager not initialized");
+    }
 }
 
 void ImageControllerBase::onImageLoadResult(bool success, const QString& errorMsg)
 {
     spdlog::debug("ImageControllerBase::onImageLoadResult: success={}", success);
-    
+
     if (success) {
-        spdlog::info("ImageControllerBase: Image loaded successfully ({}x{})", 
+        spdlog::info("ImageControllerBase: Image loaded successfully ({}x{})",
                      m_image_width, m_image_height);
         emit imageSizeChanged();
         emit imageLoaded(m_image_width, m_image_height);
@@ -119,7 +147,7 @@ void ImageControllerBase::onImageLoadResult(bool success, const QString& errorMs
 void ImageControllerBase::onOperationResult(bool success, const QString& errorMsg)
 {
     spdlog::debug("ImageControllerBase::onOperationResult: success={}", success);
-    
+
     if (success) {
         spdlog::info("ImageControllerBase: Operation completed successfully");
         emit operationCompleted();
@@ -172,58 +200,74 @@ void ImageControllerBase::doApplyOperations(const std::vector<Core::Operations::
         return;
     }
 
-    // 1. Create and submit task with operations
-    auto task = m_engine->createTask(operations, 0, 0, m_image_width, m_image_height);
-    if (!task) {
-        onOperationResult(false, "Failed to create operation task");
-        spdlog::error("ImageControllerBase::doApplyOperations: Failed to create task");
-        return;
-    }
+    // 1. Apply operations via PhotoEngine (delegated to StateImageManager)
+    m_engine->applyOperations(operations);
 
-    spdlog::debug("ImageControllerBase::doApplyOperations: Task created, submitting to PhotoEngine");
+    // 2. Retrieve the updated full working image from PhotoEngine
+    auto updated_working_image = m_engine->getWorkingImage();
 
-    if (!m_engine->submit(task)) {
-        onOperationResult(false, "Failed to submit operation task");
-        spdlog::error("ImageControllerBase::doApplyOperations: Failed to submit task");
-        return;
-    }
-
-    // 2. Get result (this is the processed tile/region)
-    auto result = task->result();
-    if (!result) {
-        onOperationResult(false, "Operation execution failed");
-        spdlog::error("ImageControllerBase::doApplyOperations: Operation failed");
-        return;
-    }
-
-    spdlog::info("ImageControllerBase::doApplyOperations: Operation succeeded, committing result to working image");
-
-    // 3. Commit result to PhotoEngine's working image (NOT to SourceManager)
-    if (m_engine->commitResult(task))
+    if (!updated_working_image)
     {
-        spdlog::info("ImageControllerBase:doApplyOperations: Result committed to working image");
-        // 4. Retrieve the updated full working image from PhotoEngine
-        auto updated_working_image = m_engine->getWorkingImage();
-
-        if (!updated_working_image) {
-            spdlog::error("ImageControllerBase::doApplyOperations: Failed to get updated working image from PhotoEngine after commit.");
-            onOperationResult(false, "Failed to get updated image");
-            return;
-        }
-
-        // 5. Update display with the updated working image
-        if(m_display_manager) {
-            m_display_manager->updateDisplayTile(updated_working_image);
-            spdlog::info("ImageControllerBase::doApplyOperations: DisplayManager updated with new working image result");
-        } else {
-            spdlog::warn("ImageControllerBase::doApplyOperations: No DisplayManager set, cannot update display.");
-        }
-
-        onOperationResult(true, "");
-    } else {
-        onOperationResult(false, "Failed to commit operation result to working image");
-        spdlog::error("ImageControllerBase::doApplyOperations: Failed to commit result to working image");
+        spdlog::error("ImageControllerBase::doApplyOperations: Failed to get updated working image from PhotoEngine after applyOperations.");
+        onOperationResult(false, "Failed to get updated image");
+        return;
     }
+
+    // 3. Update display with the updated working image
+    if(m_display_manager)
+    {
+        m_display_manager->updateDisplayTile(updated_working_image);
+        spdlog::info("ImageControllerBase::doApplyOperations: DisplayManager updated with new working image result");
+    } else {
+        spdlog::warn("ImageControllerBase::doApplyOperations: No DisplayManager set, cannot update display.");
+    }
+
+    onOperationResult(true, "");
+}
+
+
+void ImageControllerBase::connectModelsToStateManager()
+{
+    if (!m_operation_model_manager || !m_operation_state_manager) {
+        spdlog::critical("ImageControllerBase::connectModelsToStateManager: ModelManager or StateManager is null. Cannot proceed.");
+        throw std::runtime_error("ImageControllerBase: Critical failure during model-to-state-manager connection setup.");
+    }
+
+    // Use the specific list of BaseAdjustmentModel (SAFE, NO CAST NEEDED)
+    const auto& models = m_operation_model_manager->getBaseAdjustmentModels();
+    for (const auto& model : models) { // model is std::shared_ptr<UI::Models::Operations::BaseAdjustmentModel>
+        if (model) {
+            // Connect the EXISTING valueChanged signal from BaseAdjustmentModel
+            // The type is known at compile time, no cast needed here.
+            QObject::connect(model.get(), &UI::Models::Operations::BaseAdjustmentModel::valueChanged,
+                             [this, model /* Capture the shared_ptr to the specific model */ ](float new_value) {
+                                 // This lambda is called when the specific BaseAdjustmentModel's value changes.
+
+                                 // 1. Update the OperationStateManager with the CURRENT state of this specific model
+                                 if (m_operation_state_manager) {
+                                     auto descriptor = model->getDescriptor(); // Get the descriptor for the specific model that changed
+                                     m_operation_state_manager->addOrUpdateOperation(descriptor);
+                                     spdlog::debug("ImageControllerBase: Operation '{}' updated in StateManager via valueChanged signal.", descriptor.name);
+                                 } else {
+                                     spdlog::warn("ImageControllerBase: Received valueChanged signal, but StateManager is null.");
+                                     return; // Exit if StateManager is not available
+                                 }
+
+                                 // 2. Retrieve the full list of active operations from OperationStateManager
+                                 auto active_ops = m_operation_state_manager->getActiveOperations();
+
+                                 // 3. Schedule the update to PhotoEngine on the worker thread
+                                 // Run on worker thread to avoid blocking UI
+                                 QMetaObject::invokeMethod(this, [this, active_ops]() { // Capture active_ops by value
+                                     spdlog::debug("ImageControllerBase: Applying {} operations to PhotoEngine from valueChanged signal.", active_ops.size());
+                                     doApplyOperations(active_ops);
+                                 }, Qt::QueuedConnection);
+
+                             });
+            spdlog::debug("ImageControllerBase::connectModelsToStateManager: Connected model {}", model->name().toStdString());
+        }
+    }
+    spdlog::info("ImageControllerBase::connectModelsToStateManager: All {} BaseAdjustment models connected to StateManager via valueChanged signal.", models.size());
 }
 
 } // namespace CaptureMoment::UI::Controller

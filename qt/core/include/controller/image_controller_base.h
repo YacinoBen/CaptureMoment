@@ -14,6 +14,8 @@
 #include "engine/photo_engine.h"
 #include "models/operations/i_operation_model.h"
 #include "display/display_manager.h"
+#include "managers/operation_state_manager.h"
+#include "models/manager/operation_model_manager.h"
 
 namespace CaptureMoment::UI {
 class IOperationModel;
@@ -22,7 +24,7 @@ namespace Controller {
 /**
  * @class ImageController
  * @brief Orchestrates Core processing and Qt UI updates
- * 
+ *
  * Responsibilities:
  * - Owns PhotoEngine (Core)
  * - Manages worker thread for non-blocking operations
@@ -47,6 +49,15 @@ class ImageControllerBase : public QObject {
      */
     Q_PROPERTY(CaptureMoment::UI::Display::DisplayManager* displayManager READ displayManager CONSTANT)
 
+    /**
+     * @property operationStateManager
+     * @brief Exposes the OperationStateManager instance to QML.
+     *
+     * This property allows QML components or operation models to access the OperationStateManager
+     * for managing the cumulative state of active operations.
+     */
+    Q_PROPERTY(CaptureMoment::UI::Managers::OperationStateManager* operationStateManager READ operationStateManager CONSTANT)
+
 public:
     /**
      * @brief Constructs ImageController
@@ -62,20 +73,20 @@ public:
     /**
      * @brief Get current image width
      */
-    int imageWidth() const noexcept { return m_image_width; }
+    [nodiscard] int imageWidth() const noexcept { return m_image_width; }
 
     /**
      * @brief Get current image height
      */
-    int imageHeight() const noexcept { return m_image_height; }
+    [nodiscard] int imageHeight() const noexcept { return m_image_height; }
 
     /**
      * @brief Register an operation model for notifications
-     * 
+     *
      * Called by IOperationModel::setImageController()
      * The model will receive operationCompleted/operationFailed signals
      * after operations are processed.
-     * 
+     *
      * @param model Pointer to IOperationModel
      */
     void registerModel(IOperationModel* model);
@@ -83,9 +94,19 @@ public:
     /**
      * @brief Get current displayManager instance
      */
-    CaptureMoment::UI::Display::DisplayManager* displayManager() { return m_display_manager.get(); }
+    [nodiscard] CaptureMoment::UI::Display::DisplayManager* displayManager() { return m_display_manager.get(); }
 
 
+    /**
+     * @brief Get current operationStateManager instance
+     */
+    [nodiscard] CaptureMoment::UI::Managers::OperationStateManager* operationStateManager() { return m_operation_state_manager.get(); }
+
+
+    /**
+     * @brief Get current operationModelManager instance
+     */
+    CaptureMoment::UI::Models::Manager::OperationModelManager* operationModelManager() { return m_operation_model_manager.get(); }
     /**
      * @brief Perform actual image load (runs on worker thread).
      * This method contains the common logic for loading and updating the display.
@@ -105,12 +126,23 @@ private :
      * @brief Worker thread for non-blocking operations
      */
     QThread m_worker_thread;
-    
+
     /**
      * @brief Registered operation models for notifications
      * These models will receive operationCompleted/operationFailed signals
-     */  
+     */
     std::vector<IOperationModel*> m_registered_models;
+
+    /**
+     * @brief The unique operation state manager instance for managing cumulative operations.
+     */
+    std::unique_ptr<CaptureMoment::UI::Managers::OperationStateManager> m_operation_state_manager {nullptr};
+
+
+    /**
+     * @brief The unique operation model manager instance for creating and managing operation models.
+     */
+    std::unique_ptr<CaptureMoment::UI::Models::Manager::OperationModelManager> m_operation_model_manager {nullptr};
 
 public slots:
     /**
@@ -118,7 +150,7 @@ public slots:
      * @param filePath Path to image file
      */
     void loadImage(const QString& filePath);
-    
+
     /**
      * @brief Apply operation with parameters (non-blocking)
      * @param operations Vector of operation descriptors
@@ -146,18 +178,18 @@ signals:
      * @param height Image height
      */
     void imageLoaded(int width, int height);
-    
+
     /**
      * @brief Emitted when image load fails
      * @param error Error message
      */
     void imageLoadFailed(QString error);
-    
+
     /**
      * @brief Emitted when operation completes
      */
     void operationCompleted();
-    
+
     /**
      * @brief Emitted when operation fails
      * @param error Error message
@@ -168,7 +200,7 @@ signals:
      * @brief Emitted when image size changes
      */
     void imageSizeChanged();
-    
+
 protected:
     /**
      * @brief Core processing engine
@@ -179,6 +211,12 @@ protected:
      * @brief The unique displaymanager instance for managing display updates
      */
     std::unique_ptr<CaptureMoment::UI::Display::DisplayManager> m_display_manager {nullptr};
+
+    /**
+     * @brief Connects the operationRequested signal from all created models to the OperationStateManager.
+     * This method should be called after models are created.
+     */
+    void connectModelsToStateManager();
 
     /**
      * @brief Current image width
@@ -193,4 +231,4 @@ protected:
 
 } // namespace Controller
 
-} // namespace CaptureMoment::Qt
+} // namespace CaptureMoment::UI
