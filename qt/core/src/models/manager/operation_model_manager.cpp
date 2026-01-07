@@ -1,106 +1,71 @@
-#include "models/manager/operation_model_manager.h"
+/**
+ * @file operation_model_manager.cpp
+ * @brief Implementation of OperationModelManager
+ * @author CaptureMoment Team
+ * @date 2025
+ */
 
-#include "controller/image_controller_base.h"
-#include "models/operations/operation_provider.h"
-
-#include "models/operations/basic_adjustment_models/brightness_model.h"
-#include "models/operations/basic_adjustment_models/contrast_model.h"
-#include "models/operations/basic_adjustment_models/highlights_model.h"
-#include "models/operations/basic_adjustment_models/shadows_model.h"
-#include "models/operations/basic_adjustment_models/whites_model.h"
-#include "models/operations/basic_adjustment_models/blacks_model.h"
-
+#include "managers/operation_state_manager.h"
+#include "operations/operation_descriptor.h"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 
-namespace CaptureMoment::UI::Models::Manager {
+namespace CaptureMoment::UI::Managers {
 
-OperationModelManager::OperationModelManager(Controller::ImageControllerBase* controller)
-    : m_controller(controller)
+OperationStateManager::OperationStateManager()
 {
-    if (!m_controller) {
-        spdlog::error("OperationModelManager: Controller is null!");
-    }
+    spdlog::debug("OperationStateManager: Constructed.");
 }
 
-bool OperationModelManager::createBasicAdjustmentModels()
+void OperationStateManager::addOrUpdateOperation(const Core::Operations::OperationDescriptor& descriptor)
 {
-    spdlog::debug("OperationModelManager::createBasicAdjustmentModels: Creating basic adjustment models...");
+    std::lock_guard lock(m_mutex);
+    spdlog::debug("OperationStateManager::addOrUpdateOperation: Adding/updating operation '{}'.", descriptor.name);
 
-    // Appelle la méthode template avec les types spécifiques
-    return createModels<
-        Models::Operations::BrightnessModel,
-        Models::Operations::ContrastModel,
-        Models::Operations::HighlightsModel,
-        Models::Operations::ShadowsModel,
-        Models::Operations::WhitesModel,
-        Models::Operations::BlacksModel
-    >();
-}
+    // Find if an operation of the same type already exists
+    auto it = std::find_if(m_active_operations.begin(), m_active_operations.end(),
+                           [&descriptor](const auto& op) { return op.type == descriptor.type; });
 
-template<typename... TModels>
-bool OperationModelManager::createModels()
-{
-    spdlog::debug("OperationModelManager::createModels: Creating operation models...");
-
-    bool success = (createAndAddModel<TModels>() && ...);
-
-    if (success) {
-        spdlog::info("OperationModelManager::createModels: {} models created.", sizeof...(TModels));
+    if (it != m_active_operations.end()) {
+        // Update existing operation
+        *it = descriptor;
+        spdlog::debug("OperationStateManager::addOrUpdateOperation: Updated operation '{}'.", descriptor.name);
     } else {
-        spdlog::error("OperationModelManager::createModels: Failed to create one or more models.");
+        // Add new operation
+        m_active_operations.push_back(descriptor);
+        spdlog::debug("OperationStateManager::addOrUpdateOperation: Added new operation '{}'.", descriptor.name);
     }
-    return success;
 }
 
-template bool OperationModelManager::createModels<
-    Models::Operations::BrightnessModel,
-    Models::Operations::ContrastModel,
-    Models::Operations::HighlightsModel,
-    Models::Operations::ShadowsModel,
-    Models::Operations::WhitesModel,
-    Models::Operations::BlacksModel
->();
-
-bool OperationModelManager::connectModels()
+void OperationStateManager::removeOperation(Core::Operations::OperationType type)
 {
-    spdlog::debug("OperationModelManager::connectModels: Connecting models to controller...");
+    std::lock_guard lock(m_mutex);
+    spdlog::debug("OperationStateManager::removeOperation: Removing operation type '{}'.", static_cast<int>(type));
 
-    for (auto& model : m_operation_models) {
-        if (!model) {
-            spdlog::error("OperationModelManager::connectModels: Found a null model in the list.");
-            return false;
-        }
+    // Remove operation of the specified type
+    m_active_operations.erase(
+        std::remove_if(m_active_operations.begin(), m_active_operations.end(),
+                       [type](const auto& op) { return op.type == type; }),
+        m_active_operations.end()
+        );
 
-        model->setImageController(m_controller);
-        spdlog::debug("OperationModelManager::connectModels: Model connected to controller.");
-    }
-
-    spdlog::info("OperationModelManager::connectModels: All models connected to controller.");
-    return true;
+    spdlog::debug("OperationStateManager::removeOperation: Operation type '{}' removed (if it existed).", static_cast<int>(type));
 }
 
-bool OperationModelManager::registerModelsToQml(QQmlContext* context)
+void OperationStateManager::clearAllOperations()
 {
-    spdlog::debug("OperationModelManager::registerModelsToQml: Registering models to QML...");
+    std::lock_guard lock(m_mutex);
+    spdlog::debug("OperationStateManager::clearAllOperations: Clearing all operations.");
 
-    if (!context) {
-        spdlog::error("OperationModelManager::registerModelsToQml: QML Context is null!");
-        return false;
-    }
-
-    for (auto& model : m_operation_models) {
-        if (!model) {
-            spdlog::warn("OperationModelManager::registerModelsToQml: Found a null model, skipping registration.");
-            continue;
-        }
-
-        QString qmlName = model->name().toLower();
-        context->setContextProperty(qmlName + "Control", model.get());
-        spdlog::debug("OperationModelManager::registerModelsToQml: Registered '{}' to QML context.", qmlName.toStdString() + "Control");
-    }
-
-    spdlog::info("OperationModelManager::registerModelsToQml: All models registered to QML.");
-    return true;
+    m_active_operations.clear();
+    spdlog::debug("OperationStateManager::clearAllOperations: All operations cleared.");
 }
 
-} // namespace CaptureMoment::UI::Models::Manager
+std::vector<Core::Operations::OperationDescriptor> OperationStateManager::getActiveOperations() const
+{
+    std::lock_guard lock(m_mutex);
+    // Return a copy of the vector, safe for concurrent access by the caller
+    return m_active_operations;
+}
+
+} // namespace CaptureMoment::UI::Managers
