@@ -101,11 +101,11 @@ public:
      */
     [[nodiscard]] CaptureMoment::UI::Managers::OperationStateManager* operationStateManager() { return m_operation_state_manager.get(); }
 
-
     /**
      * @brief Get current operationModelManager instance
      */
     CaptureMoment::UI::Models::Manager::OperationModelManager* operationModelManager() { return m_operation_model_manager.get(); }
+
     /**
      * @brief Perform actual image load (runs on worker thread).
      * This method contains the common logic for loading and updating the display.
