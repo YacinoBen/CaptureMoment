@@ -73,12 +73,12 @@ public:
     /**
      * @brief Get current image width
      */
-    [nodiscard] int imageWidth() const noexcept { return m_image_width; }
+    [[nodiscard]] int imageWidth() const noexcept { return m_image_width; }
 
     /**
      * @brief Get current image height
      */
-    [nodiscard] int imageHeight() const noexcept { return m_image_height; }
+    [[nodiscard]] int imageHeight() const noexcept { return m_image_height; }
 
     /**
      * @brief Register an operation model for notifications
@@ -94,13 +94,12 @@ public:
     /**
      * @brief Get current displayManager instance
      */
-    [nodiscard] CaptureMoment::UI::Display::DisplayManager* displayManager() { return m_display_manager.get(); }
-
+    [[nodiscard]] CaptureMoment::UI::Display::DisplayManager* displayManager() { return m_display_manager.get(); }
 
     /**
      * @brief Get current operationStateManager instance
      */
-    [nodiscard] CaptureMoment::UI::Managers::OperationStateManager* operationStateManager() { return m_operation_state_manager.get(); }
+    [[nodiscard]] CaptureMoment::UI::Managers::OperationStateManager* operationStateManager() { return m_operation_state_manager.get(); }
 
 
     /**
