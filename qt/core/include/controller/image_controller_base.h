@@ -109,7 +109,7 @@ public:
     /**
      * @brief Perform actual image load (runs on worker thread).
      * This method contains the common logic for loading and updating the display.
-     * @param filePath Path to the image file to load.
+     * @param file_path Path to the image file to load.
      */
     void doLoadImage(const QString& file_path);
 
@@ -146,9 +146,9 @@ private :
 public slots:
     /**
      * @brief Load image from file path (non-blocking)
-     * @param filePath Path to image file
+     * @param file_path Path to image file
      */
-    void loadImage(const QString& filePath);
+    void loadImage(const QString& file_path);
 
     /**
      * @brief Apply operation with parameters (non-blocking)
@@ -159,16 +159,16 @@ public slots:
     /**
      * @brief Internal: Handle load image result
      * @param success Whether load succeeded
-     * @param errorMsg Error message if failed
+     * @param error_msg Error message if failed
      */
-    void onImageLoadResult(bool success, const QString& errorMsg);
+    void onImageLoadResult(bool success, const QString& error_msg);
 
     /**
      * @brief Internal: Handle operation result
      * @param success Whether operation succeeded
-     * @param errorMsg Error message if failed
+     * @param error_msg Error message if failed
      */
-    void onOperationResult(bool success, const QString& errorMsg);
+    void onOperationResult(bool success, const QString& error_msg);
 
 signals:
     /**

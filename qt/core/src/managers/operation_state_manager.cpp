@@ -63,7 +63,8 @@ void OperationStateManager::clearAllOperations()
     spdlog::debug("OperationStateManager::clearAllOperations: All operations cleared.");
 }
 
-std::vector<Core::Operations::OperationDescriptor> OperationStateManager::getActiveOperations() const {
+std::vector<Core::Operations::OperationDescriptor> OperationStateManager::getActiveOperations() const
+{
     std::lock_guard lock(m_mutex);
     // Return a copy of the vector, safe for concurrent access by the caller
     return m_active_operations;

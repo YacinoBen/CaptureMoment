@@ -82,19 +82,19 @@ void ImageControllerBase::registerModel(IOperationModel* model)
                   m_registered_models.size());
 }
 
-void ImageControllerBase::loadImage(const QString& filePath)
+void ImageControllerBase::loadImage(const QString& file_path)
 {
-    if (filePath.isEmpty()) {
+    if (file_path.isEmpty()) {
         emit imageLoadFailed("Empty file path");
         spdlog::warn("ImageControllerBase::loadImage: Empty file path");
         return;
     }
 
-    spdlog::info("ImageControllerBase::loadImage: calling method-thread doLoadImage() Loading {}", filePath.toStdString());
+    spdlog::info("ImageControllerBase::loadImage: calling method-thread doLoadImage() Loading {}", file_path.toStdString());
 
     // Run on worker thread to avoid blocking UI
-    QMetaObject::invokeMethod(this, [this, filePath]() {
-        doLoadImage(filePath);
+    QMetaObject::invokeMethod(this, [this, file_path]() {
+        doLoadImage(file_path);
     }, Qt::QueuedConnection);
 }
 
@@ -129,7 +129,7 @@ void ImageControllerBase::applyOperations(const std::vector<Core::Operations::Op
     }
 }
 
-void ImageControllerBase::onImageLoadResult(bool success, const QString& errorMsg)
+void ImageControllerBase::onImageLoadResult(bool success, const QString& error_msg)
 {
     spdlog::debug("ImageControllerBase::onImageLoadResult: success={}", success);
 
@@ -139,12 +139,12 @@ void ImageControllerBase::onImageLoadResult(bool success, const QString& errorMs
         emit imageSizeChanged();
         emit imageLoaded(m_image_width, m_image_height);
     } else {
-        spdlog::error("ImageControllerBase: Image load failed - {}", errorMsg.toStdString());
-        emit imageLoadFailed(errorMsg);
+        spdlog::error("ImageControllerBase: Image load failed - {}", error_msg.toStdString());
+        emit imageLoadFailed(error_msg);
     }
 }
 
-void ImageControllerBase::onOperationResult(bool success, const QString& errorMsg)
+void ImageControllerBase::onOperationResult(bool success, const QString& error_msg)
 {
     spdlog::debug("ImageControllerBase::onOperationResult: success={}", success);
 
@@ -152,8 +152,8 @@ void ImageControllerBase::onOperationResult(bool success, const QString& errorMs
         spdlog::info("ImageControllerBase: Operation completed successfully");
         emit operationCompleted();
     } else {
-        spdlog::error("ImageControllerBase: Operation failed - {}", errorMsg.toStdString());
-        emit operationFailed(errorMsg);
+        spdlog::error("ImageControllerBase: Operation failed - {}", error_msg.toStdString());
+        emit operationFailed(error_msg);
     }
 }
 
