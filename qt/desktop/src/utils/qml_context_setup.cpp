@@ -38,6 +38,19 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
         return false;
     }
 
+    // Get the Model
+    auto* op_model_manager = m_controller->operationModelManager();
+    if (!op_model_manager) {
+        spdlog::error("QmlContextSetup::setupContext: OperationModelManager from ImageControllerBase is null.");
+        return false;
+    }
+
+    // For regist all operations
+    if (!op_model_manager->registerModelsToQml(context)) {
+        spdlog::error("QmlContextSetup::setupContext: Failed to register operation models to QML via OperationModelManager.");
+        return false;
+    }
+
     spdlog::info("QmlContextSetup: QML context setup completed successfully.");
     return true;
 }
