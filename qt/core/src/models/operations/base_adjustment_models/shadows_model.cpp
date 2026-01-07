@@ -6,7 +6,6 @@
  */
 
 #include "models/operations/basic_adjustment_models/shadows_model.h"
-#include "controller/image_controller_base.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::UI::Models::Operations {
@@ -28,34 +27,10 @@ Core::Operations::OperationDescriptor ShadowsModel::getDescriptor() const
     return descriptor;
 }
 
-// Sets the ImageControllerBase reference used for applying operations.
-void ShadowsModel::setImageController(Controller::ImageControllerBase* controller)
-{
-    m_image_controller = controller;
-    if (!m_image_controller)
-    {
-        spdlog::warn("ShadowsModel: ImageControllerBase set to nullptr");
-        return;
-    }
-    spdlog::debug("ShadowsModel: ImageControllerBase set");
-
-    // Register this model with the controller
-    m_image_controller->registerModel(this);
-
-    // Connect to controller's feedback signal
-    connect(m_image_controller, &Controller::ImageControllerBase::operationCompleted,
-            this, &ShadowsModel::onOperationCompleted);
-
-    connect(m_image_controller, &Controller::ImageControllerBase::operationFailed,
-            this, &ShadowsModel::onOperationFailed);
-    spdlog::debug("ShadowsModel: Connected to ImageControllerBase signals");
-}
-
 // Resets the shadows value to its default (0.0).
 void ShadowsModel::reset()
 {
     spdlog::debug("ShadowsModel::reset: Resetting to default value (0.0)");
-    // Appelle setValue de BaseAdjustmentModel
     setValue(0.0f);
 }
 

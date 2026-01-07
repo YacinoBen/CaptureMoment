@@ -11,10 +11,6 @@
 
 namespace CaptureMoment::UI {
 
-namespace Controller {
-class ImageControllerBase;
-}
-
 namespace Models::Operations {
 
 /**
@@ -36,7 +32,6 @@ public:
     void reset() override;
 
     // --- Implement Virtual Methods from OperationProvider ---
-    void setImageController(Controller::ImageControllerBase* controller) override;
     void onOperationCompleted() override;
     void onOperationFailed(const QString& error) override;
 };
