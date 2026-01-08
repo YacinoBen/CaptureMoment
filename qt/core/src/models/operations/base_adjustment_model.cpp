@@ -6,6 +6,7 @@
  */
 
 #include "models/operations/base_adjustment_model.h"
+
 #include <spdlog/spdlog.h>
 #include <algorithm>
 
@@ -42,18 +43,6 @@ void BaseAdjustmentModel::setValue(float val)
     if (was_active != is_now_active) {
         emit isActiveChanged(); // Emit inherited signal from OperationProvider
         spdlog::debug("BaseAdjustmentModel::setValue: Activity state changed to {}", is_now_active);
-    }
-
-    // Trigger processing via ImageControllerBase
-    // This uses the m_image_controller member inherited from OperationProvider
-    if (m_image_controller) { // Use the member from OperationProvider
-        // Create the descriptor using the virtual method implemented by the derived class
-        Core::Operations::OperationDescriptor descriptor = getDescriptor();
-        std::vector<Core::Operations::OperationDescriptor> operations = {descriptor};
-        // Call the controller's method to apply operations
-        m_image_controller->applyOperations(operations);
-    } else {
-        spdlog::warn("BaseAdjustmentModel::setValue: No ImageControllerBase set, cannot apply operation.");
     }
 }
 

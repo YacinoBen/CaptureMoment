@@ -28,7 +28,7 @@ namespace Models::Operations {
  * - name() const override
  * - getType() const override
  * - getDescriptor() const override (or provide a mechanism to generate it using m_params)
- * - setImageController override
+ * - setImageController override (consider removing)
  * - reset() override
  * - onOperationCompleted/Failed overrides
  *

@@ -6,16 +6,14 @@
  */
 
 #include "utils/qml_context_setup.h"
-
-#include "models/manager/operation_model_manager.h"
 #include "controller/image_controller_sgs.h"
+
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::UI {
 
 // Static member initialization
 std::shared_ptr<Controller::ImageControllerBase> QmlContextSetup::m_controller = nullptr;
-std::unique_ptr<Models::Manager::OperationModelManager> QmlContextSetup::m_operation_model_manager = nullptr;
 
 bool QmlContextSetup::setupContext(QQmlContext* context)
 {
@@ -35,29 +33,21 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
         return false;
     }
 
-    m_operation_model_manager = std::make_unique<Models::Manager::OperationModelManager>(m_controller.get());
-
-    if (!m_operation_model_manager->createBasicAdjustmentModels()) {
-        spdlog::error("QmlContextSetup::setupContext: Failed to create operation models.");
-        m_operation_model_manager.reset();
-        return false;
-    }
-
-    if (!m_operation_model_manager->connectModels()) {
-        spdlog::error("QmlContextSetup::setupContext: Failed to connect operation models.");
-        m_operation_model_manager.reset();
-        return false;
-    }
-
     if (!registerCoreToQml(context)) {
         spdlog::error("QmlContextSetup::setupContext: Failed to register core objects to QML.");
-        m_operation_model_manager.reset();
         return false;
     }
 
-    if (!m_operation_model_manager->registerModelsToQml(context)) {
-        spdlog::error("QmlContextSetup::setupContext: Failed to register operation models to QML.");
-        m_operation_model_manager.reset(); // Nettoyer si échec
+    // Get the Model
+    auto* op_model_manager = m_controller->operationModelManager();
+    if (!op_model_manager) {
+        spdlog::error("QmlContextSetup::setupContext: OperationModelManager from ImageControllerBase is null.");
+        return false;
+    }
+
+    // For regist all operations
+    if (!op_model_manager->registerModelsToQml(context)) {
+        spdlog::error("QmlContextSetup::setupContext: Failed to register operation models to QML via OperationModelManager.");
         return false;
     }
 

@@ -66,6 +66,9 @@ set(CORE_SOURCES
     src/controller/image_controller_sgs.cpp
     src/controller/image_controller_rhi.cpp
 
+    # Manager
+    src/managers/operation_state_manager.cpp
+
     # Display
     src/display/display_manager.cpp
 
@@ -109,6 +112,9 @@ set(QOBJECT_HEADERS
     include/controller/image_controller_sgs.h
     include/controller/image_controller_rhi.h
 
+    # Manager
+    include/managers/operation_state_manager.h
+
     # Operations
     include/models/operations/i_operation_model.h
     include/models/operations/operation_provider.h
@@ -137,6 +143,10 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             controller/image_controller_painted.h
             controller/image_controller_sgs.h
             controller/image_controller_rhi.h
+
+            # Manager
+            managers/operation_state_manager.h
+
 
             # Display
             display/display_manager.h

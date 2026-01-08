@@ -11,7 +11,6 @@
 #include <memory>
 
 #include "controller/image_controller_base.h"
-#include "models/manager/operation_model_manager.h"
 
 // Forward declarations
 namespace CaptureMoment::UI {
@@ -20,20 +19,16 @@ namespace Controller {
 class ImageControllerBase;
 }
 
-namespace Models::Manager {
-class OperationModelManager;
-}
-
 /**
-     * @brief Central manager for QML context setup
-     *
-     * Responsibilities:
-     * - Creates and manages core objects (controller, display item)
-     * - Delegates operation model management to OperationModelManager
-     * - Registers core objects to QML context
-     * - Lifetime management via shared_ptr
-     * - Ensures objects are correctly initialized before use
-     */
+ * @brief Central manager for QML context setup
+ *
+ * Responsibilities:
+ * - Creates and manages core objects (controller)
+ * - Delegates operation model management (creation, registration, connection) to ImageControllerBase
+ * - Registers core objects to QML context
+ * - Lifetime management via shared_ptr
+ * - Ensures objects are correctly initialized before use
+ */
 class QmlContextSetup {
 public:
     /**
@@ -41,11 +36,9 @@ public:
      *
      * Creates:
      * - ImageController (main orchestrator)
-     * - OperationModelManager (delegates model creation/connection/registration)
      *
      * Registers to QML:
-     * - "controller" → ImageController
-     * - Operation models are registered by OperationModelManager
+     * - "controller" → ImageController (which internally manages models)
      *
      * @param context The QML context to setup
      * @return true if setup was successful, false otherwise.
@@ -53,8 +46,15 @@ public:
     static bool setupContext(QQmlContext* context);
 
 private:
+
+    /**
+     * @brief Static shared pointer to the main ImageControllerBase instance.
+     * This singleton-like pattern holds the central controller object which orchestrates
+     * the image processing pipeline, manages operation models, and handles communication
+     * between the UI layer and the core processing engine.
+     * It is created by createController() and registered to the QML context.
+     */
     static std::shared_ptr<Controller::ImageControllerBase> m_controller;
-    static std::unique_ptr<Models::Manager::OperationModelManager> m_operation_model_manager; // Nouveau membre
 
     /**
      * @brief Create the central ImageController orchestrator.
