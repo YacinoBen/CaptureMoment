@@ -53,6 +53,9 @@ ImageControllerBase::ImageControllerBase(QObject* parent)
     // Create PhotoEngine with registered operations and new dependencies
     m_engine = std::make_shared<Core::Engine::PhotoEngine>(source, factory, pipeline);
     spdlog::info("ImageControllerBase: Initialized with PhotoEngine");
+
+    connectModelsToStateManager();
+    spdlog::info("ImageControllerBase: All models connected to OperationStateManager via valueChanged signal.");
 }
 
 ImageControllerBase::~ImageControllerBase()
