@@ -1,8 +1,11 @@
+/**
+ * @file operation_model_manager.cpp
+ * @brief Implementation of OperationModelManager
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
 #include "models/manager/operation_model_manager.h"
-
-#include "controller/image_controller_base.h"
-#include "models/operations/operation_provider.h"
-
 #include "models/operations/basic_adjustment_models/brightness_model.h"
 #include "models/operations/basic_adjustment_models/contrast_model.h"
 #include "models/operations/basic_adjustment_models/highlights_model.h"
@@ -14,92 +17,52 @@
 
 namespace CaptureMoment::UI::Models::Manager {
 
-OperationModelManager::OperationModelManager(Controller::ImageControllerBase* controller)
-    : m_controller(controller)
+OperationModelManager::OperationModelManager()
 {
-    if (!m_controller) {
-        spdlog::error("OperationModelManager: Controller is null!");
-    }
+    spdlog::debug("OperationModelManager: Constructed.");
 }
 
 bool OperationModelManager::createBasicAdjustmentModels()
 {
-    spdlog::debug("OperationModelManager::createBasicAdjustmentModels: Creating basic adjustment models...");
+    spdlog::info("OperationModelManager::createBasicAdjustmentModels: Creating basic adjustment models...");
 
-    // Appelle la méthode template avec les types spécifiques
-    return createModels<
-        Models::Operations::BrightnessModel,
-        Models::Operations::ContrastModel,
-        Models::Operations::HighlightsModel,
-        Models::Operations::ShadowsModel,
-        Models::Operations::WhitesModel,
-        Models::Operations::BlacksModel
-    >();
-}
-
-template<typename... TModels>
-bool OperationModelManager::createModels()
-{
-    spdlog::debug("OperationModelManager::createModels: Creating operation models...");
-
-    bool success = (createAndAddModel<TModels>() && ...);
-
-    if (success) {
-        spdlog::info("OperationModelManager::createModels: {} models created.", sizeof...(TModels));
-    } else {
-        spdlog::error("OperationModelManager::createModels: Failed to create one or more models.");
-    }
-    return success;
-}
-
-template bool OperationModelManager::createModels<
-    Models::Operations::BrightnessModel,
-    Models::Operations::ContrastModel,
-    Models::Operations::HighlightsModel,
-    Models::Operations::ShadowsModel,
-    Models::Operations::WhitesModel,
-    Models::Operations::BlacksModel
->();
-
-bool OperationModelManager::connectModels()
-{
-    spdlog::debug("OperationModelManager::connectModels: Connecting models to controller...");
-
-    for (auto& model : m_operation_models) {
-        if (!model) {
-            spdlog::error("OperationModelManager::connectModels: Found a null model in the list.");
-            return false;
-        }
-
-        model->setImageController(m_controller);
-        spdlog::debug("OperationModelManager::connectModels: Model connected to controller.");
+    // Create instances of basic adjustment models
+    if (!createAndAddModel<UI::Models::Operations::BrightnessModel>() ||
+        !createAndAddModel<UI::Models::Operations::ContrastModel>() ||
+        !createAndAddModel<UI::Models::Operations::HighlightsModel>() ||
+        !createAndAddModel<UI::Models::Operations::ShadowsModel>() ||
+        !createAndAddModel<UI::Models::Operations::WhitesModel>() ||
+        !createAndAddModel<UI::Models::Operations::BlacksModel>())
+    {
+        spdlog::error("OperationModelManager::createBasicAdjustmentModels: Failed to create one or more basic adjustment models.");
+        return false;
     }
 
-    spdlog::info("OperationModelManager::connectModels: All models connected to controller.");
+    spdlog::info("OperationModelManager::createBasicAdjustmentModels: Successfully created {} basic adjustment models.", m_operation_models.size());
     return true;
 }
 
 bool OperationModelManager::registerModelsToQml(QQmlContext* context)
 {
-    spdlog::debug("OperationModelManager::registerModelsToQml: Registering models to QML...");
-
     if (!context) {
         spdlog::error("OperationModelManager::registerModelsToQml: QML Context is null!");
         return false;
     }
 
-    for (auto& model : m_operation_models) {
+    spdlog::info("OperationModelManager::registerModelsToQml: Registering {} models to QML...", m_operation_models.size());
+
+    for (const auto& model : m_operation_models) {
         if (!model) {
-            spdlog::warn("OperationModelManager::registerModelsToQml: Found a null model, skipping registration.");
+            spdlog::warn("OperationModelManager::registerModelsToQml: Found null model in list, skipping.");
             continue;
         }
 
-        QString qmlName = model->name().toLower();
-        context->setContextProperty(qmlName + "Control", model.get());
-        spdlog::debug("OperationModelManager::registerModelsToQml: Registered '{}' to QML context.", qmlName.toStdString() + "Control");
+        QString qml_name = model->name().toLower() + "Control";
+        context->setContextProperty(qml_name, model.get());
+        spdlog::debug("OperationModelManager::registerModelsToQml: Registered model '{}' as '{}' in QML.", model->name().toStdString(), qml_name.toStdString());
     }
 
-    spdlog::info("OperationModelManager::registerModelsToQml: All models registered to QML.");
+    spdlog::info("OperationModelManager::registerModelsToQml: Successfully registered {} models to QML.", m_operation_models.size());
     return true;
 }
 

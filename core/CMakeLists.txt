@@ -12,6 +12,7 @@ message(STATUS "[core] CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 set(CORE_SOURCES
     # Manager
     src/managers/source_manager.cpp
+    src/managers/state_image_manager.cpp
 
     # Operations
     src/operations/operation_factory.cpp

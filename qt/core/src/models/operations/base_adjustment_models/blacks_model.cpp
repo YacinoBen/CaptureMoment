@@ -6,7 +6,6 @@
  */
 
 #include "models/operations/basic_adjustment_models/blacks_model.h"
-#include "controller/image_controller_base.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::UI::Models::Operations {
@@ -28,34 +27,10 @@ Core::Operations::OperationDescriptor BlacksModel::getDescriptor() const
     return descriptor;
 }
 
-// Sets the ImageControllerBase reference used for applying operations.
-void BlacksModel::setImageController(Controller::ImageControllerBase* controller)
-{
-    m_image_controller = controller;
-    if (!m_image_controller)
-    {
-        spdlog::warn("BlacksModel: ImageControllerBase set to nullptr");
-        return;
-    }
-    spdlog::debug("BlacksModel: ImageControllerBase set");
-
-    // Register this model with the controller
-    m_image_controller->registerModel(this);
-
-    // Connect to controller's feedback signal
-    connect(m_image_controller, &Controller::ImageControllerBase::operationCompleted,
-            this, &BlacksModel::onOperationCompleted);
-
-    connect(m_image_controller, &Controller::ImageControllerBase::operationFailed,
-            this, &BlacksModel::onOperationFailed);
-    spdlog::debug("BlacksModel: Connected to ImageControllerBase signals");
-}
-
 // Resets the blacks value to its default (0.0).
 void BlacksModel::reset()
 {
     spdlog::debug("BlacksModel::reset: Resetting to default value (0.0)");
-    // Appelle setValue de BaseAdjustmentModel
     setValue(0.0f);
 }
 

@@ -1,112 +1,179 @@
-# 🧱 Architecture UI Core
+# 🧱 Core Architecture
+
+## 🧱 Overview
+
+This architecture manages the central image processing logic, independent of the UI layer. It provides a robust, modular, and testable foundation for image loading, manipulation, and state management.
+
+**Main Objective:** Provide a performant and extensible backend for image operations, handling image data, processing pipelines, and cumulative operation state.
+
+---
 
 ## 🧱 Key Components
 
-### 1. Controllers (`controller/`)
+### 1. `PhotoEngine`
 
-*   **Purpose:** Orchestrate the flow between the UI (QML) and the core engine (`PhotoEngine`, `SourceManager`, etc.).
+*   **Role:** Central orchestrator of core image processing.
 *   **Responsibilities:**
-    *   Expose core functionality to QML via `Q_PROPERTY`, `Q_INVOKABLE`, and signals/slots.
-    *   Manage the worker thread for non-blocking image processing.
-    *   Handle communication with rendering items (e.g., passing processed images).
-    *   Manage the `DisplayManager`.
-*   **Base Class:** `ImageControllerBase` (abstract, defines common interface and threading).
-*   **Concrete Implementations:** `ImageControllerPainted`, `ImageControllerRHI`, `ImageControllerSGS` (handle specific rendering paths).
-*   **Common Logic:** `doLoadImage` and `doApplyOperations` are now implemented **in `ImageControllerBase`** for commonality, reducing duplication.
+    *   Manage the **original image source** via `SourceManager`.
+    *   Delegate the application of operations to `StateImageManager`.
+    *   Expose the current **working image** state to the UI layer (`ImageControllerBase`).
+    *   Provide metadata (width, height) of the current working image.
+    *   **Does NOT directly process operations.** It delegates to `StateImageManager`.
+*   **Location:** `engine/`.
 
-### 2. Display Management (`display/`)
+### 2. `StateImageManager`
 
-*   **Purpose:** Handle the **display-side logic** such as **downsampling**, **zoom**, **pan**, and **viewport management**.
+*   **Role:** Manages the **cumulative state** of image operations and the **working image**.
 *   **Responsibilities:**
-    *   Downsample high-resolution images from the core for efficient display.
-    *   Manage zoom and pan state.
-    *   Coordinate with rendering items to display the processed/downsampled image.
-    *   Provide coordinate mapping between backend (full-res) and display (downsampled) coordinates.
-*   **Key Class:** `DisplayManager`.
+    *   Store the **original image source** (from `SourceManager`).
+    *   Maintain the **current working image** (result of applying active operations).
+    *   Maintain the **list of active operations** (`std::vector<OperationDescriptor>`).
+    *   Provide methods to **modify** the active operations list (`addOperation`, `removeOperation`, `resetToOriginal`).
+    *   Provide a method to **request an update** (`requestUpdate`), which triggers the application of the full list of active operations via `OperationPipeline`.
+    *   Execute the processing pipeline on a **separate thread** (`m_worker_thread`) to avoid blocking the caller (e.g., `ImageControllerBase`).
+    *   Ensure **thread-safe access** to the original image source and the working image using synchronization mechanisms (`std::mutex`, `std::atomic`).
+    *   **Does NOT know about UI layers.**
+*   **Location:** `managers/`.
 
-### 3. Rendering (`rendering/`)
+### 3. `SourceManager`
 
-*   **Purpose:** Implement Qt Quick items responsible for **displaying images** on screen using various Qt Quick rendering techniques.
+*   **Role:** Handles loading and providing access to the original image data.
 *   **Responsibilities:**
-    *   Provide `QQuickItem` subclasses (e.g., `QQuickPaintedItem`, `QSGRenderNode`, `QQuickRhiItem`).
-    *   Interface with Qt's Rendering Hardware Interface (`QRhi`) for high-performance GPU rendering.
-    *   Handle texture updates, geometry, and shader management.
-    *   Implement zoom and pan transformations.
-*   **Base Interface:** `IRenderingItemBase` (defines common methods like `setImage`, `updateTile`, common data members like `m_zoom`, `m_pan`, `m_image_width`, `m_image_height`, `m_image_mutex`).
-*   **Base Implementation:** `BaseImageItem` (provides common implementations for `imageWidth()` and `imageHeight()` using `m_image_mutex` from `IRenderingItemBase`, and provides `isImageValid()` method).
-*   **Concrete Items:** `RHIImageItem`, `PaintedImageItem`, `SGSImageItem`. These classes inherit from their specific Qt Quick base (`QQuickRhiItem` for RHI, `QQuickItem` for SGS, `QQuickPaintedItem` for Painted) and from `BaseImageItem` to get common data and logic. They implement the remaining methods of `IRenderingItemBase` (e.g., `setImage`, `updateTile`, `setZoom`, `setPan`) and declare their own QML properties and signals (`Q_PROPERTY`, `signals`).
-*   **QML Wrapper Classes:** `QMLSGSImageItem`, `QMLPaintedImageItem`, `QMLRHIImageItem`. These classes inherit from the concrete rendering items and re-declare `Q_PROPERTY` for seamless QML binding.
-*   **Node Implementation:**
-    *   **RHI:** `RHIImageItem` now inherits from `QQuickRhiItem` and uses a **separate renderer class** `RHIImageItemRenderer` (implementing `QQuickRhiItemRenderer`) for QRhi rendering logic, separating item logic from render logic.
-    *   **SGS:** Uses `QSGSimpleTextureNode` via `updatePaintNode`.
-    *   **Painted:** Uses `QQuickPaintedItem` and `QPainter` via `paint`.
+    *   Load image files from disk into memory (e.g., using FreeImage, OpenCV, etc.).
+    *   Store the loaded image data (e.g., as `std::vector<float>` for RGBA_F32).
+    *   Provide **thread-safe** access to the original image data (e.g., `getTile`).
+    *   Provide metadata (width, height, format) of the loaded image.
+    *   **Does NOT process operations.**
+*   **Location:** `managers/`.
 
-### 4. Operation Models (`models/operations/`)
+### 4. `OperationPipeline`
 
-*   **Purpose:** Expose specific image operation parameters and state to QML.
+*   **Role:** Executes a **sequence** of image operations on image data.
 *   **Responsibilities:**
-    *   Implement the `IOperationModel` interface.
-    *   Expose properties (e.g., `value`, `minimum`, `maximum`, `name`, `active`) and methods (e.g., `setValue`) to QML.
-    *   Communicate with the `ImageController` to trigger the application of the operation.
-    *   Hold operation-specific parameters (`RelativeAdjustmentParams`, etc.).
-*   **Base Class:** `OperationProvider` (provides common Qt infrastructure).
-*   **Base Adjustment Class:** `BaseAdjustmentModel` (inherits from `OperationProvider`, provides common properties and logic for single-value adjustments like Brightness, Contrast, etc.).
-*   **Manager Class:** `OperationModelManager` (located in `models/manager/`, centralizes the creation, connection, and registration of multiple operation models, reducing boilerplate code in `QmlContextSetup`).
-*   **Example:** `BrightnessModel` inherits from `BaseAdjustmentModel`.
+    *   Receive a list of `OperationDescriptor` and an input image buffer.
+    *   Iterate through the list of operations.
+    *   Use `OperationFactory` to instantiate each operation object.
+    *   Execute each operation object's `execute` method in sequence, passing the image data between operations.
+    *   Return the final processed image buffer.
+    *   **Does NOT manage the list of active operations.** That's `StateImageManager`'s job.
+    *   **Does NOT know about UI layers.**
+*   **Location:** `operations/`.
 
-### 5. Shaders (`shaders/glsl/`)
+### 5. `OperationFactory`
 
-*   **Purpose:** GLSL source code for custom GPU effects used by rendering components (e.g., `RHIImageItem`).
-*   **Management:** Compiled automatically into `.qsb` files by `qt_add_shaders` in `CMakeLists.txt`.
+*   **Role:** Creates instances of specific image operation implementations based on their type.
+*   **Responsibilities:**
+    *   Register creators for different operation types (e.g., `Brightness`, `Contrast`, `Highlights`, `Shadows`, `Whites`, `Blacks`).
+    *   Provide a method (e.g., `create`) to instantiate an operation object given an `OperationDescriptor`.
+    *   Use the **Factory Pattern** for loose coupling.
+    *   **Does NOT execute operations.**
+*   **Location:** `operations/`.
+
+### 6. `IOperation`
+
+*   **Role:** Pure interface defining the contract for all image operations.
+*   **Responsibilities:**
+    *   Define the `execute` method signature that all operation implementations must follow.
+    *   Ensure all operations can be executed by `OperationPipeline`.
+*   **Location:** `operations/`.
+
+### 7. Concrete Operation Classes (e.g., `OperationBrightness`, `OperationContrast`)
+
+*   **Role:** Implement specific image processing algorithms (e.g., brightness adjustment, contrast adjustment).
+*   **Responsibilities:**
+    *   Inherit from `IOperation`.
+    *   Implement the `execute` method using a processing library (e.g., Halide).
+    *   Use parameters from the `OperationDescriptor` (e.g., brightness value, contrast value).
+    *   **Do NOT manage the state of active operations.**
+*   **Location:** `operations/impl/` (or similar subdirectory).
+
+### 8. `OperationDescriptor`
+
+*   **Role:** Data structure representing a single operation to be applied.
+*   **Responsibilities:**
+    *   Store the operation type (`OperationType`).
+    *   Store the operation name (for logging/debugging).
+    *   Store the operation parameters (e.g., `value`, `enabled` status).
+    *   Store generic parameters using a map-like structure (e.g., `std::map<std::string, AnyValue>` or similar).
+    *   Be passed between `StateImageManager`, `OperationPipeline`, and `OperationFactory`.
+*   **Location:** `operations/`.
+
+### 9. `OperationType`
+
+*   **Role:** Enum defining the types of supported operations.
+*   **Responsibilities:**
+    *   Provide a unique identifier for each operation type (e.g., `Brightness`, `Contrast`).
+    *   Be used by `OperationFactory` and `OperationDescriptor`.
+*   **Location:** `operations/`.
+
+### 10. `OperationRegistry`
+
+*   **Role:** Utility to register all available operations with the `OperationFactory` at application startup.
+*   **Responsibilities:**
+    *   Iterate through known operation types.
+    *   Call `factory->registerCreator` for each type, associating it with its concrete implementation.
+    *   Ensure `OperationFactory` is ready to create any supported operation.
+*   **Location:** `operations/`.
+
+---
 
 ## 🔗 Dependencies
 
-*   **Core Library (`capturemoment_core`):** `qt/core` **depends** on the core library for image processing logic (`PhotoEngine`, `SourceManager`, `OperationPipeline`, etc.).
-*   **Qt Libraries:** `Qt6::Core`, `Qt6::Quick`, `Qt6::Gui`, `Qt6::GuiPrivate`, `Qt6::ShaderTools`.
-*   **QML Integration:** `QmlContextSetup` (in `qt/desktop`) links objects from `qt/core` to the QML context.
+*   **Core Libraries:** Uses image loading libraries (e.g., FreeImage), potentially image processing libraries (e.g., OpenCV), and performance libraries (e.g., Halide).
+*   **Qt Libraries:** `Qt6::Core` (for threading primitives like `QThread`, `QMetaObject::invokeMethod` if used for worker thread communication).
+*   **UI Layer:** `qt/core` depends on this `core` library.
 
-## 🧩 How Components Work Together
+---
 
-1.  **QML Interaction:** User interacts with a control (e.g., brightness slider) in QML.
-2.  **QML -> C++:** The QML component (e.g., `BrightnessOperation.qml`) calls a method on a C++ model (e.g., `brightnessControl.setValue(...)`).
-3.  **Model -> Controller:** The model (e.g., `BrightnessModel`) emits a signal or calls a method on the controller (e.g., `controller.applyOperations(...)`).
-4.  **Controller -> Core:** The controller (`ImageControllerPainted`) queues the operation request to its worker thread, which then interacts with the core engine (`PhotoEngine`).
-5.  **Core Processing:** The core engine (`PipelineEngine`, `OperationPipeline`) applies the operation to the image data.
-6.  **Core -> Controller:** The core engine returns the processed image data (e.g., via `task->result()`).
-7.  **Controller -> Display:** The controller passes the result to the `DisplayManager`.
-8.  **Display -> Rendering:** The `DisplayManager` downsamples the image (if necessary) and sends it to the appropriate rendering item (e.g., `RHIImageItem`).
-9.  **Rendering -> GPU:** The rendering item (e.g., `RHIImageItem` via `RHIImageItemRenderer`, `SGSImageItem` via `updatePaintNode`, `PaintedImageItem` via `paint`) updates the GPU texture or QPainter image and renders the image via `QRhi` or `QPainter`.
+## 🧩 Flow Diagrams
 
-**Important : RHI, SGS, and Painted are now working correctly with the new rendering architecture.**
+### A. Image Loading Flow
+PhotoEngine::loadImage(file_path)
+├── SourceManager::loadFile(file_path)
+│ └── Loads image data into memory
+└── StateImageManager::setOriginalImageSource (from SourceManager)
+└── Stores reference/pointer to original data
+└── Resets working image to original state
+
+### B. Operation Application Flow
+PhotoEngine::applyOperations(std::vector ops)
+├── StateImageManager::setOperations(ops)
+│ ├── Acquires write lock on operation list
+│ ├── Updates internal list of active operations
+│ └── Releases lock
+└── StateImageManager::requestUpdate()
+├── QMetaObject::invokeMethod (on m_worker_thread)
+│ └── Calls StateImageManager::performUpdate (on worker thread)
+└── Returns immediately (async)
+└── StateImageManager::performUpdate (on worker thread)
+├── Acquires read lock on operation list
+├── Acquires read lock on original image source
+├── OperationPipeline::applyOperations (list_of_ops, original_image)
+│ ├── Iterates list_of_ops
+│ ├── OperationFactory::create (op_descriptor)
+│ │ └── Instantiates specific operation (e.g., OperationBrightness)
+│ ├── operation->execute (image_data)
+│ │ └── Modifies image_data (e.g., using Halide)
+│ └── (Repeats for all ops in list)
+│ └── Returns final processed image_data
+├── Acquires write lock on working image
+├── Updates m_working_image with result
+└── Releases lock
+└── UI layer (ImageControllerBase) can now retrieve the updated working image
+
+
+---
 
 ## 🛠️ How to Contribute
 
-### Adding a New Operation Model (e.g., ContrastModel)
+### Adding a New Operation (e.g., Vignette)
 
-1.  **Create C++ Model:**
-    *   Define `ContrastModel` inheriting from `BaseAdjustmentModel` (which inherits from `OperationProvider`).
-    *   Declare `Q_PROPERTY` for `value`, `minimum`, `maximum`, `name`, `active` (inherited from `BaseAdjustmentModel`).
-    *   Implement `Q_INVOKABLE setValue(real value)` and emit `valueChanged` (inherited from `BaseAdjustmentModel`).
-    *   Implement `getType()`, `getDescriptor()`, `isActive()`, `reset()`, `setImageController`, `onOperationCompleted`, `onOperationFailed` in `ContrastModel`.
-    *   Store parameters using a struct like `RelativeAdjustmentParams` (inherited from `BaseAdjustmentModel`).
-    *   Handle `setValue` by updating parameters, emitting signals, and triggering `ImageController::applyOperations` (inherited from `BaseAdjustmentModel`).
-2.  **Add to OperationModelManager:** Add `Models::Operations::ContrastModel` to the template list in `OperationModelManager::createBasicAdjustmentModels()` or a new creation method if needed.
-3.  **Create QML Component:** Create `ContrastOperation.qml` in `qt/desktop/qml/components/operations/`, binding its slider/spinbox to `contrastControl.value` and calling `contrastControl.setValue` on change.
-4.  **Add to Panel:** Include `ContrastOperation.qml` in the relevant panel (e.g., `TonePanel.qml`).
-
-### Adding a New Rendering Item (e.g., VulkanImageItem)
-
-1.  **Implement QQuickItem:** Create `VulkanImageItem` inheriting from `QQuickItem` (or `QQuickRhiItem` for new RHI-based approach, or `QSGRenderNode` or `QQuickPaintedItem`).
-2.  **Integrate QRhi/Vulkan:** Implement `createRenderer` (for `QQuickRhiItem`) or `updatePaintNode` or `prepare`/`render` methods using `QRhi` for Vulkan/Metal/DirectX or `paint` for `QQuickPaintedItem`.
-3.  **Inherit from Base:** `VulkanImageItem` should inherit from its specific Qt Quick base class (`QQuickItem`/`QQuickRhiItem`/`QQuickPaintedItem`) and from `BaseImageItem` to get common data members and implementations (`imageWidth`, `imageHeight`, `isImageValid`).
-4.  **Implement IRenderingItemBase:** Implement the remaining pure virtual methods from `IRenderingItemBase` (e.g., `setImage`, `updateTile`, `setZoom`, `setPan`) in `VulkanImageItem`.
-5.  **Declare QML Properties/Signals:** Declare `Q_PROPERTY` and `signals` in `VulkanImageItem` for QML exposure.
-6.  **Create QML Wrapper:** Create `QMLVulkanImageItem` inheriting from `VulkanImageItem` and re-declaring `Q_PROPERTY`.
-7.  **Integrate Controller:** Adapt existing controllers (e.g., `ImageControllerBase`) or create a new one (e.g., `ImageControllerVulkan`) to interact with the new item via `DisplayManager`.
-8.  **Register/Integrate:** Ensure the new item can be used via `DisplayManager` and registered in `QmlContextSetup`.
-
-### Adding a New Controller Path (e.g., ImageControllerVulkan)
-
-1.  **Inherit Base:** Create `ImageControllerVulkan` inheriting from `ImageControllerBase`.
-2.  **Override Virtuals:** Implement `doLoadImage` and `doApplyOperations` to handle the specific rendering path and interact with the corresponding rendering item (e.g., `VulkanImageItem`) via `DisplayManager`.
-3.  **Integrate:** Ensure `QmlContextSetup` can create and configure this new controller type if needed.
+1.  **Define Operation Type:** Add `Vignette` to the `OperationType` enum.
+2.  **Create Operation Implementation:**
+    *   Define `OperationVignette` class.
+    *   Inherit from `IOperation`.
+    *   Implement `execute` method using a processing library (e.g., Halide) to apply the vignette effect based on parameters from the `OperationDescriptor`.
+3.  **Register Operation:**
+    *   Add `OperationVignette` to the `OperationRegistry::registerAll` function.
+    *   Ensure `OperationFactory` knows how to create `OperationVignette`.
+4.  **UI Integration:** Create a corresponding operation model in `qt/core` (`VignetteModel`) and expose it to QML.

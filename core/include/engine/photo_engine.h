@@ -1,5 +1,5 @@
 /**
- * @file i_processing_task.h
+ * @file photo_engine.h
  * @brief Declaration of PhotoEngine class
  * @author CaptureMoment Team
  * @date 2025
@@ -9,29 +9,28 @@
 
 #include "managers/source_manager.h"
 #include "operations/operation_factory.h"
-#include "domain/i_processing_backend.h"
+#include "operations/operation_pipeline.h"
+#include "managers/state_image_manager.h"
 #include "common/image_region.h"
 
 #include <memory>
+#include <string_view>
+#include <vector>
+
+#include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core {
 
-namespace Domain {
-class IProcessingBackend;
-class IProcessingTask;
-}
-
 namespace Engine {
+
 /**
- * @brief Central engine orchestrating image loading, processing task creation, and submission.
+ * @brief Central engine orchestrating image loading and cumulative operation management.
  *
  * The PhotoEngine acts as the main interface between the UI layer (Qt) and the core
- * image processing logic (PipelineEngine, SourceManager, OperationFactory).
- * It manages the state of the currently loaded image and handles the execution
- * of processing tasks, ensuring a sequential and coherent workflow.
- * This class implements the IProcessingBackend interface to standardize task management.
+ * image processing logic. It delegates the management of the cumulative image processing state
+ * (the sequence of applied operations and the resulting image) to StateImageManager.
  */
-class PhotoEngine : public Domain::IProcessingBackend
+class PhotoEngine
 {
 private:
     /**
@@ -42,12 +41,16 @@ private:
      * @brief Shared pointer to the factory responsible for creating operation instances.
      */
     std::shared_ptr<Operations::OperationFactory> m_operation_factory;
+    /**
+     * @brief Shared pointer to the pipeline responsible for applying sequences of operations.
+     */
+    std::shared_ptr<Operations::OperationPipeline> m_operation_pipeline;
 
     /**
-     * @brief Shared pointer to the current working image being processed.
-     * This image is modified by operations and is separate from the original image in m_source_manager.
+     * @brief Unique pointer to the manager responsible for the cumulative image processing state.
+     * This manager handles the sequence of active operations and updates the working image accordingly.
      */
-    std::shared_ptr<Common::ImageRegion> m_working_image;
+    std::unique_ptr<Managers::StateImageManager> m_state_manager;
 
 public:
     /**
@@ -57,16 +60,19 @@ public:
      *
      * @param[in] source_manager A shared pointer to the SourceManager instance.
      * @param[in] operation_factory A shared pointer to the OperationFactory instance.
+     * @param[in] operation_pipeline A shared pointer to the OperationPipeline instance.
      */
     PhotoEngine(
         std::shared_ptr<Managers::SourceManager> source_manager,
-        std::shared_ptr<Operations::OperationFactory> operation_factory
-    );
+        std::shared_ptr<Operations::OperationFactory> operation_factory,
+        std::shared_ptr<Operations::OperationPipeline> operation_pipeline
+        );
 
     /**
      * @brief Loads an image file into the engine.
      *
      * Delegates the loading process to the internal SourceManager.
+     * Initializes the StateImageManager with the loaded image path.
      *
      * @param[in] path The path to the image file to be loaded.
      * @return true if the image was loaded successfully, false otherwise.
@@ -74,65 +80,21 @@ public:
     [[nodiscard]] bool loadImage(std::string_view path);
 
     /**
-     * @brief Creates a new processing task.
-     *
-     * This method is part of the IProcessingBackend interface.
-     * It should prepare and return a new IProcessingTask object,
-     * although the specific parameters (like operations, region) might need
-     * to be provided differently depending on the implementation details
-     * (e.g., maybe the task itself holds this data or it's passed later).
-     * For now, this signature matches the IProcessingBackend interface,
-     * but might require refinement based on how tasks receive their input data
-     * and operation list.
-     *
-     * @return A shared pointer to the newly created IProcessingTask.
-     */
-    std::shared_ptr<Domain::IProcessingTask> createTask(
-        const std::vector<Operations::OperationDescriptor>& ops,
-        int x, int y, int width, int height) override;
-
-    /**
-     * @brief Submits a processing task for execution.
-     *
-     * This method is part of the IProcessingBackend interface.
-     * It handles the execution of the given task. In the current design,
-     * this likely means executing the task synchronously and waiting for its completion
-     * before returning, ensuring only one task modifies the image state at a time.
-     *
-     * @param[in] task A shared pointer to the IProcessingTask to be executed.
-     * @return true if the task was submitted and completed successfully, false otherwise.
-     */
-    [[nodiscard]] bool submit(std::shared_ptr<Domain::IProcessingTask> task) override;
-
-    /**
-     * @brief Commits the result of a completed task to the source image.
-     *
-     * After a task has been executed successfully, this method takes its result
-     * and applies it back to the internal SourceManager's image buffer,
-     * making the changes permanent. This step is separated from `submit` to allow
-     * previewing results without altering the original image.
-     *
-     * @param[in] task A shared pointer to the completed IProcessingTask whose
-     *                 result needs to be committed.
-     * @return true if the result was successfully committed, false otherwise.
-     */
-     [[nodiscard]] bool commitResult(const std::shared_ptr<Domain::IProcessingTask>& task);
-
-    /**
      * @brief Commits the current working image back to the source image.
      *
      * This method should be called when the user wants to save the changes permanently.
-     * It replaces the original image in m_source_manager with the current m_working_image.
+     * It replaces the original image in m_source_manager with the current working image
+     * managed by StateImageManager.
      *
      * @return true if the working image was successfully committed to the source manager, false otherwise.
      */
-    [[nodiscard]] bool commitWorkingImageToSource(); // Nouvelle méthode pour sauvegarder
+    [[nodiscard]] bool commitWorkingImageToSource();
 
     /**
      * @brief Resets the working image to the original image loaded from the source manager.
      *
-     * This method reloads m_working_image from m_source_manager, effectively undoing
-     * all applied operations.
+     * This method delegates the reset to the internal StateImageManager,
+     * effectively undoing all applied operations.
      */
     void resetWorkingImage();
 
@@ -164,12 +126,26 @@ public:
     [[nodiscard]] int channels() const noexcept;
 
     /**
-     * @brief Gets the current working image.
-     * @return Shared pointer to the current working ImageRegion.
+     * @brief Applies a sequence of operations cumulatively to the working image.
+     *
+     * This method delegates the application of the operations to the internal StateImageManager.
+     * The StateImageManager handles the update asynchronously.
+     *
+     * @param ops The vector of OperationDescriptors to apply.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImage() const { return m_working_image; }
+    void applyOperations(const std::vector<Operations::OperationDescriptor>& ops);
+
+    /**
+     * @brief Gets the current working image.
+     *
+     * Delegates the call to the internal StateImageManager to get the image
+     * reflecting the currently applied operations.
+     *
+     * @return Shared pointer to the current working ImageRegion managed by StateImageManager.
+     */
+    [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImage() const;
 };
 
 } // namespace Engine
 
-} // namespace CaptureMoment::core
+} // namespace CaptureMoment::Core

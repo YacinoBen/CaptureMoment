@@ -6,7 +6,6 @@
  */
 
 #include "models/operations/basic_adjustment_models/highlights_model.h"
-#include "controller/image_controller_base.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::UI::Models::Operations {
@@ -28,34 +27,10 @@ Core::Operations::OperationDescriptor HighlightsModel::getDescriptor() const
     return descriptor;
 }
 
-// Sets the ImageControllerBase reference used for applying operations.
-void HighlightsModel::setImageController(Controller::ImageControllerBase* controller)
-{
-    m_image_controller = controller;
-    if (!m_image_controller)
-    {
-        spdlog::warn("HighlightsModel: ImageControllerBase set to nullptr");
-        return;
-    }
-    spdlog::debug("HighlightsModel: ImageControllerBase set");
-
-    // Register this model with the controller
-    m_image_controller->registerModel(this);
-
-    // Connect to controller's feedback signal
-    connect(m_image_controller, &Controller::ImageControllerBase::operationCompleted,
-            this, &HighlightsModel::onOperationCompleted);
-
-    connect(m_image_controller, &Controller::ImageControllerBase::operationFailed,
-            this, &HighlightsModel::onOperationFailed);
-    spdlog::debug("HighlightsModel: Connected to ImageControllerBase signals");
-}
-
 // Resets the highlights value to its default (0.0).
 void HighlightsModel::reset()
 {
     spdlog::debug("HighlightsModel::reset: Resetting to default value (0.0)");
-    // Appelle setValue de BaseAdjustmentModel
     setValue(0.0f);
 }
 
