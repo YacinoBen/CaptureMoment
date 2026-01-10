@@ -1,12 +1,20 @@
-// core/src/serializer/file_serializer_writer.cpp
+/**
+ * @file file_serializer_writer.cpp
+ * @brief Implementation of FileSerializerWriter
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
 #include "serializer/file_serializer_writer.h"
 #include "serializer/exiv2_initializer.h"
+#include "serializer/operation_serialization.h"
 #include <spdlog/spdlog.h>
 #include <exiv2/exiv2.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <any> 
 #include <typeinfo>
+#include <magic_enum/magic_enum.hpp>
 
 namespace CaptureMoment::Core::Serializer {
 
@@ -58,7 +66,7 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Commo
 {
    spdlog::debug("FileSerializerWriter::serializeOperationsToXmp: Serializing {} operations for image: {}", operations.size(), source_image_path);
 
-    // Define the XMP structure for CaptureMoment operations
+    // Example XMP structure (you would define your own schema)
     // Register a custom namespace for your application's operations
     const std::string ns_uri = "https://github.com/YacinoBen/CaptureMoment/";
     const std::string ns_prefix = "cm";
@@ -78,29 +86,30 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Commo
         xmp_data["Xmp.cm.sourceImagePath"] = source_image_path.data();
 
         // Iterate through operations with index using C++23 std::views::enumerate
-        for (auto [index, const& op] : std::views::enumerate(operations))
-        {
+        for (auto [index, const& op] : std::views::enumerate(operations)) {
             // 'index' is automatically a std::size_t (or similar unsigned integral type)
             // 'op' is a const reference to the current OperationDescriptor
             std::string index_str = std::to_string(index + 1); // Start indexing from 1 for readability in XMP
 
             // Use magic_enum directly here
             std::string_view type_name_view = magic_enum::enum_name(op.type);
-            xmp_data["Xmp.cm.operation[" + index_str + "].type"] = type_name_view.data();
+            xmp_data["Xmp.cm.operation[" + index_str + "].type"] = type_name_view.data(); // .data() to get const char*
             xmp_data["Xmp.cm.operation[" + index_str + "].name"] = op.name.c_str();
             xmp_data["Xmp.cm.operation[" + index_str + "].enabled"] = op.enabled;
 
             // Iterate through the generic parameters map using range-for
             for (const auto& [param_name, param_value] : op.params) {
-                std::string xmp_param_key = "Xmp.cm.operation[" + index_str + "].param." + param_name;
-                std::string param_str_value = serializeAnyParameter(param_value);
-                if (!param_str_value.empty()) { // Only add if serialization was successful
-                     xmp_data[xmp_param_key] = param_str_value.c_str();
+                // Use the dedicated OperationSerialization service
+                std::string serialized_param_value = OperationSerialization::serializeParameter(param_value);
+                if (!serialized_param_value.empty()) { // Only add if serialization was successful
+                     std::string xmp_param_key = "Xmp.cm.operation[" + index_str + "].param." + param_name;
+                     xmp_data[xmp_param_key] = serialized_param_value.c_str(); // .c_str() for Exiv2
                 } else {
                      spdlog::warn("FileSerializerWriter::serializeOperationsToXmp: Could not serialize parameter '{}' for operation '{}' (index {}). Skipping.", param_name, op.name, index);
                 }
             }
         }
+
 
         // Serialize the XMP data container to a packet string
         std::string xmp_packet;
@@ -119,32 +128,7 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Commo
         spdlog::error("FileSerializerWriter::serializeOperationsToXmp: General error during serialization: {}", e.what());
         return {}; // Return empty string on failure
     }
-}
-
-std::string FileSerializerWriter::serializeAnyParameter(const std::any& value) const
-{
-    // This function needs to handle different types stored in std::any.
-    // You need to add support for all the types you expect to store.
-    // Example: float, int, bool, std::string, etc.
-
-    const std::type_info& type = value.type();
-
-    if (value.type() == typeid(float)) {
-        return std::to_string(std::any_cast<float>(value));
-    } else if (value.type() == typeid(double)) {
-        return std::to_string(std::any_cast<double>(value));
-    } else if (value.type() == typeid(int)) {
-        return std::to_string(std::any_cast<int>(value));
-    } else if (value.type() == typeid(bool)) {
-        return std::any_cast<bool>(value) ? "true" : "false";
-    } else if (value.type() == typeid(std::string)) {
-        return std::any_cast<std::string>(value);
-    }
-    // Add more types as needed...
-
-    // If the type is not supported, return an empty string
-    spdlog::warn("FileSerializerWriter::serializeAnyParameter: Unsupported type for serialization: {}", value.type().name());
-    return {};
+    // No explicit return outside catches needed, as all paths return above.
 }
 
 } // namespace CaptureMoment::Core::Serializer

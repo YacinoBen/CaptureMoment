@@ -1,4 +1,10 @@
-// core/include/serializer/file_serializer_writer.h
+/**
+ * @file file_serializer_writer.h
+ * @brief Declaration of FileSerializerWriter class
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
 #pragma once
 
 #include "serializer/i_file_serializer_writer.h"
@@ -64,14 +70,6 @@ private:
      * @return A string representing the XMP packet, or an empty string on failure.
      */
     [[nodiscard]] std::string serializeOperationsToXmp(std::span<const Common::OperationDescriptor> operations, std::string_view source_image_path) const;
-
-    /**
-     * @brief Helper function to serialize a single std::any parameter value to a string representation.
-     * This needs to handle the various types that can be stored in std::any (float, int, string, etc.).
-     * @param value The std::any value to serialize.
-     * @return A string representation of the value, or an empty string if the type is not supported.
-     */
-    [[nodiscard]] std::string serializeAnyParameter(const std::any& value) const;
 };
 
 } // namespace Serializer
