@@ -41,11 +41,11 @@ Capture Moment is built for performance and modularity, using best-in-class libr
 | Build System     | CMake 3.21+         | Cross-platform build configuration.                           |
 | I/O & Cache      | OpenImageIO         | Read/Write all image formats, Tile-based caching.             |
 | Processing       | Halide              | High-performance image processing pipeline optimization.      |
-| UI               | Qt 6 Quick/QML      | Modern, declarative, and hardware-accelerated user interface. |
+| UI               | Qt6 Quick/QML      | Modern, declarative, and hardware-accelerated user interface. |
 | Color Management | OpenColorIO (already included in OpenImageIO)       | Industry-standard color space handling (Planned).             |
 | Cataloging       | SQLite              | Fast, embeddable database for photo indexing.                 |
-| Serialization    | XMP (sidecar), JSON | Storing non-destructive edits and application settings.       |
-
+| Serialization    | Exiv2 (XMP) | Storing non-destructive Image    |
+| setting    | JSON | Edits application settings.       |
 ---
 
 ## 📋 Documentation & Specs

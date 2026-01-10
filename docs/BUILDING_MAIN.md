@@ -38,6 +38,7 @@ Before selecting your platform, ensure you have these tools:
 | OpenImageIO | 3.1.8.0             | https://github.com/AcademySoftwareFoundation/OpenImageIO |
 | Halide      | 17.0.0 or 18.0.0             | https://github.com/halide/Halide                         |
 | spdlog      | 1.16.0 or 1.12.0            | https://github.com/gabime/spdlog                         |
+| Exiv2         | 0.28.7| https://github.com/Exiv2/exiv2   
 | Qt6         | 6.9.3| https://doc.qt.io/qt-6/                                  |
 
 ---
