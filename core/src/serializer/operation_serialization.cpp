@@ -1,0 +1,216 @@
+/**
+ * @file operation_serialization.cpp
+ * @brief Implementation of OperationSerialization
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
+#include "serializer/operation_serialization.h"
+#include <spdlog/spdlog.h>
+#include <typeinfo>
+#include <charconv>
+#include <sstream>
+#include <string>
+
+namespace CaptureMoment::Core::Serializer::OperationSerialization {
+
+// Helper functions for internal use
+namespace {
+
+    // Type tags for encoding
+    constexpr char TYPE_FLOAT = 'f';
+    constexpr char TYPE_DOUBLE = 'd';
+    constexpr char TYPE_INT = 'i';
+    constexpr char TYPE_BOOL = 'b';
+    constexpr char TYPE_STRING = 's';
+
+    // Serialization helpers
+    [[nodiscard]] std::string serializeFloat(float value) {
+        return std::to_string(value);
+    }
+
+    [[nodiscard]] std::string serializeDouble(double value) {
+        return std::to_string(value);
+    }
+
+    [[nodiscard]] std::string serializeInt(int value) {
+        return std::to_string(value);
+    }
+
+    [[nodiscard]] std::string serializeBool(bool value) {
+        return value ? "true" : "false";
+    }
+
+    [[nodiscard]] std::string serializeString(const std::string& value) {
+        return value;
+    }
+
+    // Deserialization helpers
+    [[nodiscard]] std::any deserializeFloat(std::string_view data_str)
+    {
+        float val = 0.0f;
+        auto [ptr, ec] = std::from_chars(data_str.data(), data_str.data() + data_str.size(), val);
+        if (ec == std::errc() && ptr == data_str.data() + data_str.size()) { // Check full consumption
+            return val;
+        } else {
+            spdlog::warn("OperationSerialization::deserializeFloat: Failed to parse float from: '{}'", data_str);
+            return {};
+        }
+    }
+
+    [[nodiscard]] std::any deserializeDouble(std::string_view data_str)
+    {
+        double val = 0.0;
+        auto [ptr, ec] = std::from_chars(data_str.data(), data_str.data() + data_str.size(), val);
+        if (ec == std::errc() && ptr == data_str.data() + data_str.size()) { // Check full consumption
+            return val;
+        } else {
+            spdlog::warn("OperationSerialization::deserializeDouble: Failed to parse double from: '{}'", data_str);
+            return {};
+        }
+    }
+
+    [[nodiscard]] std::any deserializeInt(std::string_view data_str)
+    {
+        int val = 0;
+        auto [ptr, ec] = std::from_chars(data_str.data(), data_str.data() + data_str.size(), val);
+        if (ec == std::errc() && ptr == data_str.data() + data_str.size()) { // Check full consumption
+            return val;
+        } else {
+            spdlog::warn("OperationSerialization::deserializeInt: Failed to parse int from: '{}'", data_str);
+            return {};
+        }
+    }
+
+    [[nodiscard]] std::any deserializeBool(std::string_view data_str)
+    {
+        if (data_str == "true" || data_str == "True" || data_str == "TRUE" || data_str == "1") {
+            return true;
+        } else if (data_str == "false" || data_str == "False" || data_str == "FALSE" || data_str == "0") {
+            return false;
+        } else {
+            spdlog::warn("OperationSerialization::deserializeBool: Failed to parse bool from: '{}'", data_str);
+            return {};
+        }
+    }
+
+    [[nodiscard]] std::any deserializeString(std::string_view data_str) {
+        // If escaping was applied during serialization, it would be undone here.
+        return std::string(data_str); // Direct conversion
+    }
+
+} // anonymous namespace
+
+std::string serializeParameter(const std::any& value)
+{
+    const std::type_info& type = value.type();
+
+    if (type == typeid(float)) {
+        return TYPE_FLOAT + std::string(":") + serializeFloat(std::any_cast<float>(value));
+    } else if (type == typeid(double)) {
+        return TYPE_DOUBLE + std::string(":") + serializeDouble(std::any_cast<double>(value));
+    } else if (type == typeid(int)) {
+        return TYPE_INT + std::string(":") + serializeInt(std::any_cast<int>(value));
+    } else if (type == typeid(bool)) {
+        return TYPE_BOOL + std::string(":") + serializeBool(std::any_cast<bool>(value));
+    } else if (type == typeid(std::string)) {
+        return TYPE_STRING + std::string(":") + serializeString(std::any_cast<std::string>(value));
+    }
+    // Add more types as needed...
+
+    spdlog::warn("OperationSerialization::serializeParameter: Unsupported type for serialization: {}", type.name());
+    return {};
+}
+
+std::any deserializeParameter(std::string_view value_str)
+{
+    if (value_str.empty()) {
+        spdlog::warn("OperationSerialization::deserializeParameter: Empty value string.");
+        return {};
+    }
+
+    size_t colon_pos = value_str.find(':');
+    if (colon_pos == std::string_view::npos) {
+        spdlog::warn("OperationSerialization::deserializeParameter: Invalid format, missing colon in: '{}'", value_str);
+        return {};
+    }
+
+    char type_tag = value_str[0];
+    std::string_view data_str = value_str.substr(colon_pos + 1);
+
+    if (data_str.empty()) {
+        spdlog::warn("OperationSerialization::deserializeParameter: Invalid format, empty data in: '{}'", value_str);
+        return {};
+    }
+
+    switch (type_tag) {
+        case TYPE_FLOAT:
+            return deserializeFloat(data_str);
+        case TYPE_DOUBLE:
+            return deserializeDouble(data_str);
+        case TYPE_INT:
+            return deserializeInt(data_str);
+        case TYPE_BOOL:
+            return deserializeBool(data_str);
+        case TYPE_STRING:
+            return deserializeString(data_str);
+        // Add more cases as needed...
+        default:
+            spdlog::warn("OperationSerialization::deserializeParameter: Unsupported type tag '{}' for value: '{}'", type_tag, value_str);
+            return {};
+    }
+}
+
+std::string serializeOperationParameters(const Operations::OperationDescriptor& descriptor)
+{
+    // This is a simple implementation concatenating serialized parameters.
+    // A more robust implementation might use a structured format (JSON, XML-like) or a map representation.
+    std::ostringstream oss;
+    for (const auto& [param_name, param_value] : descriptor.params) {
+        std::string serialized_val = serializeParameter(param_value);
+        if (!serialized_val.empty()) { // Only add if serialization was successful
+             oss << param_name << "=" << serialized_val << ";"; // Use a delimiter like '=' and ';'
+        } else {
+             spdlog::warn("OperationSerialization::serializeOperationParameters: Could not serialize parameter '{}' for operation '{}'. Skipping.", param_name, descriptor.name);
+        }
+    }
+    return oss.str();
+}
+
+bool deserializeOperationParameters(std::string_view params_str, Operations::OperationDescriptor& descriptor)
+{
+    // Clear existing parameters
+    descriptor.params.clear();
+
+    if (params_str.empty()) {
+        return true; // Nothing to deserialize, considered successful
+    }
+
+    // This is a simple parser for the format "name1=value1;name2=value2;"
+    std::istringstream iss(std::string(params_str)); // Convert string_view to string for istringstream
+    std::string param_entry;
+    while (std::getline(iss, param_entry, ';')) {
+        if (param_entry.empty()) continue;
+
+        size_t equals_pos = param_entry.find('=');
+        if (equals_pos == std::string::npos) {
+            spdlog::warn("OperationSerialization::deserializeOperationParameters: Invalid parameter entry format: '{}'", param_entry);
+            continue; // Skip malformed entry
+        }
+
+        std::string param_name = param_entry.substr(0, equals_pos);
+        std::string param_value_str = param_entry.substr(equals_pos + 1);
+
+        std::any deserialized_value = deserializeParameter(param_value_str);
+        if (deserialized_value.has_value()) {
+             descriptor.params[param_name] = deserialized_value;
+             spdlog::debug("OperationSerialization::deserializeOperationParameters: Parsed parameter '{}' with value (type {}) for operation: '{}'", param_name, deserialized_value.type().name(), descriptor.name);
+        } else {
+             spdlog::warn("OperationSerialization::deserializeOperationParameters: Could not parse parameter '{}' with value '{}' for operation '{}'. Skipping.", param_name, param_value_str, descriptor.name);
+        }
+    }
+
+    return true; // Parsing completed (success or with warnings)
+}
+
+} // namespace CaptureMoment::Core::Serializer::OperationSerialization
