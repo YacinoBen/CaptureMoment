@@ -21,6 +21,7 @@ set(CORE_SOURCES
 
     # Serializer
     src/serializer/provider/exiv2_initializer.cpp
+    src/serializer/strategy/appdata_xmp_path_strategy.cpp
     src/serializer/operation_serialization.cpp
     src/serializer/file_serializer_writer.cpp
     src/serializer/file_serializer_reader.cpp
