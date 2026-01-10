@@ -65,11 +65,11 @@ struct OperationDescriptor {
      * @brief Helper to get a parameter value safely.
      * @tparam T The expected type of the parameter.
      * @param key The parameter name.
-     * @param defaultValue Value to return if key is missing or type mismatch.
-     * @return The parameter value or defaultValue.
+     * @param default_value Value to return if key is missing or type mismatch.
+     * @return The parameter value or default_value.
      */
     template <typename T>
-    [[nodiscard]] T getParam(const std::string& key, const T& defaultValue) const {
+    [[nodiscard]] T getParam(const std::string& key, const T& default_value) const {
         auto it = params.find(key);
         if (it != params.end()) {
             try {
@@ -78,7 +78,7 @@ struct OperationDescriptor {
                 // Type mismatch, fallback to default
             }
         }
-        return defaultValue;
+        return default_value;
     }
 
     /**
@@ -92,7 +92,6 @@ struct OperationDescriptor {
         params[key] = value;
     }
 };
-
 
 } // namespace Operations
 
