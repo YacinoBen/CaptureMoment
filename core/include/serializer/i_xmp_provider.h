@@ -1,3 +1,10 @@
+/**
+ * @file i_xmp_provider.h
+ * @brief Declaration of IXmpProvider interface
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
 #pragma once
 
 #include <string>

@@ -1,3 +1,10 @@
+/**
+ * @file exiv2_provider.h
+ * @brief Declaration of Exiv2Provider class
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
 #pragma once
 
 #include "serializer/i_xmp_provider.h"

@@ -1,3 +1,10 @@
+/**
+ * @file exiv2_initializer.h
+ * @brief Declaration of Exiv2Initializer class
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
 #pragma once
 
 #include <mutex> // for std::once_flag
