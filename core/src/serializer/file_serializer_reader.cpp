@@ -1,12 +1,11 @@
 // core/src/serializer/file_serializer_reader.cpp
 #include "serializer/file_serializer_reader.h"
-#include "serializer/exiv2_initializer.h"
+#include "serializer/provider/exiv2_initializer.h"
 #include "serializer/operation_serialization.h"
 #include <spdlog/spdlog.h>
 #include <exiv2/exiv2.hpp>
 #include <stdexcept>
 #include <any>
-#include <typeinfo>
 #include <magic_enum/magic_enum.hpp>
 #include <unordered_map>
 

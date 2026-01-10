@@ -20,7 +20,7 @@ set(CORE_SOURCES
     src/operations/operation_registry.cpp
 
     # Serializer
-    src/serializer/exiv2_initializer.cpp
+    src/serializer/provider/exiv2_initializer.cpp
     src/serializer/operation_serialization.cpp
     src/serializer/file_serializer_writer.cpp
     src/serializer/file_serializer_reader.cpp

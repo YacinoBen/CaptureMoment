@@ -8,8 +8,8 @@
 #pragma once
 
 #include "serializer/i_file_serializer_reader.h"
-#include "serializer/i_xmp_provider.h"
-#include "serializer/i_xmp_path_strategy.h"
+#include "serializer/provider/i_xmp_provider.h"
+#include "serializer/strategy/i_xmp_path_strategy.h"
 #include <memory>
 #include <string>
 #include <vector>

@@ -6,7 +6,7 @@
  */
 
 #include "serializer/file_serializer_writer.h"
-#include "serializer/exiv2_initializer.h"
+#include "serializer/provider/exiv2_initializer.h"
 #include "serializer/operation_serialization.h"
 #include <spdlog/spdlog.h>
 #include <exiv2/exiv2.hpp>
