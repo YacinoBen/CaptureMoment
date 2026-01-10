@@ -26,7 +26,7 @@ public:
      * @param filePath The path to the file to read from.
      * @return The raw XMP packet string. An empty string if no XMP packet is found or an error occurs.
      */
-    [[nodiscard]] virtual std::string readXmp(std::string_view filePath) const = 0;
+    [[nodiscard]] virtual std::string readXmp(std::string_view file_path) const = 0;
 
     /**
      * @brief Writes the provided raw XMP packet data to the specified file.

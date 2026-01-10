@@ -28,7 +28,7 @@ public:
      * @param operations The span of OperationDescriptors to serialize.
      * @return true if the save operation was successful, false otherwise.
      */
-    [[nodiscard]] virtual bool saveToFile(std::string_view filePath, std::span<const Common::OperationDescriptor> operations) const = 0;
+    [[nodiscard]] virtual bool saveToFile(std::string_view file_path, std::span<const Common::OperationDescriptor> operations) const = 0;
 };
 
 } // namespace Serializer

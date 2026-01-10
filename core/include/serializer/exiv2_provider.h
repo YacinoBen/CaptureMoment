@@ -8,8 +8,7 @@
 #pragma once
 
 #include "serializer/i_xmp_provider.h"
-#include <string>
-
+#include <string_view>
 namespace CaptureMoment::Core {
 
 namespace Serializer {
@@ -39,7 +38,7 @@ public:
      * @param filePath The path to the file to read from.
      * @return The raw XMP packet string. An empty string if no XMP packet is found or an error occurs.
      */
-    [[nodiscard]] std::string readXmp(std::string_view filePath) const override;
+    [[nodiscard]] std::string readXmp(std::string_view file_path) const override;
 
     /**
      * @brief Writes the provided raw XMP packet data to the specified file using Exiv2.
@@ -48,7 +47,7 @@ public:
      * @param xmpData The raw XMP packet string to write.
      * @return true if the write operation was successful, false otherwise.
      */
-    [[nodiscard]] bool writeXmp(std::string_view filePath, std::string_view xmpData) const override;
+    [[nodiscard]] bool writeXmp(std::string_view file_path, std::string_view xmp_data) const override;
 };
 
 } // namespace Serializer
