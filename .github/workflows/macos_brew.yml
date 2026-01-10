@@ -43,6 +43,7 @@
             brew install spdlog
             brew install openimageio
             brew install halide 
+            brew install exiv2
 
             # Optional: Halide (if available in homebrew)
             # brew install halide
