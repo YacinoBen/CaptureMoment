@@ -19,6 +19,7 @@ brew install openimageio
 brew install halide
 brew install spdlog
 brew install exiv2
+brew install magic_enum
 brew install qt6
 ```
 

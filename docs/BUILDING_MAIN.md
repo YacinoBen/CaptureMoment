@@ -39,6 +39,8 @@ Before selecting your platform, ensure you have these tools:
 | Halide      | 17.0.0 or 18.0.0             | https://github.com/halide/Halide                         |
 | spdlog      | 1.16.0 or 1.12.0            | https://github.com/gabime/spdlog                         |
 | Exiv2         | 0.28.7| https://github.com/Exiv2/exiv2   
+| Magicmagic_enum       | 0.9.7| https://github.com/Neargye/magic_enum 
+
 | Qt6         | 6.9.3| https://doc.qt.io/qt-6/                                  |
 
 ---
