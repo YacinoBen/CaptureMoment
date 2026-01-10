@@ -48,8 +48,8 @@ constexpr char TYPE_STRING = 's';
 // Deserialization helpers
 [[nodiscard]] std::any deserializeFloat(std::string_view data_str)
 {
-    float val = 0.0f;
-    auto [ptr, ec] = std::from_chars(data_str.data(), data_str.data() + data_str.size(), val);
+    float val { 0.0f };
+    auto [ptr, ec] { std::from_chars(data_str.data(), data_str.data() + data_str.size(), val) };
     if (ec == std::errc() && ptr == data_str.data() + data_str.size()) { // Check full consumption
         return val;
     } else {
@@ -60,8 +60,8 @@ constexpr char TYPE_STRING = 's';
 
 [[nodiscard]] std::any deserializeDouble(std::string_view data_str)
 {
-    double val = 0.0;
-    auto [ptr, ec] = std::from_chars(data_str.data(), data_str.data() + data_str.size(), val);
+    double val { 0.0 };
+    auto [ptr, ec] { std::from_chars(data_str.data(), data_str.data() + data_str.size(), val) };
     if (ec == std::errc() && ptr == data_str.data() + data_str.size()) { // Check full consumption
         return val;
     } else {
@@ -72,8 +72,8 @@ constexpr char TYPE_STRING = 's';
 
 [[nodiscard]] std::any deserializeInt(std::string_view data_str)
 {
-    int val = 0;
-    auto [ptr, ec] = std::from_chars(data_str.data(), data_str.data() + data_str.size(), val);
+    int val {0} ;
+    auto [ptr, ec] { std::from_chars(data_str.data(), data_str.data() + data_str.size(), val) };
     if (ec == std::errc() && ptr == data_str.data() + data_str.size()) { // Check full consumption
         return val;
     } else {
@@ -103,7 +103,7 @@ constexpr char TYPE_STRING = 's';
 
 std::string serializeParameter(const std::any& value)
 {
-    const std::type_info& type = value.type();
+    const std::type_info& type { value.type() };
 
     if (type == typeid(float)) {
         return TYPE_FLOAT + std::string(":") + serializeFloat(std::any_cast<float>(value));
@@ -129,14 +129,14 @@ std::any deserializeParameter(std::string_view value_str)
         return {};
     }
 
-    size_t colon_pos = value_str.find(':');
+    size_t colon_pos { value_str.find(':') };
     if (colon_pos == std::string_view::npos) {
         spdlog::warn("OperationSerialization::deserializeParameter: Invalid format, missing colon in: '{}'", value_str);
         return {};
     }
 
-    char type_tag = value_str[0];
-    std::string_view data_str = value_str.substr(colon_pos + 1);
+    char type_tag { value_str[0] };
+    std::string_view data_str { value_str.substr(colon_pos + 1) };
 
     if (data_str.empty()) {
         spdlog::warn("OperationSerialization::deserializeParameter: Invalid format, empty data in: '{}'", value_str);
@@ -167,7 +167,7 @@ std::string serializeOperationParameters(const Operations::OperationDescriptor& 
     // A more robust implementation might use a structured format (JSON, XML-like) or a map representation.
     std::ostringstream oss;
     for (const auto& [param_name, param_value] : descriptor.params) {
-        std::string serialized_val = serializeParameter(param_value);
+        std::string serialized_val { serializeParameter(param_value) };
         if (!serialized_val.empty()) { // Only add if serialization was successful
             oss << param_name << "=" << serialized_val << ";"; // Use a delimiter like '=' and ';'
         } else {
@@ -188,9 +188,9 @@ bool deserializeOperationParameters(std::string_view params_str, Operations::Ope
 
     // This is a simple parser for the format "name1=value1;name2=value2;"
     // Use string_view operations to avoid std::istringstream and getline issues with MSVC
-    std::string_view remaining = params_str;
-    size_t start = 0;
-    size_t end = 0;
+    std::string_view remaining { params_str };
+    size_t start {0};
+    size_t end {0};
 
     while (start < remaining.size()) {
         // Find the end of the current entry (delimited by ';')
@@ -200,18 +200,18 @@ bool deserializeOperationParameters(std::string_view params_str, Operations::Ope
             end = remaining.size();
         }
 
-        std::string_view param_entry = remaining.substr(start, end - start);
+        std::string_view param_entry { remaining.substr(start, end - start) };
 
         if (!param_entry.empty()) { // Check if entry is not empty
             // Find the '=' delimiter within the entry
-            size_t equals_pos = param_entry.find('=');
+            size_t equals_pos { param_entry.find('=') };
             if (equals_pos != std::string_view::npos) {
-                std::string_view param_name_view = param_entry.substr(0, equals_pos);
-                std::string_view param_value_str_view = param_entry.substr(equals_pos + 1);
+                std::string_view param_name_view { param_entry.substr(0, equals_pos) };
+                std::string_view param_value_str_view { param_entry.substr(equals_pos + 1) };
 
                 // Convert string_views to strings for the map key and the deserialization function
-                std::string param_name(param_name_view);
-                std::string param_value_str(param_value_str_view);
+                std::string param_name{param_name_view};
+                std::string param_value_str{param_value_str_view};
 
                 std::any deserialized_value = deserializeParameter(param_value_str);
                 if (deserialized_value.has_value()) {

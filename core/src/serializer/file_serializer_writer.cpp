@@ -38,18 +38,18 @@ bool FileSerializerWriter::saveToFile(std::string_view source_image_path, std::s
     Exiv2Initializer::initialize();
 
     // Step 0: Determine the XMP file path using the injected strategy
-    std::string xmp_file_path = m_xmp_path_strategy->getXmpPathForImage(source_image_path);
+    std::string xmp_file_path { m_xmp_path_strategy->getXmpPathForImage(source_image_path) };
     spdlog::debug("FileSerializerWriter::saveToFile: Determined XMP file path: {}", xmp_file_path);
 
     // Step 1: Convert operations to XMP string, including the source image path metadata
-    std::string xmp_packet = serializeOperationsToXmp(operations, source_image_path);
+    std::string xmp_packet { serializeOperationsToXmp(operations, source_image_path) };
     if (xmp_packet.empty()) {
         spdlog::error("FileSerializerWriter::saveToFile: Failed to serialize operations to XMP for image: {}", source_image_path);
         return false;
     }
 
     // Step 2: Use the XMP provider to write the packet to the determined XMP file
-    bool write_success = m_xmp_provider->writeXmp(xmp_file_path, xmp_packet);
+    bool write_success { m_xmp_provider->writeXmp(xmp_file_path, xmp_packet) };
 
     if (write_success) {
         spdlog::info("FileSerializerWriter::saveToFile: Successfully saved operations to XMP file: {} for image: {}", xmp_file_path, source_image_path);
@@ -66,8 +66,8 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Opera
 
     // Example XMP structure (you would define your own schema)
     // Register a custom namespace for your application's operations
-    const std::string ns_uri = "https://github.com/YacinoBen/CaptureMoment/";
-    const std::string ns_prefix = "cm";
+    const std::string ns_uri { "https://github.com/YacinoBen/CaptureMoment/" };
+    const std::string ns_prefix { "cm" };
 
     // Exiv2 requires registering custom namespaces before using them
     // Note: This registration is usually global or done once per process, not per serialization call.
@@ -88,10 +88,10 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Opera
         {
             // 'index' is automatically a std::size_t (or similar unsigned integral type)
             // 'op' is a const reference to the current OperationDescriptor
-            std::string index_str = std::to_string(index + 1); // Start indexing from 1 for readability in XMP
+            std::string index_str { std::to_string(index + 1) }; // Start indexing from 1 for readability in XMP
 
             // Use magic_enum directly here
-            std::string_view type_name_view = magic_enum::enum_name(op.type);
+            std::string_view type_name_view { magic_enum::enum_name(op.type) };
             xmp_data["Xmp.cm.operation[" + index_str + "].type"] = type_name_view.data(); // .data() to get const char*
             xmp_data["Xmp.cm.operation[" + index_str + "].name"] = op.name.c_str();
             xmp_data["Xmp.cm.operation[" + index_str + "].enabled"] = op.enabled;
@@ -100,16 +100,15 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Opera
             for (const auto& [param_name, param_value] : op.params)
             {
                 // Use the dedicated OperationSerialization service
-                std::string serialized_param_value = OperationSerialization::serializeParameter(param_value);
+                std::string serialized_param_value { OperationSerialization::serializeParameter(param_value) };
                 if (!serialized_param_value.empty()) { // Only add if serialization was successful
-                     std::string xmp_param_key = "Xmp.cm.operation[" + index_str + "].param." + param_name;
+                     std::string xmp_param_key { "Xmp.cm.operation[" + index_str + "].param." + param_name };
                      xmp_data[xmp_param_key] = serialized_param_value.c_str(); // .c_str() for Exiv2
                 } else {
                      spdlog::warn("FileSerializerWriter::serializeOperationsToXmp: Could not serialize parameter '{}' for operation '{}' (index {}). Skipping.", param_name, op.name, index);
                 }
             }
         }
-
 
         // Serialize the XMP data container to a packet string
         std::string xmp_packet;
