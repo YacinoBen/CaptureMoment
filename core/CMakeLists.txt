@@ -21,6 +21,7 @@ set(CORE_SOURCES
 
     # Serializer
     src/serializer/exiv2_initializer.cpp
+    src/serializer/file_serializer_writer.cpp
 
     # List Operations base adjustment
     src/operations/basic_adjustment_operations/operation_brightness.cpp
