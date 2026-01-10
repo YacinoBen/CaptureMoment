@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include <string_view>
 #include <span>
-#include "operations/operation_descriptor.h"
+#include <string_view>
 
+#include "operations/operation_descriptor.h"
 namespace CaptureMoment::Core {
 
 namespace Serializer {
@@ -21,14 +21,15 @@ namespace Serializer {
 class IFileSerializerWriter {
 public:
     virtual ~IFileSerializerWriter() = default;
-    
+
     /**
      * @brief Saves the provided list of operations to a file in the target format (e.g., XMP).
-     * @param filePath The path to the file where the data should be saved.
+     * The target file path is determined by the injected IXmpPathStrategy based on the source image path.
+     * @param source_image_path The path to the source image file. Used by the path strategy to determine the target file location.
      * @param operations The span of OperationDescriptors to serialize.
      * @return true if the save operation was successful, false otherwise.
      */
-    [[nodiscard]] virtual bool saveToFile(std::string_view file_path, std::span<const Common::OperationDescriptor> operations) const = 0;
+    [[nodiscard]] virtual bool saveToFile(std::string_view source_image_path, std::span<const Common::OperationDescriptor> operations) const = 0;
 };
 
 } // namespace Serializer
