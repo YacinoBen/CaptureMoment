@@ -10,10 +10,8 @@
 #include "serializer/operation_serialization.h"
 #include <spdlog/spdlog.h>
 #include <exiv2/exiv2.hpp>
-#include <sstream>
 #include <stdexcept>
-#include <any> 
-#include <typeinfo>
+#include <ranges>
 #include <magic_enum/magic_enum.hpp>
 
 namespace CaptureMoment::Core::Serializer {
@@ -28,7 +26,7 @@ FileSerializerWriter::FileSerializerWriter(std::unique_ptr<IXmpProvider> xmp_pro
     spdlog::debug("FileSerializerWriter: Constructed with IXmpProvider and IXmpPathStrategy.");
 }
 
-bool FileSerializerWriter::saveToFile(std::string_view source_image_path, std::span<const Common::OperationDescriptor> operations) const
+bool FileSerializerWriter::saveToFile(std::string_view source_image_path, std::span<const Operations::OperationDescriptor> operations) const
 {
     if (source_image_path.empty()) {
          spdlog::error("FileSerializerWriter::saveToFile: Source image path is empty.");
@@ -62,7 +60,7 @@ bool FileSerializerWriter::saveToFile(std::string_view source_image_path, std::s
     return write_success;
 }
 
-std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Common::OperationDescriptor> operations, std::string_view source_image_path) const
+std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Operations::OperationDescriptor> operations, std::string_view source_image_path) const
 {
    spdlog::debug("FileSerializerWriter::serializeOperationsToXmp: Serializing {} operations for image: {}", operations.size(), source_image_path);
 
@@ -81,12 +79,13 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Commo
     try {
         // Add metadata about the serialization itself
         xmp_data["Xmp.cm.serializedBy"] = "CaptureMoment";
-        xmp_data["Xmp.cm.version"] = "1.0"; // Your app version
+        xmp_data["Xmp.cm.version"] = "1.0"; // App version
         // Include the source image path as a metadata field within the XMP
         xmp_data["Xmp.cm.sourceImagePath"] = source_image_path.data();
 
         // Iterate through operations with index using C++23 std::views::enumerate
-        for (auto [index, const& op] : std::views::enumerate(operations)) {
+        for (auto&& [index, op] : std::views::enumerate(operations))
+        {
             // 'index' is automatically a std::size_t (or similar unsigned integral type)
             // 'op' is a const reference to the current OperationDescriptor
             std::string index_str = std::to_string(index + 1); // Start indexing from 1 for readability in XMP
@@ -98,7 +97,8 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Commo
             xmp_data["Xmp.cm.operation[" + index_str + "].enabled"] = op.enabled;
 
             // Iterate through the generic parameters map using range-for
-            for (const auto& [param_name, param_value] : op.params) {
+            for (const auto& [param_name, param_value] : op.params)
+            {
                 // Use the dedicated OperationSerialization service
                 std::string serialized_param_value = OperationSerialization::serializeParameter(param_value);
                 if (!serialized_param_value.empty()) { // Only add if serialization was successful

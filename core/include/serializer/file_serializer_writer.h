@@ -69,7 +69,7 @@ private:
      * @param source_image_path The path of the source image, to be included in the XMP metadata.
      * @return A string representing the XMP packet, or an empty string on failure.
      */
-    [[nodiscard]] std::string serializeOperationsToXmp(std::span<const Common::OperationDescriptor> operations, std::string_view source_image_path) const;
+    [[nodiscard]] std::string serializeOperationsToXmp(std::span<const Operations::OperationDescriptor> operations, std::string_view source_image_path) const;
 };
 
 } // namespace Serializer
