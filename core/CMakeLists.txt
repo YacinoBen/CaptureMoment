@@ -19,6 +19,9 @@ set(CORE_SOURCES
     src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
 
+    # Serializer
+    src/serializer/exiv2_initializer.cpp
+
     # List Operations base adjustment
     src/operations/basic_adjustment_operations/operation_brightness.cpp
     src/operations/basic_adjustment_operations/operation_constrast.cpp
