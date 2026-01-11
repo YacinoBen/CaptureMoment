@@ -89,7 +89,39 @@ This pattern remains crucial for creating operation instances within the process
 
 ---
 
-## 6. Namespace Organization
+## 6. Serialization and Persistence: Interfaces and Strategies
+
+The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed with interfaces and strategies to allow for different storage locations and XMP handling libraries.
+
+### Components
+
+* **`CaptureMoment::Core::Serializer::IXmpProvider`:** An interface abstracting the low-level XMP packet read/write operations. This allows switching between different XMP libraries (e.g., Exiv2, Adobe XMP Toolkit) without changing dependent code.
+  * **Implementation (`Exiv2Provider`):** A concrete implementation using the Exiv2 library to interact with XMP packets within image files.
+
+* **`CaptureMoment::Core::Serializer::IXmpPathStrategy`:** An interface defining how to determine the file path for the XMP data associated with a given image path. This allows for different storage strategies (sidecar files, AppData directory, configurable path).
+  * **Implementations (`SidecarXmpPathStrategy`, `AppDataXmpPathStrategy`, `ConfigurableXmpPathStrategy`):** Concrete implementations of the path strategy interface, each defining its own logic for mapping an image path to an XMP file path.
+
+* **`CaptureMoment::Core::Serializer::IFileSerializerWriter` & `CaptureMoment::Core::Serializer::IFileSerializerReader`:** Interfaces for writing and reading operation data to/from a file format (currently XMP). They depend on `IXmpProvider` and `IXmpPathStrategy`.
+  * **Implementations (`FileSerializerWriter`, `FileSerializerReader`):** Concrete implementations that use the injected provider and strategy to perform the actual serialization/deserialization of `OperationDescriptor` lists to/from XMP packets.
+
+* **`CaptureMoment::Core::Serializer::FileSerializerManager`:** A high-level manager that orchestrates the `IFileSerializerWriter` and `IFileSerializerReader`. It provides a unified interface (`saveToFile`, `loadFromFile`) for `PhotoEngine` to use.
+
+* **`CaptureMoment::Core::Serializer::OperationSerialization`:** A namespace containing utility functions (`serializeParameter`, `deserializeParameter`) for converting `std::any` parameter values within `OperationDescriptor` to/from string representations suitable for storage in XMP metadata, preserving type information.
+
+* **Integration in `PhotoEngine`:** `PhotoEngine` now holds a `FileSerializerManager` and uses it to save (`saveOperationsToFile`) and load (`loadOperationsFromFile`) the list of active operations managed by `StateImageManager`. `StateImageManager` provides the necessary methods (`getActiveOperations`, `getOriginalImageSourcePath`) to support this integration.
+
+* **`CaptureMoment::Core::Serializer::Exiv2Initializer`:** A utility class ensuring the Exiv2 library is initialized before any operations are performed.
+
+### Benefits
+
+* **Flexibility:** The system supports different XMP storage locations (sidecar, AppData, custom) and potentially different XMP libraries in the future.
+* **Decoupling:** `PhotoEngine` and `StateImageManager` are decoupled from the specifics of XMP handling and path generation.
+* **Persistence:** User adjustments are saved and restored, providing a non-destructive workflow.
+
+* [🟦 **SEE SERIALIZER.md**](SERIALIZER.md).
+---
+
+## 7. Namespace Organization
 
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 
@@ -98,6 +130,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 * **`CaptureMoment::Core::Managers`:** Contains managers responsible for resource handling, such as `ISourceManager` and `SourceManager`.
 * **`CaptureMoment::Core::Domain`:** Contains domain-specific interfaces, such as `IProcessingTask` and `IProcessingBackend`.
 * **`CaptureMoment::Core::Engine`:** Contains the core application logic orchestrators, such as `PhotoTask` and `PhotoEngine`.
+* **`CaptureMoment::Core::Serializer`:** Contains serialization-related interfaces, implementations, and utilities (e.g., `IXmpProvider`, `FileSerializerWriter`, `OperationSerialization`).
 
 This organization clarifies the role of each component and prevents naming collisions.
 
