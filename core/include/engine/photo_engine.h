@@ -8,6 +8,7 @@
 #pragma once
 
 #include "managers/source_manager.h"
+#include "serializer/file_serializer_manager.h"
 #include "operations/operation_factory.h"
 #include "operations/operation_pipeline.h"
 #include "managers/state_image_manager.h"
@@ -29,6 +30,7 @@ namespace Engine {
  * The PhotoEngine acts as the main interface between the UI layer (Qt) and the core
  * image processing logic. It delegates the management of the cumulative image processing state
  * (the sequence of applied operations and the resulting image) to StateImageManager.
+ *  It also manages the persistence of operations via FileSerializerManager.
  */
 class PhotoEngine
 {
@@ -52,6 +54,11 @@ private:
      */
     std::unique_ptr<Managers::StateImageManager> m_state_manager;
 
+    /**
+     * @brief Unique pointer to the manager responsible for file-based serialization/deserialization of operations.
+     */
+    std::unique_ptr<Serializer::FileSerializerManager> m_serializer_manager;
+
 public:
     /**
      * @brief Constructs a PhotoEngine instance.
@@ -61,11 +68,13 @@ public:
      * @param[in] source_manager A shared pointer to the SourceManager instance.
      * @param[in] operation_factory A shared pointer to the OperationFactory instance.
      * @param[in] operation_pipeline A shared pointer to the OperationPipeline instance.
+     * @param[in] serializer_manager A unique pointer to the FileSerializerManager instance.
      */
     PhotoEngine(
         std::shared_ptr<Managers::SourceManager> source_manager,
         std::shared_ptr<Operations::OperationFactory> operation_factory,
-        std::shared_ptr<Operations::OperationPipeline> operation_pipeline
+        std::shared_ptr<Operations::OperationPipeline> operation_pipeline,
+        std::unique_ptr<Serializer::FileSerializerManager> serializer_manager
         );
 
     /**
@@ -89,6 +98,22 @@ public:
      * @return true if the working image was successfully committed to the source manager, false otherwise.
      */
     [[nodiscard]] bool commitWorkingImageToSource();
+
+
+    /**
+     * @brief Saves the current list of active operations to a file associated with the loaded image.
+     * Uses the injected FileSerializerManager to perform the save operation.
+     * @return true if the save operation was successful, false otherwise.
+     */
+    [[nodiscard]] bool saveOperationsToFile();
+
+    /**
+     * @brief Loads a list of operations from a file associated with the loaded image and applies them.
+     * Uses the injected FileSerializerManager to perform the load operation.
+     * This will overwrite any current active operations in StateImageManager.
+     * @return true if the load and application of operations was successful, false otherwise.
+     */
+    [[nodiscard]] bool loadOperationsFromFile();
 
     /**
      * @brief Resets the working image to the original image loaded from the source manager.

@@ -16,12 +16,19 @@ namespace CaptureMoment::Core::Engine {
 PhotoEngine::PhotoEngine(
     std::shared_ptr<Managers::SourceManager> source_manager,
     std::shared_ptr<Operations::OperationFactory> operation_factory,
-    std::shared_ptr<Operations::OperationPipeline> operation_pipeline
+    std::shared_ptr<Operations::OperationPipeline> operation_pipeline,
+    std::unique_ptr<Serializer::FileSerializerManager> serializer_manager
     )
     : m_source_manager{std::move(source_manager)}
     , m_operation_factory{std::move(operation_factory)}
     , m_operation_pipeline{std::move(operation_pipeline)}
+    , m_serializer_manager{std::move(serializer_manager)}
 {
+    if (!m_serializer_manager) {
+        spdlog::error("PhotoEngine: Constructor received a null FileSerializerManager.");
+        throw std::invalid_argument("PhotoEngine: FileSerializerManager cannot be null.");
+    }
+
     m_state_manager = std::make_unique<Managers::StateImageManager>(
         m_source_manager,
         m_operation_pipeline,
@@ -93,6 +100,83 @@ void PhotoEngine::resetWorkingImage()
         spdlog::warn("PhotoEngine::resetWorkingImage: StateImageManager::resetToOriginal failed or was ignored.");
         // Depending on desired behavior, could return or throw here if critical.
     }
+}
+bool PhotoEngine::saveOperationsToFile() {
+    if (!m_serializer_manager || !m_state_manager) {
+        spdlog::error("PhotoEngine::saveOperationsToFile: SerializerManager or StateImageManager is null.");
+        return false;
+    }
+
+    std::string current_image_path = m_state_manager->getOriginalImageSourcePath();
+    if (current_image_path.empty()) {
+        spdlog::error("PhotoEngine::saveOperationsToFile: Original image path is not set.");
+        return false;
+    }
+
+    // Get the list of active operations from StateImageManager
+    std::vector<Operations::OperationDescriptor> active_ops = m_state_manager->getActiveOperations();
+
+    spdlog::debug("PhotoEngine::saveOperationsToFile: Attempting to save {} operations for image: {}", active_ops.size(), current_image_path);
+
+    bool save_success = m_serializer_manager->saveToFile(current_image_path, active_ops);
+
+    if (save_success) {
+        spdlog::info("PhotoEngine::saveOperationsToFile: Successfully saved {} operations to file for image: {}", active_ops.size(), current_image_path);
+    } else {
+        spdlog::error("PhotoEngine::saveOperationsToFile: Failed to save operations to file for image: {}", current_image_path);
+    }
+
+    return save_success;
+}
+
+bool PhotoEngine::loadOperationsFromFile() {
+    if (!m_serializer_manager || !m_state_manager) {
+        spdlog::error("PhotoEngine::loadOperationsFromFile: SerializerManager or StateImageManager is null.");
+        return false;
+    }
+
+    std::string current_image_path = m_state_manager->getOriginalImageSourcePath();
+    if (current_image_path.empty()) {
+        spdlog::error("PhotoEngine::loadOperationsFromFile: Original image path is not set.");
+        return false;
+    }
+
+    spdlog::debug("PhotoEngine::loadOperationsFromFile: Attempting to load operations for image: {}", current_image_path);
+
+    std::vector<Operations::OperationDescriptor> loaded_ops = m_serializer_manager->loadFromFile(current_image_path);
+
+    if (loaded_ops.empty()) {
+        spdlog::info("PhotoEngine::loadOperationsFromFile: No operations loaded from file for image: {} (file might not exist or be empty)", current_image_path);
+        // This can be normal. Do nothing further here.
+        return true; // Considered a success if the file does not exist or is empty
+    }
+
+    // Apply the loaded operations to StateImageManager
+    // This likely requires resetting the state and applying the operations sequentially.
+    if (!m_state_manager->resetToOriginal()) {
+        spdlog::warn("PhotoEngine::loadOperationsFromFile: StateImageManager::resetToOriginal failed or was ignored before applying loaded ops.");
+        // Continue anyway, but the state might be unpredictable.
+    }
+
+    for (const auto& op : loaded_ops) {
+        if (!m_state_manager->addOperation(op)) {
+            spdlog::warn("PhotoEngine::loadOperationsFromFile: StateImageManager::addOperation failed for operation '{}' during load.", op.name);
+            // Continue with the other operations.
+        }
+    }
+
+    // Request an update of the working image
+    auto update_future = m_state_manager->requestUpdate();
+    bool update_success = update_future.get();
+    if (!update_success) {
+        spdlog::error("PhotoEngine::loadOperationsFromFile: StateImageManager::requestUpdate reported failure after applying loaded ops.");
+        return false; // Considered a global failure if the update fails
+    } else {
+        spdlog::debug("PhotoEngine::loadOperationsFromFile: StateImageManager::requestUpdate completed successfully after applying loaded ops.");
+    }
+
+    spdlog::info("PhotoEngine::loadOperationsFromFile: Successfully loaded and applied {} operations from file for image: {}", loaded_ops.size(), current_image_path);
+    return true;
 }
 
 // Gets the width of the currently loaded image via SourceManager.
