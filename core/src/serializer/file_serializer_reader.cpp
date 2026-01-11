@@ -1,4 +1,10 @@
-// core/src/serializer/file_serializer_reader.cpp
+/**
+ * @file file_serializer_reader.cpp
+ * @brief Implementation of FileSerializerReader
+ * @author CaptureMoment Team
+ * @date 2025
+ */
+
 #include "serializer/file_serializer_reader.h"
 #include "serializer/provider/exiv2_initializer.h"
 #include "serializer/operation_serialization.h"
