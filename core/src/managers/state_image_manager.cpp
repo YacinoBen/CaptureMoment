@@ -196,4 +196,16 @@ bool StateImageManager::performUpdate(
     return success;
 }
 
+std::string StateImageManager::getOriginalImageSourcePath() const
+{
+    std::lock_guard lock(m_mutex);
+    return m_original_image_path;
+}
+
+std::vector<Operations::OperationDescriptor> StateImageManager::getActiveOperations() const
+{
+    std::lock_guard lock(m_mutex);
+    return m_active_operations;
+}
+
 } // namespace CaptureMoment::Core::Managers
