@@ -23,6 +23,7 @@ set(CORE_SOURCES
     src/serializer/provider/exiv2_initializer.cpp
     src/serializer/strategy/appdata_xmp_path_strategy.cpp
     src/serializer/strategy/configurable_xmp_path_strategy.cpp
+    src/serializer/strategy/sidecar_xmp_path_strategy.cpp
 
     src/serializer/operation_serialization.cpp
     src/serializer/file_serializer_writer.cpp
