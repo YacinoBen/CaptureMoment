@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "serializer/i_xmp_provider.h"
+#include "serializer/provider/i_xmp_provider.h"
 #include <string_view>
 namespace CaptureMoment::Core {
 

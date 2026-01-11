@@ -5,7 +5,7 @@
  * @date 2025
  */
 
-#include "serializer/exiv2_initializer.h"
+#include "serializer/provider/exiv2_initializer.h"
 #include <exiv2/exiv2.hpp>
 #include <spdlog/spdlog.h>
 
