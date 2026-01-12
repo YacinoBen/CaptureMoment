@@ -65,9 +65,10 @@ endif()
 # Link dependencies (already verified by root CMakeLists via PackageHelpers)
 # If we reach here, packages are guaranteed to exist
 target_link_libraries(capturemoment_core PUBLIC
-    spdlog::spdlog
     OpenImageIO::OpenImageIO
     Halide::Halide
+    spdlog::spdlog
+    Exiv2::exiv2lib
 )
 
 # Include directories

@@ -12,6 +12,9 @@ function(find_required_packages)
     
     # Halide (mandatory)
     find_halide_package()
+
+    # Exiv2 (mandatory for serialization)
+    find_exiv2_package()
     
     # Qt6 will be searched by the sub-projects ui/desktop, ui/mobile
 
@@ -111,6 +114,29 @@ function(warn_halide_requirements)
     message(STATUS "║    → Or download prebuilt from GitHub Releases             ║")
     message(STATUS "╚════════════════════════════════════════════════════════════╝")
     message(STATUS "")
+endfunction()
+
+# ============================================================
+# Find Exiv2
+# ============================================================
+function(find_exiv2_package)
+    message(STATUS "Searching for Exiv2...")
+
+    # Attempt CONFIG (This looks for exiv2-config.cmake or Exiv2Config.cmake)
+    # It will look in standard locations and also in CMAKE_PREFIX_PATH
+    # The documentation suggests using NAMES exiv2
+    find_package(exiv2 CONFIG REQUIRED NAMES exiv2)
+
+    # The imported target name according to the documentation is Exiv2::exiv2lib
+    if(TARGET Exiv2::exiv2lib)
+        message(STATUS "Exiv2 found: ${exiv2_DIR} (version: ${exiv2_VERSION}) - Target: Exiv2::exiv2lib")
+        set(Exiv2_FOUND TRUE PARENT_SCOPE)
+        set(exiv2_VERSION "${exiv2_VERSION}" PARENT_SCOPE)
+        set(Exiv2_IMPORTED_TARGET Exiv2::exiv2lib PARENT_SCOPE)
+    else()
+        message(FATAL_ERROR "Exiv2 found but target Exiv2::exiv2lib is not available. Check installation.")
+    endif()
+
 endfunction()
 
 # ============================================================
