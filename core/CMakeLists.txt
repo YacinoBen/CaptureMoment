@@ -69,6 +69,7 @@ target_link_libraries(capturemoment_core PUBLIC
     Halide::Halide
     spdlog::spdlog
     Exiv2::exiv2lib
+    magic_enum::magic_enum 
 )
 
 # Include directories

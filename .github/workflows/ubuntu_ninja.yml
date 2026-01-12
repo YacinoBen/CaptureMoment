@@ -44,7 +44,6 @@ jobs:
           sudo apt install -y build-essential
 
           sudo apt install -y libspdlog-dev 
-          sudo apt install -y libmagicenum-dev
           
           sudo apt install -y libcurl4-openssl-dev
           sudo apt install -y libxkbcommon-dev
@@ -71,7 +70,18 @@ jobs:
           target: 'desktop'
           host: 'linux'
           modules: 'qtshadertools'
-      
+      # ====================================================================
+      # Install magic_enum v0.9.7 (header-only) from source
+      # ====================================================================
+      - name: Install magic_enum v0.9.7 (header-only)
+        run: |
+         git clone https://github.com/Neargye/magic_enum.git /tmp/magic_enum
+         cd /tmp/magic_enum
+         git checkout v0.9.7
+         sudo mkdir -p /usr/local/include/magic_enum
+         sudo cp include/magic_enum/*.hpp /usr/local/include/magic_enum/
+        shell: bash
+
       # ====================================================================
       # Build and Install Exiv2 0.28.7 from source
       # ====================================================================

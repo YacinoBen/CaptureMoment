@@ -15,6 +15,9 @@ function(find_required_packages)
 
     # Exiv2 (mandatory for serialization)
     find_exiv2_package()
+
+    # magic_enum (mandatory)
+    find_magic_enum_package()
     
     # Qt6 will be searched by the sub-projects ui/desktop, ui/mobile
 
@@ -117,6 +120,56 @@ function(warn_halide_requirements)
 endfunction()
 
 # ============================================================
+# Find magic_enum
+# ============================================================
+# ============================================================
+# Find magic_enum
+# ============================================================
+function(find_magic_enum_package)
+    message(STATUS "Searching for magic_enum...")
+
+    # Attempt CONFIG first (expects magic_enum-config.cmake from vcpkg, Conan, etc.)
+    find_package(magic_enum CONFIG QUIET)
+
+    if(NOT magic_enum_FOUND)
+        message(STATUS "magic_enum not found via CONFIG, trying MODULE...")
+        # Attempt MODULE (expects Findmagic_enum.cmake or checks standard paths)
+        find_package(magic_enum MODULE QUIET)
+    endif()
+
+    # If still not found, or if magic_enum is header-only without CMake config, try manual search
+    if(NOT magic_enum_FOUND)
+        message(STATUS "magic_enum not found via CONFIG/MODULE. Attempting manual search for header-only...")
+        find_path(MAGIC_ENUM_INCLUDE_DIR
+            NAMES magic_enum/magic_enum.hpp # The main header file we are looking for
+            PATHS /usr/local/include       # Standard location after manual install (e.g., GitHub Actions step)
+                  /usr/include             # Standard system location (e.g., after apt install if headers were there)
+                  # Add other potential standard paths if needed
+        )
+
+        if(MAGIC_ENUM_INCLUDE_DIR)
+            # Create an INTERFACE imported target for header-only library
+            add_library(magic_enum::magic_enum INTERFACE IMPORTED)
+            target_include_directories(magic_enum::magic_enum INTERFACE ${MAGIC_ENUM_INCLUDE_DIR})
+            set(magic_enum_FOUND TRUE)
+            message(STATUS "magic_enum found manually: ${MAGIC_ENUM_INCLUDE_DIR}")
+        else()
+             message(FATAL_ERROR "magic_enum not found via CONFIG, MODULE, or manual search. Check installation.")
+        endif()
+    endif()
+
+    if(magic_enum_FOUND)
+        message(STATUS "magic_enum found and target magic_enum::magic_enum created/configured.")
+        # Export the FOUND status to the parent scope
+        set(magic_enum_FOUND TRUE PARENT_SCOPE)
+        # No need to export the target name if using it explicitly in target_link_libraries
+        # The target magic_enum::magic_enum should be available now
+    else()
+        message(FATAL_ERROR "magic_enum not found. Please ensure it is installed (e.g., via vcpkg, apt install libmagicenum-dev, or manual install).")
+    endif()
+endfunction()
+
+# ============================================================
 # Find Exiv2
 # ============================================================
 function(find_exiv2_package)
@@ -132,7 +185,6 @@ function(find_exiv2_package)
         message(STATUS "Exiv2 found: ${exiv2_DIR} (version: ${exiv2_VERSION}) - Target: Exiv2::exiv2lib")
         set(Exiv2_FOUND TRUE PARENT_SCOPE)
         set(exiv2_VERSION "${exiv2_VERSION}" PARENT_SCOPE)
-        set(Exiv2_IMPORTED_TARGET Exiv2::exiv2lib PARENT_SCOPE)
     else()
         message(FATAL_ERROR "Exiv2 found but target Exiv2::exiv2lib is not available. Check installation.")
     endif()
@@ -164,6 +216,25 @@ function(summarize_found_packages)
     else()
         message(STATUS "║ Halide : Not Found")
     endif()
+
+        if(Halide_FOUND)
+        message(STATUS "║ Halide : ${Halide_VERSION}")
+    else()
+        message(STATUS "║ Halide : Not Found")
+    endif()
+
+    if(Exiv2_FOUND)
+        message(STATUS "║ Exiv2 : ${exiv2_VERSION}")
+    else()
+        message(STATUS "║ Exiv2 : Not Found")
+    endif()
+
+    if(magic_enum_FOUND)
+        message(STATUS "║ magic_enum : ${magic_enum_VERSION}")
+    else()
+        message(STATUS "║ magic_enum : Not Found")
+    endif()
+
     message(STATUS "╚════════════════════════════════════════════════════════════╝")
     message(STATUS "")
 endfunction()
