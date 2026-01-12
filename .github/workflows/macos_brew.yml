@@ -64,6 +64,16 @@
            modules: 'qtshadertools'
 
         # ====================================================================
+        # Verify Clang C++23 Support
+        # ====================================================================
+        - name: Verify Clang C++23 Support
+          run: |
+            clang++ --version
+            echo "Checking C++23 support..."
+            clang++ -std=c++23 -x c++ -E - <<< '#include <version>' && echo "C++23 supported" || echo "C++23 not supported"
+          shell: bash
+
+        # ====================================================================
         # Configure cmake environment
         # ====================================================================
         - name: Configure CMake
