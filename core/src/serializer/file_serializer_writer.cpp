@@ -83,12 +83,11 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Opera
         // Include the source image path as a metadata field within the XMP
         xmp_data["Xmp.cm.sourceImagePath"] = source_image_path.data();
 
-        // Iterate through operations with index using C++23 std::views::enumerate
-        for (auto&& [index, op] : std::views::enumerate(operations))
-        {
-            // 'index' is automatically a std::size_t (or similar unsigned integral type)
-            // 'op' is a const reference to the current OperationDescriptor
-            std::string index_str { std::to_string(index + 1) }; // Start indexing from 1 for readability in XMP
+
+        // Iterate through operations with index using a classic loop (C++20 compatible)
+        for (size_t i = 0; i < operations.size(); ++i) {
+            const auto& op = operations[i]; // 'op' is a const reference to the current OperationDescriptor
+            std::string index_str { std::to_string(i + 1) }; // Start indexing from 1 for readability in XMP
 
             // Use magic_enum directly here
             std::string_view type_name_view { magic_enum::enum_name(op.type) };
@@ -102,10 +101,10 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Opera
                 // Use the dedicated OperationSerialization service
                 std::string serialized_param_value { OperationSerialization::serializeParameter(param_value) };
                 if (!serialized_param_value.empty()) { // Only add if serialization was successful
-                     std::string xmp_param_key { "Xmp.cm.operation[" + index_str + "].param." + param_name };
-                     xmp_data[xmp_param_key] = serialized_param_value.c_str(); // .c_str() for Exiv2
+                    std::string xmp_param_key { "Xmp.cm.operation[" + index_str + "].param." + param_name };
+                    xmp_data[xmp_param_key] = serialized_param_value.c_str(); // .c_str() for Exiv2
                 } else {
-                     spdlog::warn("FileSerializerWriter::serializeOperationsToXmp: Could not serialize parameter '{}' for operation '{}' (index {}). Skipping.", param_name, op.name, index);
+                    spdlog::warn("FileSerializerWriter::serializeOperationsToXmp: Could not serialize parameter '{}' for operation '{}' (index {}). Skipping.", param_name, op.name, i);
                 }
             }
         }
