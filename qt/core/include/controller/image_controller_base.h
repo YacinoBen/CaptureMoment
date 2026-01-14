@@ -10,6 +10,7 @@
 #include <QObject>
 #include <memory>
 #include <QThread>
+#include <QUrl>
 
 #include "engine/photo_engine.h"
 #include "models/operations/i_operation_model.h"
@@ -119,6 +120,13 @@ public:
      * @param operations Vector of operation descriptors to apply.
      */
     void doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations);
+
+    /**
+     * @brief Loads an image from a QUrl (typically from QML FileDialog).
+     * Converts the QUrl to a native file path and initiates the loading process.
+     * @param file_url The QUrl representing the image file path.
+     */
+    Q_INVOKABLE void loadImageFromUrl(const QUrl& file_url);
 
 private :
     /**
