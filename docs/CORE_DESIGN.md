@@ -106,7 +106,7 @@ The core library includes a flexible system for saving and loading the state of 
 
 * **`CaptureMoment::Core::Serializer::FileSerializerManager`:** A high-level manager that orchestrates the `IFileSerializerWriter` and `IFileSerializerReader`. It provides a unified interface (`saveToFile`, `loadFromFile`) for **external UI/QML layers** to use, not directly managed by `PhotoEngine`.
 
-* **`CaptureMoment::Core::Serializer::OperationSerialization`:** A namespace containing utility functions (`serializeParameter`, `deserializeParameter`) for converting `std::any` parameter values within `OperationDescriptor` to/from string representations suitable for storage in XMP metadata, preserving type information.
+* **`CaptureMoment::Core::Serializer::OperationSerialization`:** A namespace containing utility functions (`serializeParameter`, `deserializeParameter`) for converting `std::any` parameter values within `OperationDescriptor` to/from string representations suitable for storage in XMP metadata, preserving type information. This module relies on **generic conversion utilities** from the `CaptureMoment::Core::utils` namespace.
 
 * **`CaptureMoment::Core::Serializer::Exiv2Initializer`:** A utility class ensuring the Exiv2 library is initialized before any operations are performed.
 
@@ -120,7 +120,20 @@ The core library includes a flexible system for saving and loading the state of 
 * [🟦 **SEE SERIALIZER.md**](SERIALIZER.md).
 ---
 
-## 7. Namespace Organization
+## 7. Utility Modules and Generic Conversion
+
+Generic utility functions, such as string conversion, are centralized to promote reusability and reduce code duplication across the core library.
+
+### `CaptureMoment::Core::utils::toString`
+
+* **Purpose:** Provides a generic mechanism for converting primitive types (e.g., `int`, `float`, `double`, `bool`) and `std::string` to their string representation.
+* **Implementation:** Utilizes C++20 Concepts (`ToStringablePrimitive`) to constrain the template and ensure type safety. The core logic relies on `std::to_string` for numeric types and specific logic for `bool` and `std::string`.
+* **Location:** Implemented in `utils/to_string_utils.h`, placed directly in the `utils` folder without subdirectories for conversion or other purposes.
+* **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
+
+---
+
+## 8. Namespace Organization
 
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 
@@ -130,6 +143,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 * **`CaptureMoment::Core::Domain`:** Contains domain-specific interfaces, such as `IProcessingTask` and `IProcessingBackend`.
 * **`CaptureMoment::Core::Engine`:** Contains the core application logic orchestrators, such as `PhotoTask` and `PhotoEngine`.
 * **`CaptureMoment::Core::Serializer`:** Contains serialization-related interfaces, implementations, and utilities (e.g., `IXmpProvider`, `FileSerializerWriter`, `OperationSerialization`).
+* **`CaptureMoment::Core::utils`:** Contains generic utility functions, such as `toString`.
 
 This organization clarifies the role of each component and prevents naming collisions.
 
@@ -137,3 +151,4 @@ This organization clarifies the role of each component and prevents naming colli
 
 ## Operations
 * [🟦 **Operations**](OPERATIONS.md).
+  
