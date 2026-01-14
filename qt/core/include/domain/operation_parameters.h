@@ -36,14 +36,7 @@ namespace CaptureMoment::UI {
              * A value of 0.0 often represents no change.
              */
             float value {0.0f};
-            /**
-             * @brief The minimum allowed value for the adjustment.
-             */
-            static constexpr float MIN_VALUE {-1.0f};
-            /**
-             * @brief The maximum allowed value for the adjustment.
-             */
-            static constexpr float MAX_VALUE {1.0f};
+
             /**
              * @brief Optional identifier for the specific operation instance.
              */
@@ -59,15 +52,6 @@ namespace CaptureMoment::UI {
              */
             bool isActive() const {
                 return std::abs(value) > 0.0001f; // Tolerance for floating-point comparison
-            }
-
-            /**
-             * @brief Clamps the value to the valid range [MIN_VALUE, MAX_VALUE].
-             * 
-             * This function ensures the value stays within the defined limits.
-             */
-            void clampValue() {
-                value = std::clamp(value, MIN_VALUE, MAX_VALUE);
             }
         };
 
@@ -86,14 +70,7 @@ namespace CaptureMoment::UI {
              * A value of 0.0 often represents no effect.
              */
             float value {0.0f};
-            /**
-             * @brief The minimum allowed value (usually 0.0).
-             */
-            static constexpr float MIN_VALUE {0.0f};
-            /**
-             * @brief The maximum allowed value.
-             */
-            static constexpr float MAX_VALUE {100.0f}; // Adjust according to plausible maximum
+
             /**
              * @brief Optional identifier for the specific operation instance.
              */
@@ -109,15 +86,6 @@ namespace CaptureMoment::UI {
              */
             bool isActive() const {
                 return value > 0.0001f; // Tolerance for positive floating-point comparison
-            }
-
-             /**
-             * @brief Clamps the value to the valid range [MIN_VALUE, MAX_VALUE].
-             * 
-             * This function ensures the value stays within the defined limits.
-             */
-            void clampValue() {
-                value = std::clamp(value, MIN_VALUE, MAX_VALUE);
             }
         };
 
@@ -135,14 +103,7 @@ namespace CaptureMoment::UI {
              * A value of 0.0 represents no rotation.
              */
             float degrees {0.0f};
-            /**
-             * @brief The minimum allowed angle value.
-             */
-            static constexpr float MIN_VALUE {-360.0f};
-            /**
-             * @brief The maximum allowed angle value.
-             */
-            static constexpr float MAX_VALUE {360.0f};
+
             /**
              * @brief Optional identifier for the specific operation instance.
              */
@@ -158,15 +119,6 @@ namespace CaptureMoment::UI {
              */
             bool isActive() const {
                 return std::abs(degrees) > 0.0001f; // Tolerance for floating-point comparison
-            }
-
-             /**
-             * @brief Clamps the value to the valid range [MIN_VALUE, MAX_VALUE].
-             * 
-             * This function ensures the value stays within the defined limits.
-             */
-            void clampValue() {
-                degrees = std::clamp(degrees, MIN_VALUE, MAX_VALUE);
             }
         };
 
@@ -240,7 +192,7 @@ namespace CaptureMoment::UI {
             int min_index {0};
             /**
              * @brief The maximum allowed index value.
-             * 
+             *
              * This should be set appropriately based on the number of available options
              * (e.g., number of color profiles - 1).
              */
@@ -252,11 +204,11 @@ namespace CaptureMoment::UI {
 
             /**
              * @brief Checks if the index parameter indicates an active operation.
-             * 
+             *
              * An operation is considered active if the index is strictly greater than
              * minIndex and less than or equal to maxIndex. This assumes index 0 (or minIndex)
              * might represent an inactive state.
-             * 
+             *
              * @return true if the operation is active, false otherwise.
              */
             bool isActive() const {
@@ -267,7 +219,7 @@ namespace CaptureMoment::UI {
 
             /**
              * @brief Validates the index value against its bounds.
-             * 
+             *
              * @return true if the index is within [minIndex, maxIndex], false otherwise.
              */
             bool isValid() const {
@@ -276,7 +228,7 @@ namespace CaptureMoment::UI {
 
             /**
              * @brief Clamps the index to the valid range [minIndex, maxIndex].
-             * 
+             *
              * This function ensures the index stays within the defined limits.
              */
             void clampIndex() {
