@@ -17,22 +17,25 @@ namespace CaptureMoment::UI {
 
 namespace Models::Operations {
 
+
 /**
  * @brief Generic base class for operations with a single adjustable value (e.g., brightness, contrast).
  *
  * This class provides common Qt/QML properties and methods for operations that adjust a single parameter.
- * It uses RelativeAdjustmentParams internally to manage the value, its range, and activity state.
+ * It uses RelativeAdjustmentParams internally to manage the value and activity state.
  * It inherits from OperationProvider to gain QObject functionality and implement IOperationModel.
  *
- * Derived classes must still implement:
+ * Derived classes must implement:
  * - name() const override
  * - getType() const override
+ * - minimum() const override (reads from Core::Operations::OperationRanges)
+ * - maximum() const override (reads from Core::Operations::OperationRanges)
  * - getDescriptor() const override (or provide a mechanism to generate it using m_params)
  * - setImageController override (consider removing)
  * - reset() override
  * - onOperationCompleted/Failed overrides
  *
- * But they inherit the Q_PROPERTY definitions, value/minimum/maximum/isActive methods, and Qt infrastructure.
+ * But they inherit the Q_PROPERTY definitions, value/isActive methods, and Qt infrastructure.
  */
 class BaseAdjustmentModel : public OperationProvider {
     Q_OBJECT
@@ -45,11 +48,13 @@ class BaseAdjustmentModel : public OperationProvider {
     // Expose the constant minimum value to QML.
     // This property is backed by the 'minimum()' getter method and is marked as CONSTANT,
     // meaning its value does not change during the lifetime of the object.
+    // This method is pure virtual and must be implemented by derived classes.
     Q_PROPERTY(float minimum READ minimum CONSTANT)
 
     // Expose the constant maximum value to QML.
     // This property is backed by the 'maximum()' getter method and is marked as CONSTANT,
     // meaning its value does not change during the lifetime of the object.
+    // This method is pure virtual and must be implemented by derived classes.
     Q_PROPERTY(float maximum READ maximum CONSTANT)
 
     // Expose the operation's name to QML.
@@ -63,8 +68,7 @@ class BaseAdjustmentModel : public OperationProvider {
 
 protected:
     /**
-     * @brief Structure holding the specific parameter for single-value adjustments.
-     * Uses RelativeAdjustmentParams which is suitable for adjustments in a range like [-1.0, 1.0].
+     * @brief used for the *value* and *activity* state
      */
     Domain::RelativeAdjustmentParams m_params;
 
@@ -95,16 +99,18 @@ public:
     [[nodiscard]] float value() const { return m_params.value; }
 
     /**
-     * @brief Gets the minimum allowed value.
-     * @return float -1.0f, as defined by RelativeAdjustmentParams::MIN_VALUE.
+     * @brief Gets the minimum allowed value for the UI slider.
+     * @return float The minimum value, read from the Core OperationRanges.
+     * This method is pure virtual and must be implemented by derived classes.
      */
-    [[nodiscard]] constexpr float minimum() const { return Domain::RelativeAdjustmentParams::MIN_VALUE; }
+    [[nodiscard]] virtual float minimum() const = 0;
 
     /**
-     * @brief Gets the maximum allowed value.
-     * @return float 1.0f, as defined by RelativeAdjustmentParams::MAX_VALUE.
+     * @brief Gets the maximum allowed value for the UI slider.
+     * @return float The maximum value, read from the Core OperationRanges.
+     * This method is pure virtual and must be implemented by derived classes.
      */
-    [[nodiscard]] constexpr float maximum() const { return Domain::RelativeAdjustmentParams::MAX_VALUE; }
+    [[nodiscard]] virtual float maximum() const = 0;
 
 public slots:
     /**
