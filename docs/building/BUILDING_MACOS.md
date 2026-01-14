@@ -1,12 +1,7 @@
-### `docs/build/BUILDING_MACOS.md`
-*For macOS, we recommend using Homebrew to manage dependencies (Qt, OpenImageIO, Halide).*
-
-
 # macOS Building Guide
-For macOS, we recommend using Homebrew to manage dependencies (Qt, OpenImageIO, Halide).
+For macOS, we recommend using Homebrew to manage dependencies (Qt, OpenImageIO, Halide, Exiv2, magic_enum).
 
 ## Prerequisites
-* Xcode
 * Homebrew
 
 ## 📦Installing Dependencies
@@ -16,8 +11,10 @@ make sure you have cmake, ninja installed
 ```powershell
 brew update
 brew install openimageio
-brew install spdlog
 brew install halide
+brew install spdlog
+brew install exiv2
+brew install magic_enum
 brew install qt6
 ```
 

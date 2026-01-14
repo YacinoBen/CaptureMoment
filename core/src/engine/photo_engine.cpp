@@ -64,6 +64,7 @@ bool PhotoEngine::loadImage(std::string_view path)
     return true;
 }
 
+
 // Commits the current working image managed by StateImageManager back to the source.
 bool PhotoEngine::commitWorkingImageToSource()
 {

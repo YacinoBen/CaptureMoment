@@ -29,6 +29,7 @@ namespace Engine {
  * The PhotoEngine acts as the main interface between the UI layer (Qt) and the core
  * image processing logic. It delegates the management of the cumulative image processing state
  * (the sequence of applied operations and the resulting image) to StateImageManager.
+ *  It also manages the persistence of operations via FileSerializerManager.
  */
 class PhotoEngine
 {

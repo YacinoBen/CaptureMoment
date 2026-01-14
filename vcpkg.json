@@ -10,6 +10,16 @@
       "name": "spdlog",
       "default-features": false,
       "version>=": "1.16.0"
+    },
+    {
+      "name": "exiv2",
+      "default-features": false,
+      "version>=": "0.28.7"
+    },
+    {
+      "name": "magic-enum",
+      "default-features": false,
+      "version>=": "0.9.7"
     }
   ],
     "features": {

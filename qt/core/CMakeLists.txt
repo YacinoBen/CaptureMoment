@@ -66,6 +66,9 @@ set(CORE_SOURCES
     src/controller/image_controller_sgs.cpp
     src/controller/image_controller_rhi.cpp
 
+    # Serializer
+    src/serializer/serializer_controller.cpp
+    
     # Manager
     src/managers/operation_state_manager.cpp
 
@@ -112,6 +115,9 @@ set(QOBJECT_HEADERS
     include/controller/image_controller_sgs.h
     include/controller/image_controller_rhi.h
 
+    # Serializer
+    include/serializer/serializer_controller.h
+
     # Manager
     include/managers/operation_state_manager.h
 
@@ -144,9 +150,11 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             controller/image_controller_sgs.h
             controller/image_controller_rhi.h
 
+            # Serializer
+            serializer/serializer_controller.h
+
             # Manager
             managers/operation_state_manager.h
-
 
             # Display
             display/display_manager.h

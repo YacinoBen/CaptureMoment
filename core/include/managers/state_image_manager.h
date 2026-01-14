@@ -144,13 +144,31 @@ public:
     [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImage() const;
 
     /**
-         * @brief Checks if an update of the working image is currently in progress.
-         * This method provides a thread-safe way to determine if the internal state
-         * (specifically m_working_image) might be changing due to an active update task.
-         *
-         * @return true if an update is ongoing, false otherwise.
-         */
+     * @brief Checks if an update of the working image is currently in progress.
+     * This method provides a thread-safe way to determine if the internal state
+     * (specifically m_working_image) might be changing due to an active update task.
+     *
+     * @return true if an update is ongoing, false otherwise.
+     */
     [[nodiscard]] bool isUpdatePending() const;
+
+    /**
+     * @brief Gets the file path of the original image source.
+     * This path was set via setOriginalImageSource.
+     *
+     * @return The file path of the original image, or an empty string if not set.
+     */
+    [[nodiscard]] std::string getOriginalImageSourcePath() const;
+
+
+    /**
+     * @brief Gets the current list of active operations.
+     * This method provides a thread-safe snapshot of the operations
+     * that are currently applied to generate the working image.
+     *
+     * @return A copy of the vector containing the active OperationDescriptors.
+     */
+    [[nodiscard]] std::vector<Operations::OperationDescriptor> getActiveOperations() const;
 
 private:
     /**

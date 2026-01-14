@@ -1,7 +1,3 @@
-### `docs/build/BUILDING_WINDOWS.md`
-*Detailed Windows guide addressing LLVM build times and disk space.*
-
-
 # 🟦 Windows Build Guide
 This guide is optimized to handle the challenges of building **Halide** and **LLVM** on Windows.
 

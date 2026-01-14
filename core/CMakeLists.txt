@@ -19,6 +19,18 @@ set(CORE_SOURCES
     src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
 
+    # Serializer
+    src/serializer/provider/exiv2_initializer.cpp
+    src/serializer/provider/exiv2_provider.cpp
+    src/serializer/strategy/appdata_xmp_path_strategy.cpp
+    src/serializer/strategy/configurable_xmp_path_strategy.cpp
+    src/serializer/strategy/sidecar_xmp_path_strategy.cpp
+
+    src/serializer/file_serializer_manager.cpp
+    src/serializer/operation_serialization.cpp
+    src/serializer/file_serializer_writer.cpp
+    src/serializer/file_serializer_reader.cpp
+
     # List Operations base adjustment
     src/operations/basic_adjustment_operations/operation_brightness.cpp
     src/operations/basic_adjustment_operations/operation_constrast.cpp
@@ -53,9 +65,11 @@ endif()
 # Link dependencies (already verified by root CMakeLists via PackageHelpers)
 # If we reach here, packages are guaranteed to exist
 target_link_libraries(capturemoment_core PUBLIC
-    spdlog::spdlog
     OpenImageIO::OpenImageIO
     Halide::Halide
+    spdlog::spdlog
+    Exiv2::exiv2lib
+    magic_enum::magic_enum 
 )
 
 # Include directories

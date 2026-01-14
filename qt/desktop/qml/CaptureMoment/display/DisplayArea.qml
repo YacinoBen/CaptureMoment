@@ -97,11 +97,8 @@ Rectangle {
         title: "Open Image"
 
         onAccepted: {
-            var path = selectedFile.toString()
-            path = path.replace(/^(file:\/{3})|(qrc:\/{2})|(http:\/{2})/, "")
-            var cleanPath = decodeURIComponent(path)
-            console.log("Loading image:", cleanPath)
-            controller.loadImage(cleanPath)
+            console.log("Loading image:", selectedFile)
+            controller.loadImageFromUrl(selectedFile)
         }
     }
 

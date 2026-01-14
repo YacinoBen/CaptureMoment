@@ -34,16 +34,30 @@ Capture Moment is built on three pillars:
     * **UI:** Modern, fluid, declarative interface.
     * **Rendering:** Uses **QRhi** (Qt Rendering Hardware Interface) to display Halide buffers directly on the GPU (Vulkan/Metal/D3D12).
 
-### 4. Dependency Management
-* **Tool:** [Vcpkg](https://vcpkg.io/) (Manifest Mode)
-* **Role:** Ensures all libraries (OIIO, OCIO, Halide, Qt) are compiled with the same ABI across all platforms.
+### 4. Metadata & Serialization
+* **Libraries:**
+    * [**Exiv2**](https://www.exiv2.org/): For robust reading and writing of XMP metadata packets within image files or sidecar files.
+    * [**magic_enum**](https://github.com/Neargye/magic-enum): For safe and efficient conversion of enums to/from strings during XMP serialization.
+* **Role:**
+    * **Persistence:** Saving and loading the list of applied image adjustments as XMP metadata associated with the source image file.
+    * **Type Safety:** Ensuring correct serialization/deserialization of operation parameters and types using `magic_enum`.
+
+### 5. Fast String Conversion (Core Utils)
+* **Library:** [**fast_float**](https://github.com/fastfloat/fast_float) (Optional, if needed for maximum speed deserialization)
+    * **Alternative:** Standard library functions (`std::from_chars`, `std::stof`, `std::stod`) with conditional fallbacks.
+* **Role:**
+    * **Efficiency:** Performing high-speed conversion between string representations (stored in XMP) and numerical values (used internally) during deserialization.
+
+### 6. Dependency Management
+* **Tool:** [Vcpkg](https://vcpkg.io/)
+* **Role:** Ensures all libraries (OIIO, OCIO, Halide, Qt, Exiv2, magic_enum) are compiled with the same ABI across all platforms.
 
 
 ## Architectures
 
 * [**Core Design:**](CORE_DESIGN.md).
 * [**UI Core Design**](UI_CORE_ARCHITECTURE.md).
-* [**UI Desktop Desogn**](UI_DESKTOP_ARCHITECTURE.md).
+* [**UI Desktop Design**](UI_DESKTOP_ARCHITECTURE.md).
 
 ## 📚 Additional Resources
 
@@ -51,3 +65,5 @@ Capture Moment is built on three pillars:
 - **Qt Documentation:** [doc.qt.io](https://doc.qt.io/)
 - **OpenImageIO:** [openimageio.readthedocs.io](https://openimageio.readthedocs.io/)
 - **vcpkg:** [github.com/Microsoft/vcpkg](https://github.com/Microsoft/vcpkg)
+- **Exiv2:** [www.exiv2.org](https://www.exiv2.org/)
+- **magic_enum:** [github.com/Neargye/magic-enum](https://github.com/Neargye/magic-enum)

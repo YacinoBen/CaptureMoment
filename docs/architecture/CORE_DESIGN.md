@@ -1,6 +1,6 @@
 # Core Architecture Design Principles
 
-The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
+The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
 
 ---
 
@@ -89,7 +89,51 @@ This pattern remains crucial for creating operation instances within the process
 
 ---
 
-## 6. Namespace Organization
+## 6. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
+
+The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed as an **independent layer**, separate from the core image processing engine (`PhotoEngine`), to maximize modularity and flexibility.
+
+### Components
+
+* **`CaptureMoment::Core::Serializer::IXmpProvider`:** An interface abstracting the low-level XMP packet read/write operations. This allows switching between different XMP libraries (e.g., Exiv2, Adobe XMP Toolkit) without changing dependent code.
+  * **Implementation (`Exiv2Provider`):** A concrete implementation using the Exiv2 library to interact with XMP packets within image files.
+
+* **`CaptureMoment::Core::Serializer::IXmpPathStrategy`:** An interface defining how to determine the file path for the XMP data associated with a given image path. This allows for different storage strategies (sidecar files, AppData directory, configurable path).
+  * **Implementations (`SidecarXmpPathStrategy`, `AppDataXmpPathStrategy`, `ConfigurableXmpPathStrategy`):** Concrete implementations of the path strategy interface, each defining its own logic for mapping an image path to an XMP file path.
+
+* **`CaptureMoment::Core::Serializer::IFileSerializerWriter` & `CaptureMoment::Core::Serializer::IFileSerializerReader`:** Interfaces for writing and reading operation data to/from a file format (currently XMP). They depend on `IXmpProvider` and `IXmpPathStrategy`.
+  * **Implementations (`FileSerializerWriter`, `FileSerializerReader`):** Concrete implementations that use the injected provider and strategy to perform the actual serialization/deserialization of `OperationDescriptor` lists to/from XMP packets.
+
+* **`CaptureMoment::Core::Serializer::FileSerializerManager`:** A high-level manager that orchestrates the `IFileSerializerWriter` and `IFileSerializerReader`. It provides a unified interface (`saveToFile`, `loadFromFile`) for **external UI/QML layers** to use, not directly managed by `PhotoEngine`.
+
+* **`CaptureMoment::Core::Serializer::OperationSerialization`:** A namespace containing utility functions (`serializeParameter`, `deserializeParameter`) for converting `std::any` parameter values within `OperationDescriptor` to/from string representations suitable for storage in XMP metadata, preserving type information. This module relies on **generic conversion utilities** from the `CaptureMoment::Core::utils` namespace.
+
+* **`CaptureMoment::Core::Serializer::Exiv2Initializer`:** A utility class ensuring the Exiv2 library is initialized before any operations are performed.
+
+### Benefits of Independence
+
+* **Modularity:** `PhotoEngine` focuses purely on image processing orchestration. The serialization logic is completely separate.
+* **Flexibility:** The serialization layer (`FileSerializerManager`) can be managed and invoked independently by the UI layer (e.g., via `UISerializerManager` in the Qt module) without requiring `PhotoEngine` to hold a reference to it.
+* **Maintainability:** Changes to serialization mechanisms or strategies do not impact the core processing engine.
+* **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
+
+* [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
+---
+
+## 7. Utility Modules and Generic Conversion
+
+Generic utility functions, such as string conversion, are centralized to promote reusability and reduce code duplication across the core library.
+
+### `CaptureMoment::Core::utils::toString`
+
+* **Purpose:** Provides a generic mechanism for converting primitive types (e.g., `int`, `float`, `double`, `bool`) and `std::string` to their string representation.
+* **Implementation:** Utilizes C++20 Concepts (`ToStringablePrimitive`) to constrain the template and ensure type safety. The core logic relies on `std::to_string` for numeric types and specific logic for `bool` and `std::string`.
+* **Location:** Implemented in `utils/to_string_utils.h`, placed directly in the `utils` folder without subdirectories for conversion or other purposes.
+* **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
+
+---
+
+## 8. Namespace Organization
 
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 
@@ -98,10 +142,13 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 * **`CaptureMoment::Core::Managers`:** Contains managers responsible for resource handling, such as `ISourceManager` and `SourceManager`.
 * **`CaptureMoment::Core::Domain`:** Contains domain-specific interfaces, such as `IProcessingTask` and `IProcessingBackend`.
 * **`CaptureMoment::Core::Engine`:** Contains the core application logic orchestrators, such as `PhotoTask` and `PhotoEngine`.
+* **`CaptureMoment::Core::Serializer`:** Contains serialization-related interfaces, implementations, and utilities (e.g., `IXmpProvider`, `FileSerializerWriter`, `OperationSerialization`).
+* **`CaptureMoment::Core::utils`:** Contains generic utility functions, such as `toString`.
 
 This organization clarifies the role of each component and prevents naming collisions.
 
 ---
 
 ## Operations
-* [🟦 **Operations**](OPERATIONS.md).
+* [🟦 **Operations**](core/OPERATIONS.md).
+  

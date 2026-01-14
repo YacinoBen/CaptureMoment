@@ -101,6 +101,35 @@ void ImageControllerBase::loadImage(const QString& file_path)
     }, Qt::QueuedConnection);
 }
 
+
+void ImageControllerBase::loadImageFromUrl(const QUrl& file_url)
+{
+    if (file_url.isEmpty()) {
+        emit imageLoadFailed("Empty file URL");
+        spdlog::warn("ImageControllerBase::loadImageFromUrl: Empty file URL received");
+        return;
+    }
+
+    QString native_path = file_url.toLocalFile();
+
+    if (native_path.isEmpty()) {
+
+        if (!file_url.isLocalFile()) {
+            emit imageLoadFailed("Selected URL is not a local file");
+            spdlog::warn("ImageControllerBase::loadImageFromUrl: Selected URL is not a local file: {}", file_url.toString().toStdString());
+            return;
+        } else {
+            emit imageLoadFailed("Failed to convert URL to local file path");
+            spdlog::warn("ImageControllerBase::loadImageFromUrl: Failed to convert URL to local file path: {}", file_url.toString().toStdString());
+            return;
+        }
+    }
+
+    spdlog::info("ImageControllerBase::loadImageFromUrl: Converted URL to native path: {}", native_path.toStdString());
+
+    loadImage(native_path);
+}
+
 void ImageControllerBase::applyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
 {
     if (!m_engine)
