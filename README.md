@@ -52,7 +52,7 @@ Capture Moment is built for performance and modularity, using best-in-class libr
 
 For a detailed view of the architecture, technical choices, roadmap, and planned features:  
 
-[➡️ Read the General Architecture Document](./docs/GENERAL_ARCHITECTURE.md).
+[➡️ Read the General Architecture Document](./docs/architecture/GENERAL_ARCHITECTURE.md).
 
 ---
 
@@ -60,7 +60,7 @@ For a detailed view of the architecture, technical choices, roadmap, and planned
 
 For detailed build instructions for each platform (Windows, macOS, Linux) and using various package managers (Vcpkg, Homebrew, apt/dnf):
 
-[➡️ Read the full Build Guide](./docs/BUILDING_MAIN.md).
+[➡️ Read the full Build Guide](./docs/building/BUILDING_MAIN.md).
 
 ---
 

@@ -117,7 +117,7 @@ The core library includes a flexible system for saving and loading the state of 
 * **Maintainability:** Changes to serialization mechanisms or strategies do not impact the core processing engine.
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
 
-* [🟦 **SEE SERIALIZER.md**](SERIALIZER.md).
+* [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
 ---
 
 ## 7. Utility Modules and Generic Conversion
@@ -150,5 +150,5 @@ This organization clarifies the role of each component and prevents naming colli
 ---
 
 ## Operations
-* [🟦 **Operations**](OPERATIONS.md).
+* [🟦 **Operations**](core/OPERATIONS.md).
   
