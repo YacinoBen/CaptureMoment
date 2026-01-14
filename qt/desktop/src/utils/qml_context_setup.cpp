@@ -7,7 +7,7 @@
 
 #include "utils/qml_context_setup.h"
 #include "controller/image_controller_sgs.h"
-#include "serializer/ui_serializer_manager.h"
+#include "serializer/serializer_controller.h"
 
 #include <spdlog/spdlog.h>
 
@@ -15,7 +15,7 @@ namespace CaptureMoment::UI {
 
 // Static member initialization
 std::shared_ptr<Controller::ImageControllerBase> QmlContextSetup::m_controller_main_scene = nullptr;
-std::unique_ptr<Serializer::UISerializerManager> QmlContextSetup::m_ui_serializer_manager = nullptr;
+std::unique_ptr<Serializer::SerializerController> QmlContextSetup::m_serializer_controller = nullptr;
 
 bool QmlContextSetup::setupContext(QQmlContext* context)
 {
@@ -35,9 +35,9 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
         return false;
     }
 
-    // Check if UISerializerManager is set before attempting registration
-    if (!m_ui_serializer_manager) {
-        spdlog::warn("QmlContextSetup::setupContext: UISerializerManager is not set. Skipping registration.");
+    // Check if SerializerController is set before attempting registration
+    if (!m_serializer_controller) {
+        spdlog::warn("QmlContextSetup::setupContext: SerializerController is not set. Skipping registration.");
     }
 
     if (!registerCoreToQml(context)) {
@@ -45,10 +45,10 @@ bool QmlContextSetup::setupContext(QQmlContext* context)
         return false;
     }
 
-    // Register UISerializerManager if it was provided
-    if (m_ui_serializer_manager) {
-        if (!registerUISerializerToQml(context)) {
-            spdlog::error("QmlContextSetup::setupContext: Failed to register UISerializerManager to QML.");
+    // Register SerializerController if it was provided
+    if (m_serializer_controller) {
+        if (!registerSerializerToQml(context)) {
+            spdlog::error("QmlContextSetup::setupContext: Failed to register SerializerController to QML.");
             return false;
         }
     }
@@ -106,30 +106,30 @@ bool QmlContextSetup::registerCoreToQml(QQmlContext* context)
     return true;
 }
 
-void QmlContextSetup::setUISerializerManager(std::unique_ptr<Serializer::UISerializerManager> ui_serializer_manager)
+void QmlContextSetup::setSerializerController(std::unique_ptr<Serializer::SerializerController> serializer_controller)
 {
-    m_ui_serializer_manager = std::move(ui_serializer_manager);
-    spdlog::debug("QmlContextSetup::setUISerializerManager: UISerializerManager set.");
+    m_serializer_controller = std::move(serializer_controller);
+    spdlog::debug("QmlContextSetup::setSerializerController: SerializerController set.");
 }
 
-bool QmlContextSetup::registerUISerializerToQml(QQmlContext* context)
+bool QmlContextSetup::registerSerializerToQml(QQmlContext* context)
 {
-    spdlog::debug("QmlContextSetup::registerUISerializerToQml: Registering UISerializerManager to QML...");
+    spdlog::debug("QmlContextSetup::registerSerializerToQml: Registering SerializerController to QML...");
 
     if (!context) {
-        spdlog::error("QmlContextSetup::registerUISerializerToQml: QML Context is null!");
+        spdlog::error("QmlContextSetup::registerSerializerToQml: QML Context is null!");
         return false;
     }
 
-    if (!m_ui_serializer_manager) {
-        spdlog::error("QmlContextSetup::registerUISerializerToQml: UISerializerManager is null, cannot register.");
+    if (!m_serializer_controller) {
+        spdlog::error("QmlContextSetup::registerSerializerToQml: SerializerController is null, cannot register.");
         return false;
     }
 
-    context->setContextProperty("uiSerializerManager", m_ui_serializer_manager.get());
-    spdlog::debug("UISerializerManager registered to QML context.");
+    context->setContextProperty("serializerController", m_serializer_controller.get());
+    spdlog::debug("SerializerController registered to QML context.");
 
-    spdlog::info("QmlContextSetup::registerUISerializerToQml: UISerializerManager registered to QML successfully.");
+    spdlog::info("QmlContextSetup::registerUISerializerToQml: SerializerController registered to QML successfully.");
     return true;
 }
 

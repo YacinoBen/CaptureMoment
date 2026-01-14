@@ -17,7 +17,7 @@ class ImageControllerBase;
 }
 
 namespace Serializer {
-class UISerializerManager;
+class SerializerController;
 }
 
 /**
@@ -47,18 +47,18 @@ public:
     static bool setupContext(QQmlContext* context);
 
     /**
-     * @brief Sets the UISerializerManager instance to be registered with the QML context.
+     * @brief Sets the SerializerController instance to be registered with the QML context.
      * This must be called before setupContext.
-     * @param ui_serializer_manager A unique pointer to the UISerializerManager instance.
+     * @param ui_serializer_controller A unique pointer to the SerializerController instance.
      */
-    static void setUISerializerManager(std::unique_ptr<Serializer::UISerializerManager> ui_serializer_manager);
+    static void setSerializerController(std::unique_ptr<Serializer::SerializerController> ui_serializer_controller);
 
     /**
-     * @brief Registers the UISerializerManager (if set) to the QML context.
+     * @brief Registers the SerializerController (if set) to the QML context.
      * @param context Pointer to the QQmlContext.
      * @return true on success, false otherwise.
      */
-    static bool registerUISerializerToQml(QQmlContext* context);
+    static bool registerSerializerToQml(QQmlContext* context);
 
     /**
      * @brief Getter for the main ImageControllerBase instance.
@@ -68,9 +68,9 @@ public:
 
     /**
      * @brief Getter for the UISerializerManager instance.
-     * @return A pointer to the UISerializerManager instance.
+     * @return A pointer to the SerializerController instance.
      */
-    static Serializer::UISerializerManager* getUISerializerManager() { return m_ui_serializer_manager.get(); }
+    static Serializer::SerializerController* getSerializerController() { return m_serializer_controller.get(); }
 
 private:
     /**
@@ -83,11 +83,11 @@ private:
     static std::shared_ptr<Controller::ImageControllerBase> m_controller_main_scene;
 
     /**
-     * @brief Static unique pointer to the UISerializerManager instance.
+     * @brief Static unique pointer to the SerializerController instance.
      * This object handles UI-specific serialization tasks and is registered to the QML context
-     * if provided via setUISerializerManager().
+     * if provided via setSerializerController().
      */
-    static std::unique_ptr<Serializer::UISerializerManager> m_ui_serializer_manager;
+    static std::unique_ptr<Serializer::SerializerController> m_serializer_controller;
 
     /**
      * @brief Create the central ImageController orchestrator.
