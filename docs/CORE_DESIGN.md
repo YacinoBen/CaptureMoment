@@ -1,6 +1,6 @@
 # Core Architecture Design Principles
 
-The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
+The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
 
 ---
 
@@ -89,9 +89,9 @@ This pattern remains crucial for creating operation instances within the process
 
 ---
 
-## 6. Serialization and Persistence: Interfaces and Strategies
+## 6. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
 
-The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed with interfaces and strategies to allow for different storage locations and XMP handling libraries.
+The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed as an **independent layer**, separate from the core image processing engine (`PhotoEngine`), to maximize modularity and flexibility.
 
 ### Components
 
@@ -104,19 +104,18 @@ The core library includes a flexible system for saving and loading the state of 
 * **`CaptureMoment::Core::Serializer::IFileSerializerWriter` & `CaptureMoment::Core::Serializer::IFileSerializerReader`:** Interfaces for writing and reading operation data to/from a file format (currently XMP). They depend on `IXmpProvider` and `IXmpPathStrategy`.
   * **Implementations (`FileSerializerWriter`, `FileSerializerReader`):** Concrete implementations that use the injected provider and strategy to perform the actual serialization/deserialization of `OperationDescriptor` lists to/from XMP packets.
 
-* **`CaptureMoment::Core::Serializer::FileSerializerManager`:** A high-level manager that orchestrates the `IFileSerializerWriter` and `IFileSerializerReader`. It provides a unified interface (`saveToFile`, `loadFromFile`) for `PhotoEngine` to use.
+* **`CaptureMoment::Core::Serializer::FileSerializerManager`:** A high-level manager that orchestrates the `IFileSerializerWriter` and `IFileSerializerReader`. It provides a unified interface (`saveToFile`, `loadFromFile`) for **external UI/QML layers** to use, not directly managed by `PhotoEngine`.
 
 * **`CaptureMoment::Core::Serializer::OperationSerialization`:** A namespace containing utility functions (`serializeParameter`, `deserializeParameter`) for converting `std::any` parameter values within `OperationDescriptor` to/from string representations suitable for storage in XMP metadata, preserving type information.
 
-* **Integration in `PhotoEngine`:** `PhotoEngine` now holds a `FileSerializerManager` and uses it to save (`saveOperationsToFile`) and load (`loadOperationsFromFile`) the list of active operations managed by `StateImageManager`. `StateImageManager` provides the necessary methods (`getActiveOperations`, `getOriginalImageSourcePath`) to support this integration.
-
 * **`CaptureMoment::Core::Serializer::Exiv2Initializer`:** A utility class ensuring the Exiv2 library is initialized before any operations are performed.
 
-### Benefits
+### Benefits of Independence
 
-* **Flexibility:** The system supports different XMP storage locations (sidecar, AppData, custom) and potentially different XMP libraries in the future.
-* **Decoupling:** `PhotoEngine` and `StateImageManager` are decoupled from the specifics of XMP handling and path generation.
-* **Persistence:** User adjustments are saved and restored, providing a non-destructive workflow.
+* **Modularity:** `PhotoEngine` focuses purely on image processing orchestration. The serialization logic is completely separate.
+* **Flexibility:** The serialization layer (`FileSerializerManager`) can be managed and invoked independently by the UI layer (e.g., via `UISerializerManager` in the Qt module) without requiring `PhotoEngine` to hold a reference to it.
+* **Maintainability:** Changes to serialization mechanisms or strategies do not impact the core processing engine.
+* **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
 
 * [🟦 **SEE SERIALIZER.md**](SERIALIZER.md).
 ---

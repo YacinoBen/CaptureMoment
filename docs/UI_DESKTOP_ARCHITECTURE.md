@@ -104,4 +104,3 @@ The QML layer provides the user interface for the application. Key aspects inclu
 3.  **Serialization Call:** `UISerializerManager` receives the call and delegates the work to the underlying core `FileSerializerManager`.
 4.  **Signal Notification:** Upon completion, `UISerializerManager` emits a Qt signal (e.g., `operationsSaved`, `operationsLoaded(loadedOperations)`, `operationsLoadFailed`).
 5.  **QML Response:** QML listens to these signals and updates the UI accordingly (e.g., show a success message, apply loaded operations to the `OperationStateManager`).
-6.  
