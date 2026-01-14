@@ -82,4 +82,4 @@ cmake --build build/release-vcpkg
 
 ## Understood the core 
 
-* [**The Core**](CORE_DESIGN.md) (You can see the design patterns used for the core).
+* [**The Core**](../architecture/CORE_DESIGN.md) (You can see the design patterns used for the core).
