@@ -8,6 +8,7 @@
 #pragma once
 
 #include "models/operations/base_adjustment_model.h"
+#include "operations/operation_ranges.h"
 
 namespace CaptureMoment::UI {
 
@@ -16,9 +17,9 @@ namespace Models::Operations {
 /**
  * @brief Contrast operation model inheriting common properties from BaseAdjustmentModel.
  *
- * Inherits Q_PROPERTY definitions, value/minimum/maximum/isActive methods,
+ * Inherits Q_PROPERTY definitions, value/isActive methods,
  * Qt infrastructure (signals/slots), and parameter handling (m_params) from BaseAdjustmentModel.
- * Only needs to implement specific logic like name, type, descriptor, etc.
+ * Implements specific logic like name, type, descriptor, and range access.
  */
 class ContrastModel : public BaseAdjustmentModel {
 
@@ -28,6 +29,8 @@ public:
     // --- Implement Pure Virtual Methods from IOperationModel / BaseAdjustmentModel ---
     [[nodiscard]] QString name() const override { return "Contrast"; }
     [[nodiscard]] Core::Operations::OperationType getType() const override { return Core::Operations::OperationType::Contrast; }
+    [[nodiscard]] float minimum() const override { return Core::Operations::OperationRanges::getContrastMinValue(); }
+    [[nodiscard]] float maximum() const override { return Core::Operations::OperationRanges::getContrastMaxValue(); }
     [[nodiscard]] Core::Operations::OperationDescriptor getDescriptor() const override;
     void reset() override;
 

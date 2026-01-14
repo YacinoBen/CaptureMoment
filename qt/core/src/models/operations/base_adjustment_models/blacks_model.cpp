@@ -10,10 +10,10 @@
 
 namespace CaptureMoment::UI::Models::Operations {
 
-// Constructor: Initializes the model with a default value of 0.0.
 BlacksModel::BlacksModel(QObject* parent)
     : BaseAdjustmentModel(parent)
 {
+    m_params.value = Core::Operations::OperationRanges::getBlacksDefaultValue();
     spdlog::debug("BlacksModel: Created (inherits default value from BaseAdjustmentModel)");
 }
 
@@ -27,11 +27,10 @@ Core::Operations::OperationDescriptor BlacksModel::getDescriptor() const
     return descriptor;
 }
 
-// Resets the blacks value to its default (0.0).
 void BlacksModel::reset()
 {
-    spdlog::debug("BlacksModel::reset: Resetting to default value (0.0)");
-    setValue(0.0f);
+    spdlog::debug("BlacksModel::reset: Resetting to default value ({})", Core::Operations::OperationRanges::getBlacksDefaultValue());
+    setValue(Core::Operations::OperationRanges::getBlacksDefaultValue());
 }
 
 // Handles successful operation completion from ImageControllerBase.

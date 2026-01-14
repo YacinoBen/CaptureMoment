@@ -10,10 +10,10 @@
 
 namespace CaptureMoment::UI::Models::Operations {
 
-// Constructor: Initializes the model with a default value of 0.0.
 ShadowsModel::ShadowsModel(QObject* parent)
     : BaseAdjustmentModel(parent)
 {
+    m_params.value = Core::Operations::OperationRanges::getShadowsDefaultValue();
     spdlog::debug("ShadowsModel: Created (inherits default value from BaseAdjustmentModel)");
 }
 
@@ -27,11 +27,10 @@ Core::Operations::OperationDescriptor ShadowsModel::getDescriptor() const
     return descriptor;
 }
 
-// Resets the shadows value to its default (0.0).
 void ShadowsModel::reset()
 {
-    spdlog::debug("ShadowsModel::reset: Resetting to default value (0.0)");
-    setValue(0.0f);
+    spdlog::debug("ShadowsModel::reset: Resetting to default value ({})", Core::Operations::OperationRanges::getShadowsDefaultValue());
+    setValue(Core::Operations::OperationRanges::getShadowsDefaultValue());
 }
 
 // Handles successful operation completion from ImageControllerBase.
