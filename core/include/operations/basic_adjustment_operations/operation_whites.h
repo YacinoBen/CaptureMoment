@@ -7,6 +7,7 @@
 
 #pragma once
 #include "operations/i_operation.h"
+#include "operations/operation_ranges.h" // Include the new ranges header
 
 namespace CaptureMoment::Core {
 
@@ -16,18 +17,18 @@ namespace Operations {
  * @brief Adjusts the white point of an image region.
  * * This operation modifies the luminance of the brightest areas of the image,
  * * effectively shifting the white point.
- * * Increasing whites brightens the overall image and makes whites brighter.
- * * Decreasing whites darkens the overall image and makes whites less bright.
+ * * Increasing whites brightens the overall image and makes whites less bright (more gray).
+ * * Decreasing whites darkens the overall image and makes whites brighter.
  * * **Algorithm** (Approximation - actual implementations can be more complex):
  * For each pixel `p` and channel `c` (excluding alpha), if the luminance is above a high threshold:
  * \f$ p_c = p_c + \text{value} \times \text{adjustment_factor} \f$
  * This is a simplified version focusing on the upper part of the luminance range.
  * * **Parameters**:
  * - `value` (float): The whites adjustment factor.
- * - Range: Typically [-1.0, 1.0]
- * - 0.0: No change
- * - > 0: Brighten whites
- * - < 0: Darken whites
+ * - Range: Defined by OperationRanges::getWhitesMinValue() and OperationRanges::getWhitesMaxValue()
+ * - Default: OperationRanges::getWhitesDefaultValue() (typically 0.0f, No change)
+ * - > 0: Darken whites (make them less bright)
+ * - < 0: Brighten whites (make them more bright)
  */
 class OperationWhites : public IOperation
 {
@@ -36,6 +37,25 @@ public:
     [[nodiscard]] OperationType type() const override { return OperationType::Whites; }
     [[nodiscard]] const char* name() const override { return "Whites"; }
 
+    // --- Range Access (via the centralized ranges) ---
+    /**
+     * @brief Minimum allowed whites value.
+     * Defined by OperationRanges::getWhitesMinValue().
+     */
+    static constexpr float MIN_WHITES_VALUE = OperationRanges::getWhitesMinValue();
+
+    /**
+     * @brief Maximum allowed whites value.
+     * Defined by OperationRanges::getWhitesMaxValue().
+     */
+    static constexpr float MAX_WHITES_VALUE = OperationRanges::getWhitesMaxValue();
+
+    /**
+     * @brief Default whites value.
+     * Defined by OperationRanges::getWhitesDefaultValue().
+     */
+    static constexpr float DEFAULT_WHITES_VALUE = OperationRanges::getWhitesDefaultValue();
+
     // --- Execution ---
     /**
      * @brief Applies the whites adjustment.
@@ -43,6 +63,7 @@ public:
      * * formula to every color channel (RGB) of every pixel in the region,
      * * primarily affecting pixels with very high luminance (the "whites").
      * * The alpha channel is left unchanged.
+     * * Performs a validation check to ensure the value is within the defined range [MIN_WHITES_VALUE, MAX_WHITES_VALUE].
      * * @param input The region to modify.
      * @param params Must contain a "value" (float) parameter.
      * @return true if successful.

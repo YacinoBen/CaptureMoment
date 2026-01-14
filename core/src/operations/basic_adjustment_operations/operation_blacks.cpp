@@ -26,12 +26,21 @@ bool OperationBlacks::execute(Common::ImageRegion& input, const OperationDescrip
 
     // 2. Extract parameter using key-value access
     // Retrieves "value" key with default 0.0f if missing or type mismatch
-    const float blacks_value = descriptor.getParam<float>("value", 0.0f);
+    float blacks_value = descriptor.getParam<float>("value", 0.0f);
 
-    // No-op optimization
-    if (blacks_value == 0.0f) {
-        spdlog::trace("OperationBlacks::execute: Blacks value is 0, skipping");
+    // No-op optimization (using the default value from OperationRanges via static member)
+    if (blacks_value == OperationBlacks::DEFAULT_BLACKS_VALUE) { // Use the static member
+        spdlog::trace("OperationBlacks::execute: Blacks value is default ({}), skipping", OperationBlacks::DEFAULT_BLACKS_VALUE);
         return true;
+    }
+
+    // Validate and clamp the value to the defined range (Business Logic - Core)
+    // Clamping is chosen here to ensure the operation always runs with a valid value,
+    // preventing potential issues from out-of-range inputs while logging the warning.
+    if (blacks_value < OperationBlacks::MIN_BLACKS_VALUE || blacks_value > OperationBlacks::MAX_BLACKS_VALUE) {
+        spdlog::warn("OperationBlacks::execute: Blacks value ({}) is outside the valid range [{}, {}]. Clamping.",
+                     blacks_value, OperationBlacks::MIN_BLACKS_VALUE, OperationBlacks::MAX_BLACKS_VALUE);
+        blacks_value = std::clamp(blacks_value, OperationBlacks::MIN_BLACKS_VALUE, OperationBlacks::MAX_BLACKS_VALUE);
     }
 
     spdlog::debug("OperationBlacks::execute: value={:.2f} on {}x{} ({}ch) region",
