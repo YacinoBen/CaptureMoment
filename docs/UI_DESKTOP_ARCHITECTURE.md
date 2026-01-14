@@ -2,18 +2,19 @@
 
 ## Overview
 
-This section describes the Qt/C++ abstraction layer located between the central engine (`Core`) and the QML user interface. It manages communication logic, the worker thread, operation state, and image display.
+This section describes the Qt/C++ abstraction layer located between the central engine (`Core`) and the QML user interface. It manages communication logic, the worker thread, operation state, image display, and file-based serialization/deserialization of operations.
 
 ## Key Components
 
 ### `ImageControllerBase` (and derivatives like `ImageControllerSGS`, `ImageControllerRHI`, `ImageControllerPainted`)
-*   **Role:** Main orchestrator. Manages communication between QML, `PhotoEngine` (Core), `OperationStateManager`, and `DisplayManager`. Each derivative (`SGS`, `RHI`, `Painted`) handles a specific rendering path.
+*   **Role:** Main orchestrator. Manages communication between QML, `PhotoEngine` (Core), `OperationStateManager`, `DisplayManager`, and `UISerializerManager`. Each derivative (`SGS`, `RHI`, `Painted`) handles a specific rendering path.
 *   **Responsibilities:**
     *   Create and manage `PhotoEngine`, `DisplayManager`, `OperationStateManager`, `OperationModelManager`.
     *   Manage a worker thread for non-blocking operations (loading, applying operations).
     *   Connect `valueChanged` signals from operation models (via `OperationModelManager`) to `OperationStateManager`.
     *   Expose QML slots (like `loadImage`, `applyOperations`) and emit QML signals for results.
     *   Interact with `DisplayManager` for display updates.
+    *   **Does not directly manage serialization.**
 
 ### `OperationModelManager`
 *   **Role:** Centralized management of creation, storage, and QML registration of operation models (like `BrightnessModel`, `ContrastModel`).
@@ -28,7 +29,7 @@ This section describes the Qt/C++ abstraction layer located between the central 
     *   Maintain the full list of active operations (as `OperationDescriptor`).
     *   Provide thread-safe methods to add, update, remove operations in this state.
     *   Provide a method to retrieve the full list of active operations.
-    *   **Does not communicate directly** with `PhotoEngine`.
+    *   **Does not communicate directly** with `PhotoEngine` or handle serialization.
 
 ### `BaseAdjustmentModel` (and derivatives like `BrightnessModel`)
 *   **Role:** C++ models for single-parameter adjustable operations (e.g., brightness, contrast).
@@ -44,6 +45,15 @@ This section describes the Qt/C++ abstraction layer located between the central 
     *   Downsample the high-resolution image from `PhotoEngine` for display.
     *   Manage zoom and pan state.
     *   Send the downsampled image to the appropriate Qt Quick rendering item (`RHIImageItem`, `SGSImageItem`, etc.).
+
+### `UISerializerManager`
+*   **Role:** UI-layer manager for handling file-based serialization and deserialization of image operations using XMP metadata.
+*   **Responsibilities:**
+    *   Acts as a Qt/QML-friendly wrapper around the core `FileSerializerManager`.
+    *   Provides Qt slots (`saveOperations`, `loadOperations`) callable from QML.
+    *   Emits Qt signals (`operationsSaved`, `operationsLoaded`, `operationsLoadFailed`, etc.) to notify the UI layer about the outcome of serialization operations.
+    *   **Does not handle the core logic** of serialization or manage the image processing state.
+    *   **Does not communicate directly** with `PhotoEngine`.
 
 ### Rendering Components (`IRenderingItemBase`, `BaseImageItem`, `RHIImageItem`, `SGSImageItem`, `PaintedImageItem`)
 *   **Role:** Qt Quick items responsible for the final display of the image on screen.
@@ -61,8 +71,9 @@ This section describes the Qt/C++ abstraction layer located between the central 
 *   **Role:** Entry point for QML context configuration.
 *   **Responsibilities:**
     *   Create `ImageControllerBase`.
+    *   Optionally receive and hold an instance of `UISerializerManager` (typically created and injected by a higher-level application module).
     *   Call `OperationModelManager::registerModelsToQml` (via `ImageControllerBase`'s getter).
-    *   Register `ImageControllerBase` in the QML context (as `controller`).
+    *   Register `ImageControllerBase` and `UISerializerManager` in the QML context (as `controller` and `uiSerializerManager` respectively).
 
 ## QML Components
 
@@ -70,11 +81,14 @@ The QML layer provides the user interface for the application. Key aspects inclu
 
 *   **Operation Widgets:** Individual QML components (e.g., `BrightnessOperation.qml`) bind to C++ operation models (e.g., `brightnessControl`) and trigger updates via `setValue`.
 *   **Panels:** Collapsible sections (e.g., `TonePanel.qml`) group related operation widgets.
+*   **Panels:** Collapsible sections (e.g., `TonePanel.qml`) group related operation widgets.
 *   **Display Area:** The central panel hosts the Qt Quick rendering item (e.g., `QMLSGSImageItem`) which displays the processed image.
-*   **Context Setup:** `QmlContextSetup` ensures C++ objects (`controller`, operation models) are available in the QML context for binding.
+*   **Context Setup:** `QmlContextSetup` ensures C++ objects (`controller`, `uiSerializerManager`, operation models) are available in the QML context for binding.
+*   **Serialization Interaction:** QML can directly call slots on `uiSerializerManager` (e.g., `uiSerializerManager.saveOperations(imagePath, controller.operationStateManager.getActiveOperations())`) and listen to its signals for feedback.
 
 ## Main Flow
 
+### Image Processing Flow (unchanged)
 1.  **Initialization:** `QmlContextSetup` creates `ImageControllerBase`, which creates its dependencies (`OperationStateManager`, `OperationModelManager`, etc.). `OperationModelManager` creates the models, and `ImageControllerBase` connects them to `OperationStateManager`. Then, `QmlContextSetup` registers the models to QML via `OperationModelManager`.
 2.  **QML Interaction:** A user moves a slider (e.g., Brightness). This calls `brightnessControl.setValue(newValue)` in QML.
 3.  **Model Update:** `BaseAdjustmentModel::setValue` updates `m_params.value` and emits `valueChanged(newValue)`.
@@ -83,3 +97,11 @@ The QML layer provides the user interface for the application. Key aspects inclu
 6.  **Core Call:** `ImageControllerBase::doApplyOperations` calls `PhotoEngine::applyOperations(full_list_of_operations)`.
 7.  **Processing in Core:** `PhotoEngine` delegates to `StateImageManager` (Core) which applies the list of operations via `OperationPipeline` and updates the working image.
 8.  **Display Update:** `ImageControllerBase` retrieves the new working image from `PhotoEngine` and passes it to `DisplayManager`, which downsamples it and sends it to the Qt Quick rendering item for display.
+
+### Serialization Flow (new)
+1.  **Initialization:** `QmlContextSetup` receives an instance of `UISerializerManager` (created elsewhere) and registers it to the QML context as `uiSerializerManager`.
+2.  **QML Interaction:** A user triggers a save/load action (e.g., clicking a "Save XMP" button). QML calls `uiSerializerManager.saveOperations(imagePath, operationList)` or `uiSerializerManager.loadOperations(imagePath)`.
+3.  **Serialization Call:** `UISerializerManager` receives the call and delegates the work to the underlying core `FileSerializerManager`.
+4.  **Signal Notification:** Upon completion, `UISerializerManager` emits a Qt signal (e.g., `operationsSaved`, `operationsLoaded(loadedOperations)`, `operationsLoadFailed`).
+5.  **QML Response:** QML listens to these signals and updates the UI accordingly (e.g., show a success message, apply loaded operations to the `OperationStateManager`).
+6.  
