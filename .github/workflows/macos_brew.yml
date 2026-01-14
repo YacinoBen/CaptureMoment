@@ -43,6 +43,8 @@
             brew install spdlog
             brew install openimageio
             brew install halide 
+            brew install exiv2
+            brew install magic_enum
 
             # Optional: Halide (if available in homebrew)
             # brew install halide
@@ -60,6 +62,16 @@
            target: 'desktop'
            host: 'mac'
            modules: 'qtshadertools'
+
+        # ====================================================================
+        # Verify Clang C++23 Support
+        # ====================================================================
+        - name: Verify Clang C++23 Support
+          run: |
+            clang++ --version
+            echo "Checking C++23 support..."
+            clang++ -std=c++23 -x c++ -E - <<< '#include <version>' && echo "C++23 supported" || echo "C++23 not supported"
+          shell: bash
 
         # ====================================================================
         # Configure cmake environment

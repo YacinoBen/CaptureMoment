@@ -25,6 +25,12 @@ pip uninstall halide -y halide || true
 # compile the project with cmake
 sudo apt install -y libhalide17-1 libhalide17-1-dev python3-halide
 
+# Install exiv2
+sudo apt install -y libexiv2-dev
+
+# Instal magic-enum
+sudo apt install -y libmagicenum-dev
+
 # Better to use install Qt via Qt online installer to chose 6.9.3
 # but you can use sudo apt install -y qt6-base-dev qt6-declarative-dev , but check the version installed
 

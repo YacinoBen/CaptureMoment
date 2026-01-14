@@ -70,7 +70,54 @@ jobs:
           target: 'desktop'
           host: 'linux'
           modules: 'qtshadertools'
+      # ====================================================================
+      # Install magic_enum v0.9.7 (header-only) from source
+      # ====================================================================
+      - name: Install magic_enum v0.9.7 (header-only)
+        run: |
+         git clone https://github.com/Neargye/magic_enum.git /tmp/magic_enum
+         cd /tmp/magic_enum
+         git checkout v0.9.7
+         sudo mkdir -p /usr/local/include/magic_enum
+         sudo cp include/magic_enum/*.hpp /usr/local/include/magic_enum/
+        shell: bash
 
+      # ====================================================================
+      # Build and Install Exiv2 0.28.7 from source
+      # ====================================================================
+      - name: Install Exiv2 dependencies
+        run: |
+         sudo apt install -y \
+         ccache \
+         libbrotli-dev \
+         libexpat1-dev \
+         libgtest-dev \
+         libinih-dev \
+         libssh-dev \
+         libxml2-utils \
+         libz-dev \
+         zlib1g-dev
+        shell: bash
+
+      - name: Build and Install Exiv2 0.28.7 from source
+        run: |
+          git clone https://github.com/Exiv2/exiv2.git /tmp/exiv2-src
+          cd /tmp/exiv2-src
+          git checkout v0.28.7
+    
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+                 -DCMAKE_INSTALL_PREFIX=/opt/exiv2 \
+                 -DBUILD_SHARED_LIBS=ON \
+                 -DBUILD_WITH_CCACHE=ON \
+                 ..
+    
+          cmake --build . --parallel $(nproc)
+          sudo cmake --install .
+    
+          echo "CMAKE_PREFIX_PATH=/opt/exiv2:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
+        shell: bash
+      
       # ====================================================================
       # BUILD AND INSTALL OpenImageIO 3.1.8 from source
       # ====================================================================

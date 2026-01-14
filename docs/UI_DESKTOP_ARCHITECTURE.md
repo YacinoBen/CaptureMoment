@@ -1,85 +1,64 @@
-# 🏗️ Qt::Core & Qt::Desktop Architecture
+# 🏗️ Qt::Desktop Architecture (QML Layer)
 
 ## Overview
 
-This section describes the Qt/C++ abstraction layer located between the central engine (`Core`) and the QML user interface. It manages communication logic, the worker thread, operation state, and image display.
+This section describes the QML user interface layer. It interacts with the Qt/C++ UI Core layer (`ImageControllerBase`, `Operation Models`, `SerializerController`) to provide the user experience for loading images, adjusting parameters, viewing results, and managing operation persistence.
 
-## Key Components
+## Key QML Components
 
-### `ImageControllerBase` (and derivatives like `ImageControllerSGS`, `ImageControllerRHI`, `ImageControllerPainted`)
-*   **Role:** Main orchestrator. Manages communication between QML, `PhotoEngine` (Core), `OperationStateManager`, and `DisplayManager`. Each derivative (`SGS`, `RHI`, `Painted`) handles a specific rendering path.
-*   **Responsibilities:**
-    *   Create and manage `PhotoEngine`, `DisplayManager`, `OperationStateManager`, `OperationModelManager`.
-    *   Manage a worker thread for non-blocking operations (loading, applying operations).
-    *   Connect `valueChanged` signals from operation models (via `OperationModelManager`) to `OperationStateManager`.
-    *   Expose QML slots (like `loadImage`, `applyOperations`) and emit QML signals for results.
-    *   Interact with `DisplayManager` for display updates.
+### QML Operation Widgets
 
-### `OperationModelManager`
-*   **Role:** Centralized management of creation, storage, and QML registration of operation models (like `BrightnessModel`, `ContrastModel`).
-*   **Responsibilities:**
-    *   Create instances of operation models.
-    *   Provide typed lists (e.g., `std::vector<std::shared_ptr<BaseAdjustmentModel>>`) for efficient use.
-    *   Register models into the QML context (e.g., `brightnessControl`, `contrastControl`).
+*   **Role:** Individual UI controls (e.g., sliders, checkboxes) for specific image adjustments (e.g., Brightness, Contrast).
+*   **Interaction:** Bind to C++ operation models (e.g., `brightnessControl`, `contrastControl`) obtained from the QML context. Trigger updates via model setters (e.g., `model.setValue(newVal)`).
 
-### `OperationStateManager`
-*   **Role:** Management of the **cumulative** state of active operations.
-*   **Responsibilities:**
-    *   Maintain the full list of active operations (as `OperationDescriptor`).
-    *   Provide thread-safe methods to add, update, remove operations in this state.
-    *   Provide a method to retrieve the full list of active operations.
-    *   **Does not communicate directly** with `PhotoEngine`.
+### QML Panels
 
-### `BaseAdjustmentModel` (and derivatives like `BrightnessModel`)
-*   **Role:** C++ models for single-parameter adjustable operations (e.g., brightness, contrast).
-*   **Responsibilities:**
-    *   Inherit from `OperationProvider` for Qt infrastructure.
-    *   Expose QML properties (`value`, `minimum`, `maximum`, `name`, `active`).
-    *   Implement `IOperationModel` to provide an `OperationDescriptor`.
-    *   Emit the `valueChanged` signal when the value is modified via `setValue`.
+*   **Role:** Organizational containers (e.g., `TonePanel.qml`) grouping related operation widgets together.
 
-### `DisplayManager`
-*   **Role:** Manage display-side logic: downsampling, zoom, pan, tile updates.
-*   **Responsibilities:**
-    *   Downsample the high-resolution image from `PhotoEngine` for display.
-    *   Manage zoom and pan state.
-    *   Send the downsampled image to the appropriate Qt Quick rendering item (`RHIImageItem`, `SGSImageItem`, etc.).
+### QML Display Area
 
-### Rendering Components (`IRenderingItemBase`, `BaseImageItem`, `RHIImageItem`, `SGSImageItem`, `PaintedImageItem`)
-*   **Role:** Qt Quick items responsible for the final display of the image on screen.
-*   **Responsibilities:**
-    *   `IRenderingItemBase`: Abstract interface defining common methods (`setImage`, `updateTile`, `setZoom`, `setPan`) and state (`m_image_width`, `m_image_height`, `m_zoom`, `m_pan`, `m_image_mutex`).
-    *   `BaseImageItem`: Provides common implementations for `imageWidth`, `imageHeight`, and `isImageValid`, inheriting from `IRenderingItemBase`.
-    *   `RHIImageItem`: Uses `QQuickRhiItem` to leverage QRhi (Vulkan, Metal, DirectX12). Integrates `RHIImageNode` for direct manipulation of the render pipeline.
-    *   `SGSImageItem`: Uses `QQuickItem` and `QSGSimpleTextureNode` via the Scene Graph.
-    *   `PaintedImageItem`: Uses `QQuickPaintedItem` and `QPainter`.
-    *   All concrete items inherit from their specific Qt Quick base (`QQuickRhiItem`, `QQuickItem`, `QQuickPaintedItem`) and from `BaseImageItem` to get common state and logic.
-    *   Receive the updated image from `DisplayManager` and display it.
-    *   Implement zoom and pan logic.
+*   **Role:** Central area hosting the Qt Quick rendering item (e.g., `QMLSGSImageItem.qml`, `QMLRHIImageItem.qml`, `QMLPaintedImageItem.qml`) which displays the processed image received from the `DisplayManager`.
 
-### `QmlContextSetup`
-*   **Role:** Entry point for QML context configuration.
-*   **Responsibilities:**
-    *   Create `ImageControllerBase`.
-    *   Call `OperationModelManager::registerModelsToQml` (via `ImageControllerBase`'s getter).
-    *   Register `ImageControllerBase` in the QML context (as `controller`).
+### QML Context Integration
 
-## QML Components
+*   **Role:** The QML layer receives C++ objects from `QmlContextSetup`.
+*   **Objects Available:**
+    *   `controller`: Instance of `ImageControllerBase`. Used for `loadImage`, `applyOperations`, accessing `operationStateManager`, etc.
+    *   `serializerController`: Instance of `SerializerController`. Used for `saveOperations`, `loadOperations`, listening to `operationsSaved`, `operationsLoaded`, etc.
+    *   Operation Models (e.g., `brightnessControl`, `contrastControl`).
 
-The QML layer provides the user interface for the application. Key aspects include:
+## QML Interaction Flows
 
-*   **Operation Widgets:** Individual QML components (e.g., `BrightnessOperation.qml`) bind to C++ operation models (e.g., `brightnessControl`) and trigger updates via `setValue`.
-*   **Panels:** Collapsible sections (e.g., `TonePanel.qml`) group related operation widgets.
-*   **Display Area:** The central panel hosts the Qt Quick rendering item (e.g., `QMLSGSImageItem`) which displays the processed image.
-*   **Context Setup:** `QmlContextSetup` ensures C++ objects (`controller`, operation models) are available in the QML context for binding.
+### Image Adjustment Flow
 
-## Main Flow
+1.  **User Action:** User drags a slider in a QML Operation Widget (e.g., Brightness).
+2.  **QML Binding:** The slider's `valueChanged` signal updates the bound C++ model's `value` property (e.g., `brightnessControl.value = newValue`).
+3.  **C++ Model Signal:** The C++ `BaseAdjustmentModel` emits its `valueChanged` signal.
+4.  **C++ Connection:** `ImageControllerBase` receives the signal and triggers the processing pipeline (see `ui_core_architecture.md`).
 
-1.  **Initialization:** `QmlContextSetup` creates `ImageControllerBase`, which creates its dependencies (`OperationStateManager`, `OperationModelManager`, etc.). `OperationModelManager` creates the models, and `ImageControllerBase` connects them to `OperationStateManager`. Then, `QmlContextSetup` registers the models to QML via `OperationModelManager`.
-2.  **QML Interaction:** A user moves a slider (e.g., Brightness). This calls `brightnessControl.setValue(newValue)` in QML.
-3.  **Model Update:** `BaseAdjustmentModel::setValue` updates `m_params.value` and emits `valueChanged(newValue)`.
-4.  **Connection and State Update:** The lambda in `ImageControllerBase::connectModelsToStateManager` connected to `valueChanged` is executed. It calls `OperationStateManager::addOrUpdateOperation(brightness_descriptor)`.
-5.  **Operation Application:** The lambda retrieves the full list of active operations via `OperationStateManager::getActiveOperations()` and calls `QMetaObject::invokeMethod(ImageControllerBase::doApplyOperations, ...)` on the worker thread.
-6.  **Core Call:** `ImageControllerBase::doApplyOperations` calls `PhotoEngine::applyOperations(full_list_of_operations)`.
-7.  **Processing in Core:** `PhotoEngine` delegates to `StateImageManager` (Core) which applies the list of operations via `OperationPipeline` and updates the working image.
-8.  **Display Update:** `ImageControllerBase` retrieves the new working image from `PhotoEngine` and passes it to `DisplayManager`, which downsamples it and sends it to the Qt Quick rendering item for display.
+### Operation Persistence Flow
+
+1.  **User Action:** User clicks a "Save Adjustments" or "Load Adjustments" button in QML.
+2.  **QML Call:** QML calls a slot on the exposed `serializerController` object (e.g., `serializerController.saveOperations(controller.getCurrentImagePath(), controller.operationStateManager.getActiveOperations())` or `serializerController.loadOperations(controller.getCurrentImagePath())`).
+3.  **C++ Serialization:** `SerializerController` handles the core serialization logic (see `ui_core_architecture.md`).
+4.  **QML Feedback:** QML listens to signals emitted by `serializerController` (e.g., `onOperationsSaved`, `onOperationsLoadFailed`) and updates the UI (e.g., shows success/error messages).
+
+## Main Flow (Combined UI + Core)
+
+The primary flow involves QML triggering actions via `controller` or `serializerController`, which then propagate through the UI Core layer and eventually to the Core engine for processing or persistence.
+
+---
+
+## 🛠️ How to Contribute
+
+### Adding a New QML Operation Widget
+
+1.  **Create QML Component:** Define a new QML file (e.g., `VignetteOperation.qml`).
+2.  **Bind to Model:** Use `Binding` or direct property binding to connect the QML control (slider, checkbox) to the corresponding C++ operation model property (e.g., `model: vignetteControl`).
+3.  **Register Model:** Ensure the C++ `VignetteModel` is created and registered by `OperationModelManager` and exposed to QML (see `ui_core_architecture.md`).
+
+### Adding a New QML Persistence Feature
+
+1.  **Create UI Elements:** Add buttons, dialogs, or other QML components to trigger save/load actions.
+2.  **Call Serializer Controller:** Use the `serializerController` object available in the QML context to call `saveOperations` or `loadOperations`.
+3.  **Handle Signals:** Listen to signals from `serializerController` to provide user feedback.

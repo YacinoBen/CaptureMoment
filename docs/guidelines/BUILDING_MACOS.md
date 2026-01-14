@@ -16,8 +16,10 @@ make sure you have cmake, ninja installed
 ```powershell
 brew update
 brew install openimageio
-brew install spdlog
 brew install halide
+brew install spdlog
+brew install exiv2
+brew install magic_enum
 brew install qt6
 ```
 
