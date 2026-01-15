@@ -26,14 +26,22 @@ bool OperationContrast::execute(Common::ImageRegion& input, const OperationDescr
 
     // 2. Extract parameter using key-value access
     // Retrieves "value" key with default 0.0f if missing or type mismatch
-    const float contrast_value = descriptor.getParam<float>("value", 0.0f);
+    float contrast_value = descriptor.getParam<float>("value", 0.0f);
 
-    // No-op optimization
-    if (contrast_value == 0.0f) {
-        spdlog::trace("OperationContrast::execute: Contrast value is 0, skipping");
+    // No-op optimization (using the default value from OperationRanges via static member)
+    if (contrast_value == OperationContrast::DEFAULT_CONTRAST_VALUE) { // Use the static member
+        spdlog::trace("OperationContrast::execute: Contrast value is default ({}), skipping", OperationContrast::DEFAULT_CONTRAST_VALUE);
         return true;
     }
 
+    // Validate and clamp the value to the defined range (Business Logic - Core)
+    // Clamping is chosen here to ensure the operation always runs with a valid value,
+    // preventing potential issues from out-of-range inputs while logging the warning.
+    if (contrast_value < OperationContrast::MIN_CONTRAST_VALUE || contrast_value > OperationContrast::MAX_CONTRAST_VALUE) {
+        spdlog::warn("OperationContrast::execute: Contrast value ({}) is outside the valid range [{}, {}]. Clamping.",
+                     contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
+        contrast_value = std::clamp(contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
+    }
     spdlog::debug("OperationContrast::execute: value={:.2f} on {}x{} ({}ch) region",
                   contrast_value, input.m_width, input.m_height, input.m_channels);
 

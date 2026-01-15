@@ -10,10 +10,10 @@
 
 namespace CaptureMoment::UI::Models::Operations {
 
-// Constructor: Initializes the model with a default value of 0.0.
 HighlightsModel::HighlightsModel(QObject* parent)
     : BaseAdjustmentModel(parent)
 {
+    m_params.value = Core::Operations::OperationRanges::getHighlightsDefaultValue();
     spdlog::debug("HighlightsModel: Created (inherits default value from BaseAdjustmentModel)");
 }
 
@@ -27,11 +27,10 @@ Core::Operations::OperationDescriptor HighlightsModel::getDescriptor() const
     return descriptor;
 }
 
-// Resets the highlights value to its default (0.0).
 void HighlightsModel::reset()
 {
-    spdlog::debug("HighlightsModel::reset: Resetting to default value (0.0)");
-    setValue(0.0f);
+    spdlog::debug("HighlightsModel::reset: Resetting to default value ({})", Core::Operations::OperationRanges::getHighlightsDefaultValue());
+    setValue(Core::Operations::OperationRanges::getHighlightsDefaultValue());
 }
 
 // Handles successful operation completion from ImageControllerBase.

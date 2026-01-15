@@ -122,6 +122,7 @@ set(QOBJECT_HEADERS
     include/managers/operation_state_manager.h
 
     # Operations
+    include/domain/operation_parameters.h
     include/models/operations/i_operation_model.h
     include/models/operations/operation_provider.h
     include/models/manager/operation_model_manager.h

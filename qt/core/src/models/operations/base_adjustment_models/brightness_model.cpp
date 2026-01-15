@@ -10,10 +10,10 @@
 
 namespace CaptureMoment::UI::Models::Operations {
 
-// Constructor: Initializes the model with a default value of 0.0.
 BrightnessModel::BrightnessModel(QObject* parent)
     : BaseAdjustmentModel(parent)
 {
+    m_params.value = Core::Operations::OperationRanges::getBrightnessDefaultValue();
     spdlog::debug("BrightnessModel: Created (inherits default value from BaseAdjustmentModel)");
 }
 
@@ -27,11 +27,10 @@ Core::Operations::OperationDescriptor BrightnessModel::getDescriptor() const
     return descriptor;
 }
 
-// Resets the brightness value to its default (0.0).
 void BrightnessModel::reset()
 {
-    spdlog::debug("BrightnessModel::reset: Resetting to default value (0.0)");
-    setValue(0.0f);
+    spdlog::debug("BrightnessModel::reset: Resetting to default value ({})", Core::Operations::OperationRanges::getBrightnessDefaultValue());
+    setValue(Core::Operations::OperationRanges::getBrightnessDefaultValue());
 }
 
 // Handles successful operation completion from ImageControllerBase.

@@ -10,10 +10,10 @@
 
 namespace CaptureMoment::UI::Models::Operations {
 
-// Constructor: Initializes the model with a default value of 0.0.
 ContrastModel::ContrastModel(QObject* parent)
     : BaseAdjustmentModel(parent)
 {
+    m_params.value = Core::Operations::OperationRanges::getContrastDefaultValue();
     spdlog::debug("ContrastModel: Created (inherits default value from BaseAdjustmentModel)");
 }
 
@@ -27,11 +27,10 @@ Core::Operations::OperationDescriptor ContrastModel::getDescriptor() const
     return descriptor;
 }
 
-// Resets the contrast value to its default (0.0).
 void ContrastModel::reset()
 {
-    spdlog::debug("ContrastModel::reset: Resetting to default value (0.0)");
-    setValue(0.0f);
+    spdlog::debug("ContrastModel::reset: Resetting to default value ({})", Core::Operations::OperationRanges::getContrastDefaultValue());
+    setValue(Core::Operations::OperationRanges::getContrastDefaultValue());
 }
 
 // Handles successful operation completion from ImageControllerBase.

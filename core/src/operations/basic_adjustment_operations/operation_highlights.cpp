@@ -26,12 +26,21 @@ bool OperationHighlights::execute(Common::ImageRegion& input, const OperationDes
 
     // 2. Extract parameter using key-value access
     // Retrieves "value" key with default 0.0f if missing or type mismatch
-    const float highlights_value = descriptor.getParam<float>("value", 0.0f);
+    float highlights_value = descriptor.getParam<float>("value", 0.0f);
 
-    // No-op optimization
-    if (highlights_value == 0.0f) {
-        spdlog::trace("OperationHighlights::execute: Highlights value is 0, skipping");
+    // No-op optimization (using the default value from OperationRanges via static member)
+    if (highlights_value == OperationHighlights::DEFAULT_HIGHLIGHTS_VALUE) { // Use the static member
+        spdlog::trace("OperationHighlights::execute: Highlights value is default ({}), skipping", OperationHighlights::DEFAULT_HIGHLIGHTS_VALUE);
         return true;
+    }
+
+    // Validate and clamp the value to the defined range (Business Logic - Core)
+    // Clamping is chosen here to ensure the operation always runs with a valid value,
+    // preventing potential issues from out-of-range inputs while logging the warning.
+    if (highlights_value < OperationHighlights::MIN_HIGHLIGHTS_VALUE || highlights_value > OperationHighlights::MAX_HIGHLIGHTS_VALUE) {
+        spdlog::warn("OperationHighlights::execute: Highlights value ({}) is outside the valid range [{}, {}]. Clamping.",
+                     highlights_value, OperationHighlights::MIN_HIGHLIGHTS_VALUE, OperationHighlights::MAX_HIGHLIGHTS_VALUE);
+        highlights_value = std::clamp(highlights_value, OperationHighlights::MIN_HIGHLIGHTS_VALUE, OperationHighlights::MAX_HIGHLIGHTS_VALUE);
     }
 
     spdlog::debug("OperationHighlights::execute: value={:.2f} on {}x{} ({}ch) region",

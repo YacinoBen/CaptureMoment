@@ -10,10 +10,10 @@
 
 namespace CaptureMoment::UI::Models::Operations {
 
-// Constructor: Initializes the model with a default value of 0.0.
 WhitesModel::WhitesModel(QObject* parent)
     : BaseAdjustmentModel(parent)
 {
+    m_params.value = Core::Operations::OperationRanges::getWhitesDefaultValue();
     spdlog::debug("WhitesModel: Created (inherits default value from BaseAdjustmentModel)");
 }
 
@@ -27,11 +27,10 @@ Core::Operations::OperationDescriptor WhitesModel::getDescriptor() const
     return descriptor;
 }
 
-// Resets the whites value to its default (0.0).
 void WhitesModel::reset()
 {
-    spdlog::debug("WhitesModel::reset: Resetting to default value (0.0)");
-    setValue(0.0f);
+    spdlog::debug("WhitesModel::reset: Resetting to default value ({})", Core::Operations::OperationRanges::getWhitesDefaultValue());
+    setValue(Core::Operations::OperationRanges::getWhitesDefaultValue());
 }
 
 // Handles successful operation completion from ImageControllerBase.

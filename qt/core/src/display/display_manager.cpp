@@ -314,14 +314,14 @@ std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
     float x_ratio = static_cast<float>(source.m_width - 1) / target_width;
     float y_ratio = static_cast<float>(source.m_height - 1) / target_height;
     
-    spdlog::info("downsampleImage: Creating {}x{} from {}x{}",
+    spdlog::info("DisplayManager::downsampleImage: Creating {}x{} from {}x{}",
                  target_width, target_height,
                  source.m_width, source.m_height);
 
     int last_src_idx = ((source.m_height - 1) * source.m_width + 0) * source.m_channels;
     if (last_src_idx + 2 < source.m_data.size())
     {
-        spdlog::info("downsampleImage: Last source pixel (0, {}): {:.3f},{:.3f},{:.3f}",
+        spdlog::info("DisplayManager::downsampleImage: Last source pixel (0, {}): {:.3f},{:.3f},{:.3f}",
                      source.m_height - 1,
                      source.m_data[last_src_idx],
                      source.m_data[last_src_idx+1],
@@ -358,13 +358,13 @@ std::shared_ptr<Core::Common::ImageRegion> DisplayManager::downsampleImage(
         }
     }
 
-    spdlog::info("downsampleImage: Last downsampled pixel (0, {}): {:.3f},{:.3f},{:.3f}",
+    spdlog::info("DisplayManager::downsampleImage: Last downsampled pixel (0, {}): {:.3f},{:.3f},{:.3f}",
                  target_height - 1,
                  downsampled->m_data[((target_height-1) * target_width + 0) * source.m_channels],
                  downsampled->m_data[((target_height-1) * target_width + 0) * source.m_channels + 1],
                  downsampled->m_data[((target_height-1) * target_width + 0) * source.m_channels + 2]);
     
-    spdlog::trace("DisplayManager: Downsampled {}x{} -> {}x{}",
+    spdlog::trace("DisplayManager::downsampleImage Downsampled {}x{} -> {}x{}",
                   source.m_width, source.m_height,
                   target_width, target_height);
     
