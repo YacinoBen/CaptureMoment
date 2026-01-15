@@ -16,7 +16,7 @@ std::unique_ptr<IOperation> OperationFactory::create(
     const OperationDescriptor& descriptor
 ) const {
 
-    spdlog::info("OperationFactory::create: Available creators: {}", m_creators.size());
+    spdlog::info("OperationFactory::create: Available creators size: {}", m_creators.size());
 
     auto it = m_creators.find(descriptor.type);
     
@@ -25,7 +25,7 @@ std::unique_ptr<IOperation> OperationFactory::create(
         return nullptr;
     }
 
-    spdlog::trace("OperationFactory::create: Creating operation '{}'", descriptor.name);
+    spdlog::info("OperationFactory::create: Creating operation '{}'", descriptor.name);
     auto op = it->second();
     spdlog::info("OperationFactory::create: Operation created successfully");
     return op;
