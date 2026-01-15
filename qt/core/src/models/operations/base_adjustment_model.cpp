@@ -23,21 +23,20 @@ BaseAdjustmentModel::BaseAdjustmentModel(QObject* parent)
 
 void BaseAdjustmentModel::setValue(float val)
 {
-    // Clamp the incoming value to the allowed range [-1.0, 1.0]
-    float clampedValue = std::clamp(val, minimum(), maximum());
+    // Clamp the incoming value to the allowed range [-1.0, 1.0] (or whatever minimum()/maximum() returns)
+    float clamped_value { std::clamp(val, minimum(), maximum()) };
 
     // Check if the value has actually changed to avoid unnecessary updates/signals.
-    if (qFuzzyCompare(m_params.value, clampedValue)) {
+    if (qFuzzyCompare(m_params.value, clamped_value)) {
         return; // No change, exit early.
     }
 
     bool was_active = m_params.isActive();
 
     // Update the internal parameter structure.
-    m_params.value = clampedValue;
-    m_params.clampValue(); // Ensure it's within [-1, 1] using the struct's method
+    m_params.value = clamped_value;
 
-    bool is_now_active = isActive();
+    bool is_now_active { isActive() };
     emit valueChanged(m_params.value); // Emit inherited signal
 
     if (was_active != is_now_active) {

@@ -26,12 +26,21 @@ bool OperationShadows::execute(Common::ImageRegion& input, const OperationDescri
 
     // 2. Extract parameter using key-value access
     // Retrieves "value" key with default 0.0f if missing or type mismatch
-    const float shadows_value = descriptor.getParam<float>("value", 0.0f);
+    float shadows_value = descriptor.getParam<float>("value", 0.0f);
 
-    // No-op optimization
-    if (shadows_value == 0.0f) {
-        spdlog::trace("OperationShadows::execute: Shadows value is 0, skipping");
+    // No-op optimization (using the default value from OperationRanges via static member)
+    if (shadows_value == OperationShadows::DEFAULT_SHADOWS_VALUE) { // Use the static member
+        spdlog::trace("OperationShadows::execute: Shadows value is default ({}), skipping", OperationShadows::DEFAULT_SHADOWS_VALUE);
         return true;
+    }
+
+    // Validate and clamp the value to the defined range (Business Logic - Core)
+    // Clamping is chosen here to ensure the operation always runs with a valid value,
+    // preventing potential issues from out-of-range inputs while logging the warning.
+    if (shadows_value < OperationShadows::MIN_SHADOWS_VALUE || shadows_value > OperationShadows::MAX_SHADOWS_VALUE) {
+        spdlog::warn("OperationShadows::execute: Shadows value ({}) is outside the valid range [{}, {}]. Clamping.",
+                     shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
+        shadows_value = std::clamp(shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
     }
 
     spdlog::debug("OperationShadows::execute: value={:.2f} on {}x{} ({}ch) region",
