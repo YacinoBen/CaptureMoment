@@ -19,6 +19,9 @@ set(CORE_SOURCES
     src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
 
+    # Image Processing
+    src/image_processing/cpu/working_image_cpu_default.cpp
+
     # Serializer
     src/serializer/provider/exiv2_initializer.cpp
     src/serializer/provider/exiv2_provider.cpp
