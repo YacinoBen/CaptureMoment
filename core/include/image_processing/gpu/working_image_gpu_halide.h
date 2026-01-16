@@ -1,6 +1,6 @@
 /**
  * @file working_image_gpu_halide.h
- * @brief Concrete implementation of IWorkingImageGPU using Halide for GPU processing.
+ * @brief Concrete implementation of IWorkingImageGPU
  * @author CaptureMoment Team
  * @date 2026
  */
