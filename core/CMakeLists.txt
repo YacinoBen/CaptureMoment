@@ -22,6 +22,7 @@ set(CORE_SOURCES
     # Image Processing
     src/image_processing/cpu/working_image_cpu_default.cpp
     src/image_processing/cpu/working_image_cpu_halide.cpp
+    src/image_processing/gpu/working_image_gpu_halide.cpp
 
     # Serializer
     src/serializer/provider/exiv2_initializer.cpp
