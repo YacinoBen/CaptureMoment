@@ -7,12 +7,24 @@
 #include "rendering/qml_sgs_image_item.h"
 #include "rendering/qml_rhi_image_item.h"
 
+#include "image_processing/deciders/benchmarking_backend_decider.h"
+#include "config/app_config.h"
+#include "common/types/memory_type.h"; // to remove after  when we have a stable version we can call decide()
+
 #include <spdlog/spdlog.h>
 
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
     QQmlApplicationEngine engine;
+
+    spdlog::info("Starting backend benchmark...");
+    CaptureMoment::Core::ImageProcessing::BenchmarkingBackendDecider benchmark_decider;
+   // auto backend = benchmark_decider.decide(); when we have a stable version we can call decide()
+    auto backend =  CaptureMoment::Core::Common::MemoryType::GPU_MEMORY;
+
+    CaptureMoment::Core::Config::AppConfig::instance().setProcessingBackend(backend);
+
 
     // Register QML types Rendering
     qmlRegisterType<CaptureMoment::UI::QMLPaintedImageItem>(
