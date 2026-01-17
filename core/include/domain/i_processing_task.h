@@ -2,17 +2,16 @@
  * @file i_processing_task.h
  * @brief Interface IProcessingTask for image processing
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #pragma once
 
-#include <memory>
 #include <string>
 #include <atomic>
 #include <format>
 
-#include "common/image_region.h"
+#include "image_processing/interfaces/i_working_image_hardware.h"
 
 namespace CaptureMoment::Core {
 
@@ -62,13 +61,13 @@ public:
      * @brief Gets the result of the processed task.
      *
      * This function should return the processed image data encapsulated
-     * in an ImageRegion object. The behavior if called before `execute()`
+     * in an IWorkingImageHardware object. The behavior if called before `execute()`
      * has completed is implementation-defined (e.g., it may return nullptr).
      *
-     * @return A shared pointer to the resulting ImageRegion. Can be nullptr
+     * @return A pointer to the resulting IWorkingImageHardware. Can be nullptr
      *         if the task failed or has not yet produced a result.
      */
-    [[nodiscard]] virtual std::shared_ptr<Common::ImageRegion> result() const = 0;
+    [[nodiscard]] virtual ImageProcessing::IWorkingImageHardware* result() const = 0; // <-- Changé ici
 
     /**
      * @brief Gets a unique identifier for this task instance.
@@ -101,4 +100,4 @@ protected:
 
 } // namespace Domain
 
-} // namespace CaptureMoment::core
+} // namespace CaptureMoment::Core

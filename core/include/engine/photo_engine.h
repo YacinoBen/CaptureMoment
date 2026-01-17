@@ -2,7 +2,7 @@
  * @file photo_engine.h
  * @brief Declaration of PhotoEngine class
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #pragma once
@@ -11,7 +11,6 @@
 #include "operations/operation_factory.h"
 #include "operations/operation_pipeline.h"
 #include "managers/state_image_manager.h"
-#include "common/image_region.h"
 
 #include <memory>
 #include <string_view>
@@ -137,14 +136,14 @@ public:
     void applyOperations(const std::vector<Operations::OperationDescriptor>& ops);
 
     /**
-     * @brief Gets the current working image.
+     * @brief Gets the current working image hardware abstraction.
      *
      * Delegates the call to the internal StateImageManager to get the image
      * reflecting the currently applied operations.
      *
-     * @return Shared pointer to the current working ImageRegion managed by StateImageManager.
+     * @return Pointer to the current IWorkingImageHardware managed by StateImageManager.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImage() const;
+    [[nodiscard]] ImageProcessing::IWorkingImageHardware* getWorkingImage() const;
 };
 
 } // namespace Engine
