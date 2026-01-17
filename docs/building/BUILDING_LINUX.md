@@ -1,12 +1,15 @@
 # 🐧 Linux Building Guide
 This guide covers building CaptureMoment on Linux. You can choose between using system packages (faster) or building dependencies from source (more control, potentially newer versions).
 
-## Qt-UI
+## Qt-UI (not mandatory)
 If you want to develop the UI with Qt, you can directly download the actual version (e.g., 6.9.3) from the official website.
+
+## Halide build (mandatory)
+* [**Halide build**](BUILDING_HALIDE.md).
 
 ## 📦 Building with System Packages (Recommended)
 
-This is the fastest method as it uses pre-compiled binaries via your distribution's package manager, thus avoiding the long compilation times of dependencies like LLVM (for Halide) or Boost (for Exiv2).
+This is the fastest method as it uses pre-compiled binaries via your distribution's package manager.
 
 ### Ubuntu 25.04 / Debian Testing (or newer versions with required packages)
 
@@ -26,11 +29,6 @@ sudo apt install -y libopenimageio-dev # Includes dependencies like libtiff-dev,
 sudo apt install -y libexiv2-dev # For XMP metadata
 sudo apt install -y libmagicenum-dev # For safe enum-to-string conversion
 
-# Image Processing Backend (Choose one based on availability/version)
-# Check available versions: apt search halide
-sudo apt install -y libhalide21-dev  # Preferably the latest supported version (e.g., 21.x)
-# sudo apt install -y libhalide19-dev # Fallback if 21 is not available
-
 # Potentially needed system libraries
 sudo apt install -y libcurl4-openssl-dev # For network features in Exiv2 (if enabled)
 sudo apt install -y libxkbcommon-dev     # For Qt Wayland support (if applicable)
@@ -45,14 +43,6 @@ Make sure you have : ninja, cmake
 ### Install the libraries
 ```powershell
 sudo apt install -y libspdlog-dev 
-
-# If you can compile cmake with halide installed with pip ok, otherwise delete it and
-# Install libhalide-dev, generally in ubuntu 24 it's 17-1, but in Ubuntu 25 maybe you need to change the version.
-pip uninstall halide -y halide || true
-
-# Execute the following if you don't have halide or pip halide can't 
-# compile the project with cmake
-sudo apt install -y libhalide17-1 libhalide17-1-dev python3-halide
 
 # Maybe we need it
 sudo apt install -y libcurl4-openssl-dev
