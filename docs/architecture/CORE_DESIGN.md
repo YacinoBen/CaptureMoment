@@ -1,6 +1,6 @@
 # Core Architecture Design Principles
 
-The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
+The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
 
 ---
 
@@ -34,7 +34,42 @@ The `ISourceManager` defines the contract for handling the image source, namely,
 
 ---
 
-## 3. Task-Based Processing Architecture: Abstraction and Orchestration
+## 3. Hardware-Agnostic Processing Architecture
+
+The most significant recent evolution is the introduction of a hardware-agnostic processing layer that abstracts CPU and GPU execution behind a unified interface.
+
+### `CaptureMoment::Core::ImageProcessing::IWorkingImageHardware` (Abstract Interface)
+
+This interface represents an image used as a working buffer, abstracting its hardware location (CPU RAM or GPU memory).
+
+* **Key Methods:**
+  * `exportToCPUCopy()`: Creates a CPU copy of the image data for display or saving.
+  * `updateFromCPU(const ImageRegion&)`: Updates the working buffer from CPU data.
+  * `isValid()`: Checks if the buffer is valid.
+  * `getSize()`, `getChannels()`, `getDataSize()`: Query buffer dimensions.
+
+### Concrete Implementations
+
+* **`WorkingImageCPU_Halide`:** Uses Halide buffers for CPU processing.
+* **`WorkingImageGPU_Halide`:** Uses Halide buffers with GPU scheduling for GPU processing.
+
+### `CaptureMoment::Core::ImageProcessing::WorkingImageFactory` (Factory Pattern)
+
+This factory encapsulates the logic for creating the appropriate `IWorkingImageHardware` implementation based on the configured backend.
+
+* **Responsibility:** Centralize creation logic to avoid duplication in `StateImageManager` and `PhotoTask`.
+* **Usage:** Both `StateImageManager` and `PhotoTask` use this factory to create working images, ensuring consistent initialization.
+
+### Backend Selection
+
+* **`CaptureMoment::Core::Config::AppConfig`:** Singleton that stores the selected processing backend (`MemoryType::CPU_RAM` or `MemoryType::GPU_MEMORY`).
+* **`BenchmarkingBackendDecider`:** Performs runtime benchmarking to determine the optimal backend and stores the result in `AppConfig`.
+* **Initialization:** The benchmark runs once at application startup in `main()`, and the result is used throughout the application lifecycle.
+
+* [**See more**](core/IMAGE_PROCESSING.md.md).
+---
+
+## 4. Task-Based Processing Architecture: Abstraction and Orchestration
 
 To manage the processing workflow effectively, especially in a potentially concurrent or sequential context, we introduce a layer of abstraction using interfaces and a central orchestrator.
 
@@ -44,42 +79,42 @@ The **`IProcessingTask`** interface defines a unit of work encapsulating the pro
 
 * **Responsibility:** Encapsulate the data (input tile, operations, factory), the execution logic (`execute`), and provide access to the result (`result`) and progress (`progress`).
 * **Decoupling:** The interface abstracts the *how* of processing, allowing for different implementations (e.g., CPU-based, GPU-based in the future) or different types of tasks (e.g., loading, saving).
-* **Implementation (`PhotoTask`):** A concrete implementation that applies a sequence of operations defined by `OperationDescriptors` to an `ImageRegion` using the static `OperationPipeline::applyOperations` method. It receives an `std::shared_ptr<Common::ImageRegion>` as input, processes it in-place, and stores the result internally.
+* **Implementation (`PhotoTask`):** A concrete implementation that applies a sequence of operations defined by `OperationDescriptors` to an `IWorkingImageHardware` using the static `OperationPipeline::applyOperations` method. It creates the working image using `WorkingImageFactory` based on the configured backend.
 
 ### `CaptureMoment::Core::Domain::IProcessingBackend` & `CaptureMoment::Core::Engine::PhotoEngine` (Orchestrator / Facade)
 
 The **`IProcessingBackend`** interface defines the contract for creating and submitting **`IProcessingTasks`**.
 
-* **Responsibility:** Orchestrate the overall processing flow. This includes managing the state of the loaded image (`SourceManager`), maintaining the list of active operations, creating **`IProcessingTasks`** via `createTask`, and handling their execution via `submit`. It also manages committing the final result back to the source via `commitResult`. A crucial aspect is the management of the **`m_working_image`**, a copy of the original image held by `SourceManager`, which is modified by operations before being potentially committed back.
-* **Implementation (`PhotoEngine`):** The main concrete orchestrator. It uses the `SourceManager` to load images and provide initial data (`tiles`). It creates `PhotoTasks` via `createTask` by first calling `SourceManager::getTile` (which returns an `std::unique_ptr<Common::ImageRegion>`), converting it to `std::shared_ptr<Common::ImageRegion>`, and then passing it to `std::make_shared<PhotoTask>`. It executes tasks (synchronously in v1 via `submit`) and provides methods like `commitResult` to write the processed tile (retrieved via `task->result()`) back to the `m_working_image`, and `commitWorkingImageToSource` to write the final `m_working_image` back to the `SourceManager` using `SourceManager::setTile`.
+* **Responsibility:** Orchestrate the overall processing flow. This includes managing the state of the loaded image (`SourceManager`), maintaining the list of active operations, creating **`IProcessingTasks`** via `createTask`, and handling their execution via `submit`. It also manages committing the final result back to the source via `commitResult`.
+* **Implementation (`PhotoEngine`):** The main concrete orchestrator. It uses the `SourceManager` to load images and provide initial data (`tiles`). It executes tasks (synchronously in v1 via `submit`) and provides methods like `getWorkingImageAsRegion()` to export the hardware buffer to CPU for display purposes.
 
 * **Benefit:** This centralizes the high-level logic (when to process, what operations are active, how to handle results, managing the working state) away from the low-level pipeline execution and resource management.
 
 ---
 
-## 4. Low-Level Pipeline Execution: Statelessness and Utility
+## 5. Low-Level Pipeline Execution: Statelessness and Utility
 
 The core logic for applying a sequence of operations to a data unit is encapsulated in a stateless utility located within the `operation` directory.
 
 ### `CaptureMoment::Core::Operations::OperationPipeline` (Stateless Utility)
 
-The `OperationPipeline` class (formerly `PipelineEngine`) is refactored into a stateless class containing only a static method (`apply` or `applyOperations`).
+The `OperationPipeline` class is refactored into a stateless class containing only a static method (`applyOperations`).
 
-* **Responsibility:** Execute a sequence of operations on a given `ImageRegion`. It iterates through the `OperationDescriptor`s, uses the `OperationFactory` to create instances of the required operations, and executes them sequentially on the provided tile.
-* **Decoupling:** It is independent of `SourceManager`, `PhotoEngine`, or any task management. It only knows about `ImageRegion`, `OperationDescriptor`, and `OperationFactory`.
+* **Responsibility:** Execute a sequence of operations on a given `IWorkingImageHardware`. It iterates through the `OperationDescriptor`s, uses the `OperationFactory` to create instances of the required operations, and executes them sequentially on the provided working image.
+* **Decoupling:** It is independent of `SourceManager`, `PhotoEngine`, or any task management. It only knows about `IWorkingImageHardware`, `OperationDescriptor`, and `OperationFactory`.
 * **Location:** This class resides in the `operations` folder, centralizing the low-level processing logic within the operation domain.
 
-* **Benefit:** High reusability and testability. It's a pure function-like component that performs the core processing step. It also allows for `[[nodiscard]]` attribute on its return value (`bool`) to ensure callers check for success/failure.
+* **Benefit:** High reusability and testability. It's a pure function-like component that performs the core processing step.
 
 ---
 
-## 5. Operation Management: The Factory Pattern
+## 6. Operation Management: The Factory Pattern
 
 This pattern remains crucial for creating operation instances within the processing pipeline.
 
 ### Components
 
-* **`CaptureMoment::Core::Operations::IOperation` (formerly `IOperation`):** The base interface for all operations (e.g., `OperationBrightness`, `OperationContrast`). It defines a single `execute(Common::ImageRegion& tile, const OperationDescriptor& descriptor)` method.
+* **`CaptureMoment::Core::Operations::IOperation` (formerly `IOperation`):** The base interface for all operations (e.g., `OperationBrightness`, `OperationContrast`). It defines a single `execute(IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)` method.
 
   * **Benefit:** Polymorphism. The `OperationPipeline` can treat every operation the same way, regardless of whether it performs a simple brightness adjustment or a complex convolution.
 
@@ -87,9 +122,10 @@ This pattern remains crucial for creating operation instances within the process
 
   * **Benefit:** Adding a new operation (e.g., `OperationSaturation`) only requires defining the new class and registering it in the factory setup, without modifying the `OperationPipeline`'s core logic. This promotes high maintainability and scalability.
 
+* [**See more**](core/OPERATIONS.md).
 ---
 
-## 6. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
+## 7. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
 
 The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed as an **independent layer**, separate from the core image processing engine (`PhotoEngine`), to maximize modularity and flexibility.
 
@@ -118,9 +154,10 @@ The core library includes a flexible system for saving and loading the state of 
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
 
 * [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
+
 ---
 
-## 7. Utility Modules and Generic Conversion
+## 8. Utility Modules and Generic Conversion
 
 Generic utility functions, such as string conversion, are centralized to promote reusability and reduce code duplication across the core library.
 
@@ -133,22 +170,20 @@ Generic utility functions, such as string conversion, are centralized to promote
 
 ---
 
-## 8. Namespace Organization
+## 9. Namespace Organization
 
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 
-* **`CaptureMoment::Core::Common`:** Contains fundamental data structures like `ImageRegion` and `PixelFormat`.
-* **`CaptureMoment::Core::Operations`:** Contains operation-related logic, including `IOperation`, `OperationDescriptor`, `OperationFactory`, `OperationPipeline`, and specific operation implementations (e.g., `OperationBrightness`).
-* **`CaptureMoment::Core::Managers`:** Contains managers responsible for resource handling, such as `ISourceManager` and `SourceManager`.
-* **`CaptureMoment::Core::Domain`:** Contains domain-specific interfaces, such as `IProcessingTask` and `IProcessingBackend`.
-* **`CaptureMoment::Core::Engine`:** Contains the core application logic orchestrators, such as `PhotoTask` and `PhotoEngine`.
-* **`CaptureMoment::Core::Serializer`:** Contains serialization-related interfaces, implementations, and utilities (e.g., `IXmpProvider`, `FileSerializerWriter`, `OperationSerialization`).
-* **`CaptureMoment::Core::utils`:** Contains generic utility functions, such as `toString`.
+- **`CaptureMoment::Core::Common`**: Contains fundamental data structures like `ImageRegion` and `PixelFormat`.
+- **`CaptureMoment::Core::Operations`**: Contains operation-related logic, including `IOperation`, `OperationDescriptor`, `OperationFactory`, `OperationPipeline`, and specific operation implementations (e.g., `OperationBrightness`).
+- **`CaptureMoment::Core::Managers`**: Contains managers responsible for resource handling, such as `ISourceManager` and `SourceManager`.
+- **`CaptureMoment::Core::Domain`**: Contains domain-specific interfaces, such as `IProcessingTask` and `IProcessingBackend`.
+- **`CaptureMoment::Core::Engine`**: Contains the core application logic orchestrators, such as `PhotoTask` and `PhotoEngine`.
+- **`CaptureMoment::Core::Serializer`**: Contains serialization-related interfaces, implementations, and utilities (e.g., `IXmpProvider`, `FileSerializerWriter`, `OperationSerialization`).
+- **`CaptureMoment::Core::ImageProcessing`**: Contains the hardware abstraction layer, including `IWorkingImageHardware`, concrete implementations, factories, and deciders.
+- **`CaptureMoment::Core::Config`**: Contains application-wide configuration (e.g., `AppConfig`).
+- **`CaptureMoment::Core::utils`**: Contains generic utility functions, such as `toString`.
 
 This organization clarifies the role of each component and prevents naming collisions.
 
 ---
-
-## Operations
-* [🟦 **Operations**](core/OPERATIONS.md).
-  
