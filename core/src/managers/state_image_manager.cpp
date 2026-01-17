@@ -1,17 +1,16 @@
-/**
- * @file state_image_manager.cpp
- * @brief Implementation of StateImageManager
- * @author CaptureMoment Team
- * @date 2025
- */
+    /**
+     * @file state_image_manager.cpp
+     * @brief Implementation of StateImageManager
+     * @author CaptureMoment Team
+     * @date 2025
+     */
 
 #include "managers/state_image_manager.h"
 #include "operations/operation_pipeline.h"
 #include "managers/source_manager.h"
 
+#include "image_processing/factories/working_image_factory.h"
 #include "config/app_config.h"
-
-#include "image_processing/image_processing.h"
 
 #include <spdlog/spdlog.h>
 #include <thread>
@@ -154,18 +153,6 @@ bool StateImageManager::performUpdate(
     std::string thread_id_str = oss.str();
     spdlog::debug("StateImageManager::performUpdate: Started on thread {}.", thread_id_str);
 
-    auto backend = CaptureMoment::Core::Config::AppConfig::instance().getProcessingBackend();
-    spdlog::debug("StateImageManager::performUpdate: Using backend: {}",
-                  (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
-
-    // Create the new working image based on the selected backend
-    std::unique_ptr<ImageProcessing::IWorkingImageHardware> new_working_image;
-    if (backend == Common::MemoryType::CPU_RAM) {
-        new_working_image = std::make_unique<ImageProcessing::WorkingImageCPU_Halide>();
-    } else {
-        new_working_image = std::make_unique<ImageProcessing::WorkingImageGPU_Halide>();
-    }
-
     bool success = false;
 
     spdlog::trace("StateImageManager::performUpdate: Using original path: '{}'", original_path);
@@ -179,8 +166,13 @@ bool StateImageManager::performUpdate(
     else
     {
         // Load the original image data into the new working image buffer
-        if (!new_working_image->updateFromCPU(*original_tile)) {
-            spdlog::error("StateImageManager::performUpdate (thread {}): Failed to update working image from CPU source.", thread_id_str);
+        auto backend = CaptureMoment::Core::Config::AppConfig::instance().getProcessingBackend();
+        spdlog::debug("StateImageManager::performUpdate: Using backend: {}",
+                      (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
+
+        auto new_working_image = ImageProcessing::WorkingImageFactory::create(backend, *original_tile);
+        if (!new_working_image) {
+            spdlog::error("StateImageManager::performUpdate (thread {}): WorkingImageFactory::create failed.", thread_id_str);
             success = false;
         } else {
             // Apply the sequence of operations using the pipeline
@@ -190,16 +182,20 @@ bool StateImageManager::performUpdate(
             } else {
                 spdlog::debug("StateImageManager::performUpdate (thread {}): OperationPipeline applied {} operations successfully.", thread_id_str, ops_to_apply.size());
                 success = true;
+
+                // Update the internal state with the new working image
+                {
+                    std::lock_guard lock(m_mutex);
+                    m_working_image = std::move(new_working_image);
+                    spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id_str);
+                }
             }
         }
     }
 
     {
         std::lock_guard lock(m_mutex);
-        if (success) {
-            m_working_image = std::move(new_working_image);
-            spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id_str);
-        } else {
+        if (!success) {
             spdlog::warn("StateImageManager::performUpdate (thread {}): Keeping previous working image due to pipeline failure.", thread_id_str);
         }
         m_is_updating.store(false);

@@ -6,10 +6,11 @@
  */
 
 #include "engine/photo_task.h"
-#include "image_processing/image_processing.h"
-
 #include "operations/operation_pipeline.h"
-#include "config/app_config.h" // Pour obtenir le backend
+
+#include "config/app_config.h"
+#include "image_processing/factories/working_image_factory.h"
+
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Engine {
@@ -43,10 +44,11 @@ void PhotoTask::execute() {
     }
 
     auto backend = Config::AppConfig::instance().getProcessingBackend();
-    if (backend == Common::MemoryType::CPU_RAM) {
-        m_result = std::make_unique<ImageProcessing::WorkingImageCPU_Halide>();
-    } else {
-        m_result = std::make_unique<ImageProcessing::WorkingImageGPU_Halide>();
+    m_result = ImageProcessing::WorkingImageFactory::create(backend, *m_input_tile);
+    if (!m_result) {
+        spdlog::error("PhotoTask::execute: Failed to create working image.");
+        m_progress = 1.0f;
+        return;
     }
 
     if (!m_result->updateFromCPU(*m_input_tile)) {
