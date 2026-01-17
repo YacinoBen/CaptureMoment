@@ -7,7 +7,7 @@
 
 #pragma once
 #include "operations/i_operation.h"
-#include "operations/operation_ranges.h" // Include the new ranges header
+#include "operations/operation_ranges.h"
 
 namespace CaptureMoment::Core {
 
@@ -52,17 +52,16 @@ public:
      */
     static constexpr float DEFAULT_BRIGHTNESS_VALUE { OperationRanges::getBrightnessDefaultValue() };
 
-    // --- Execution ---
     /**
      * @brief Applies the brightness adjustment.
      * * Reads the "value" parameter from the descriptor and adds it to every
-     * channel of every pixel in the region.
+     * channel of every pixel in the working image.
      * * Performs a validation check to ensure the value is within the defined range [MIN_BRIGHTNESS_VALUE, MAX_BRIGHTNESS_VALUE].
-     * * @param input The region to modify.
+     * * @param working_image The hardware-agnostic image buffer to modify.
      * * @param params Must contain a "value" (float) parameter.
      * * @return true if successful.
      */
-    [[nodiscard]] bool execute(Common::ImageRegion& input, const OperationDescriptor& params) override;
+    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 };
 
 } // namespace Operations

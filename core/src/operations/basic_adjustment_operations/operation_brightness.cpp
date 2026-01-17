@@ -6,17 +6,18 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_brightness.h"
+
 #include <spdlog/spdlog.h>
 #include <Halide.h>
 #include <algorithm> // For std::clamp
 
 namespace CaptureMoment::Core::Operations {
 
-bool OperationBrightness::execute(Common::ImageRegion& input, const OperationDescriptor& descriptor)
+bool OperationBrightness::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
     // 1. Validation
-    if (!input.isValid()) {
-        spdlog::warn("OperationBrightness::execute: Invalid input region");
+    if (!working_image.isValid()) {
+        spdlog::warn("OperationBrightness::execute: Invalid working image");
         return false;
     }
 
@@ -44,30 +45,37 @@ bool OperationBrightness::execute(Common::ImageRegion& input, const OperationDes
         brightness_value = std::clamp(brightness_value, OperationBrightness::MIN_BRIGHTNESS_VALUE, OperationBrightness::MAX_BRIGHTNESS_VALUE);
     }
 
-    spdlog::debug("OperationBrightness::execute: value={:.2f} on {}x{} ({}ch) region",
-                  brightness_value, input.m_width, input.m_height, input.m_channels);
+    spdlog::debug("OperationBrightness::execute: value={:.2f}", brightness_value);
+
+    auto cpu_copy = working_image.exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("OperationBrightness::execute: Failed to get CPU copy of working image.");
+        return false;
+    }
 
     // 4. Halide pipeline
+
     try {
         spdlog::info("OperationBrightness::execute: Creating Halide buffer");
-        spdlog::info("Data size: {}", input.m_data.size());
-        spdlog::info("Expected size: {}", input.m_width * input.m_height * input.m_channels);
 
-        // Create Halide function
+        spdlog::info("OperationBrightness::execute: Image size: {}x{} ({} ch), total elements: {}",
+                     working_image.getSize().first,
+                     working_image.getSize().second,
+                     working_image.getChannels(),
+                     working_image.getDataSize());
+
+        // Create Halide function using the CPU copy
         Halide::Func brightness;
         Halide::Var x, y, c;
 
-        // Create input image from buffer (direct access via x, y, c)
         Halide::Buffer<float> input_buf(
-            input.m_data.data(),
-            input.m_width,
-            input.m_height,
-            input.m_channels
+            cpu_copy->m_data.data(),
+            cpu_copy->m_width,
+            cpu_copy->m_height,
+            cpu_copy->m_channels
             );
 
         // Apply brightness: add to RGB (channels 0-2), keep Alpha (channel 3)
-        spdlog::info("OperationBrightness::execute: Halide buffer created successfully");
-
         brightness(x, y, c) = Halide::select(
             c < 3,
             input_buf(x, y, c) + brightness_value,
@@ -75,15 +83,15 @@ bool OperationBrightness::execute(Common::ImageRegion& input, const OperationDes
             );
 
         // Schedule for parallel execution
-        spdlog::info("OperationBrightness::execute: Halide function defined");
         brightness.parallel(y, 8).vectorize(x, 8);
-        spdlog::info("OperationBrightness::execute: Schedule applied, about to realize");
 
-        // Realize back into the original buffer
+        // Realize back into the CPU buffer
         brightness.realize(input_buf);
+
         spdlog::info("OperationBrightness::execute: Halide realize completed successfully");
 
-        return true;
+        // Write the result back to the working image (the backend will handle CPU/GPU transfer)
+        return working_image.updateFromCPU(*cpu_copy);
 
     } catch (const std::exception& e) {
         spdlog::critical("OperationBrightness::execute: Halide exception: {}", e.what());

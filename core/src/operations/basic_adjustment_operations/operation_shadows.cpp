@@ -11,11 +11,11 @@
 
 namespace CaptureMoment::Core::Operations {
 
-bool OperationShadows::execute(Common::ImageRegion& input, const OperationDescriptor& descriptor)
+bool OperationShadows::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
     // 1. Validation
-    if (!input.isValid()) {
-        spdlog::warn("OperationShadows::execute: Invalid input region");
+    if (!working_image.isValid()) {
+        spdlog::warn("OperationShadows::execute: Invalid working_image");
         return false;
     }
 
@@ -43,15 +43,25 @@ bool OperationShadows::execute(Common::ImageRegion& input, const OperationDescri
         shadows_value = std::clamp(shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
     }
 
-    spdlog::debug("OperationShadows::execute: value={:.2f} on {}x{} ({}ch) region",
-                  shadows_value, input.m_width, input.m_height, input.m_channels);
+
+    spdlog::debug("OperationShadows::execute: value={:.2f}", shadows_value);
+
+    auto cpu_copy = working_image.exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("OperationShadows::execute: Failed to get CPU copy of working image.");
+        return false;
+    }
 
     // 3. Halide pipeline
     try {
 
         spdlog::info("OperationShadows::execute: Creating Halide buffer");
-        spdlog::info("Data size: {}", input.m_data.size());
-        spdlog::info("Expected size: {}", input.m_width * input.m_height * input.m_channels);
+
+        spdlog::info("OperationShadows::execute: Image size: {}x{} ({} ch), total elements: {}",
+                      working_image.getSize().first,
+                      working_image.getSize().second,
+                      working_image.getChannels(),
+                      working_image.getDataSize());
 
         // Create Halide function
         Halide::Func shadows;
@@ -59,10 +69,10 @@ bool OperationShadows::execute(Common::ImageRegion& input, const OperationDescri
 
         // Create input image from buffer (direct access via x, y, c)
         Halide::Buffer<float> input_buf(
-            input.m_data.data(),
-            input.m_width,
-            input.m_height,
-            input.m_channels
+            cpu_copy->m_data.data(),
+            cpu_copy->m_width,
+            cpu_copy->m_height,
+            cpu_copy->m_channels
             );
 
         spdlog::info("OperationShadows::execute: Halide buffer created successfully");
@@ -106,7 +116,9 @@ bool OperationShadows::execute(Common::ImageRegion& input, const OperationDescri
         shadows.realize(input_buf);
         spdlog::info("OperationShadows::execute: Halide realize completed successfully");
 
-        return true;
+
+        // Write the result back to the working image (the backend will handle CPU/GPU transfer)
+        return working_image.updateFromCPU(*cpu_copy);
 
     } catch (const std::exception& e) {
         spdlog::critical("OperationShadows::execute: Halide exception: {}", e.what());

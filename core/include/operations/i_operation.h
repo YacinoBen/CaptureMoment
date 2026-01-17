@@ -2,26 +2,28 @@
  * @file i_operation.h
  * @brief Interface for image processing operations
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 #pragma once
 
 #include "operations/operation_type.h"
 #include "operations/operation_descriptor.h"
-#include "common/image_region.h"
+#include "image_processing/interfaces/i_working_image_hardware.h" // Remplace common/image_region.h
 
 namespace CaptureMoment::Core {
 
 namespace Operations {
+
 /**
  * @interface IOperation
  * @brief Abstract base class for all image processing algorithms.
  *
- * * Every image effect (Brightness, Contrast, etc.) must implement this interface.
+ * Every image effect (Brightness, Contrast, etc.) must implement this interface.
  * It provides a standardized way for the processing pipeline to execute
  * operations without knowing their specific implementation details.
+ * The core execute method now operates on a hardware-agnostic IWorkingImageHardware,
+ * enabling seamless CPU/GPU backend switching.
  */
-
 class IOperation {
 public:
     virtual ~IOperation() = default;
@@ -37,16 +39,21 @@ public:
      * @return A C-string identifier (e.g., "Brightness").
      */
     [[nodiscard]] virtual const char* name() const = 0;
-    
+
     /**
-     * @brief Executes the operation on an image region.
-     * * This is the core method where the image processing logic resides.
-     * The operation should read parameters from @p params and modify @p input in-place.
-     * @param input The image buffer to modify (in-place).
+     * @brief Executes the operation on a hardware-agnostic working image.
+     * This is the core method where the image processing logic resides.
+     * The operation should read parameters from @p params and modify the
+     * working image in-place. The implementation can handle CPU or GPU backends
+     * as needed, potentially using backend-specific logic (e.g., Halide).
+     * @param working_image The image buffer to modify (in-place), abstracting CPU/GPU.
      * @param params The configuration/settings for this execution.
      * @return true if execution succeeded, false otherwise.
      */
-    [[nodiscard]] virtual bool execute(Common::ImageRegion& input, const OperationDescriptor& params) = 0;
+    [[nodiscard]] virtual bool execute(
+        ImageProcessing::IWorkingImageHardware& working_image,
+        const OperationDescriptor& params
+        ) = 0;
 
     /**
      * @brief Indicates if this operation supports GPU acceleration (e.g., via Halide).
