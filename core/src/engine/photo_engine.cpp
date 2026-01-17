@@ -162,4 +162,26 @@ ImageProcessing::IWorkingImageHardware* PhotoEngine::getWorkingImage() const
     return m_state_manager->getWorkingImage();
 }
 
+std::shared_ptr<Common::ImageRegion> PhotoEngine::getWorkingImageAsRegion() const
+{
+    if (!m_state_manager) {
+        spdlog::warn("PhotoEngine::getWorkingImageAsRegion: StateImageManager is null, returning nullptr.");
+        return nullptr;
+    }
+
+    auto* working_image_hw = m_state_manager->getWorkingImage();
+    if (!working_image_hw) {
+        spdlog::warn("PhotoEngine::getWorkingImageAsRegion: No valid working image hardware available.");
+        return nullptr;
+    }
+
+    auto cpu_copy = working_image_hw->exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("PhotoEngine::getWorkingImageAsRegion: Failed to export working image to CPU copy.");
+        return nullptr;
+    }
+
+    return cpu_copy;
+}
+
 } // namespace CaptureMoment::Core::Engine

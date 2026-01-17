@@ -214,7 +214,7 @@ void ImageControllerBase::doLoadImage(const QString& file_path)
     if (m_display_manager)
     {
         spdlog::info("ImageControllerBase::doLoadImage Creating display image via DisplayManager");
-        m_display_manager->createDisplayImage(m_engine->getWorkingImage());
+        m_display_manager->createDisplayImage(m_engine->getWorkingImageAsRegion());
         spdlog::debug("ImageControllerBase::doLoadImage DisplayManager updated (auto-sent to PaintedImageItem)");
     } else {
         spdlog::error("ImageControllerBase::doLoadImage No DisplayManager!");
@@ -236,7 +236,7 @@ void ImageControllerBase::doApplyOperations(const std::vector<Core::Operations::
     m_engine->applyOperations(operations);
 
     // 2. Retrieve the updated full working image from PhotoEngine
-    auto updated_working_image = m_engine->getWorkingImage();
+    auto updated_working_image = m_engine->getWorkingImageAsRegion();
 
     if (!updated_working_image)
     {
