@@ -56,19 +56,18 @@ public:
      */
     static constexpr float DEFAULT_BLACKS_VALUE = OperationRanges::getBlacksDefaultValue();
 
-    // --- Execution ---
     /**
      * @brief Applies the blacks adjustment.
-     * * Reads the "value" parameter from the descriptor and applies the blacks
-     * * formula to every color channel (RGB) of every pixel in the region,
-     * * primarily affecting pixels with very low luminance (the "blacks").
-     * * The alpha channel is left unchanged.
-     * * Performs a validation check to ensure the value is within the defined range [MIN_BLACKS_VALUE, MAX_BLACKS_VALUE].
-     * * @param input The region to modify.
+     * Reads the "value" parameter from the descriptor and applies the blacks
+     * formula to every color channel (RGB) of every pixel in the working image,
+     * primarily affecting pixels with very low luminance (the "blacks").
+     * The alpha channel is left unchanged.
+     * Performs a validation check to ensure the value is within the defined range [MIN_BLACKS_VALUE, MAX_BLACKS_VALUE].
+     * @param working_image The hardware-agnostic image buffer to modify.
      * @param params Must contain a "value" (float) parameter.
      * @return true if successful.
      */
-    [[nodiscard]] bool execute(Common::ImageRegion& input, const OperationDescriptor& params) override;
+    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 };
 
 } // namespace Operations

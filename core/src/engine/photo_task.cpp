@@ -2,29 +2,29 @@
  * @file photo_task.cpp
  * @brief Implementation of PhotoTask
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
-
 
 #include "engine/photo_task.h"
 #include "operations/operation_pipeline.h"
-#include <spdlog/spdlog.h>
 
-#include <memory>
-#include <vector>
+#include "config/app_config.h"
+#include "image_processing/factories/working_image_factory.h"
+
+#include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Engine {
 
 // Constructor: Initializes the task with input data, operations, and the factory.
 PhotoTask::PhotoTask(
-    std::shared_ptr<Common::ImageRegion> input_tile,          // The image region to be processed.
-    const std::vector<Operations::OperationDescriptor>& ops,      // The list of operations to apply.
-    std::shared_ptr<Operations::OperationFactory> operation_factory // The factory to create operation instances.
+    std::shared_ptr<Common::ImageRegion> input_tile,
+    const std::vector<Operations::OperationDescriptor>& ops,
+    std::shared_ptr<Operations::OperationFactory> operation_factory
     )
-    : m_operation_factory{operation_factory},
+    : m_operation_factory{std::move(operation_factory)},
     m_operation_descriptors{ops},
-    m_input_tile{input_tile},
-    m_result{nullptr} // Initialize result pointer to null.
+    m_input_tile{std::move(input_tile)},
+    m_result{nullptr}
 {
     m_id = this->generateId();
 }
@@ -32,35 +32,42 @@ PhotoTask::PhotoTask(
 // Executes the processing task.
 void PhotoTask::execute() {
     spdlog::info("PhotoTask::execute: Starting");
-    // Reset progress to 0% at the beginning.
     m_progress = 0.0f;
 
-    // Check if required inputs (tile, factory) are valid.
+    // Check if required inputs are valid.
     if (!m_input_tile || !m_operation_factory) {
         spdlog::warn("PhotoTask::execute: Invalid input - m_input_tile: {}, m_operation_factory: {}",
                      !m_input_tile, !m_operation_factory);
-
-        // Set result to null and mark progress as 100% to indicate failure.
         m_result = nullptr;
         m_progress = 1.0f;
-        return; // Exit early if inputs are invalid.
+        return;
     }
 
+    auto backend = Config::AppConfig::instance().getProcessingBackend();
+    m_result = ImageProcessing::WorkingImageFactory::create(backend, *m_input_tile);
+    if (!m_result) {
+        spdlog::error("PhotoTask::execute: Failed to create working image.");
+        m_progress = 1.0f;
+        return;
+    }
+
+    if (!m_result->updateFromCPU(*m_input_tile)) {
+        spdlog::error("PhotoTask::execute: Failed to initialize working image from input tile.");
+        m_result = nullptr;
+        m_progress = 1.0f;
+        return;
+    }
 
     spdlog::info("PhotoTask::execute: Starting OperationPipeline::applyOperations");
-    // Apply the sequence of operations to the input tile using the static PipelineEngine.
-    bool success = Operations::OperationPipeline::applyOperations(*m_input_tile, m_operation_descriptors, *m_operation_factory);
 
-    if (success) {
-        // If processing was successful, the result is the modified input tile.
-        m_result = m_input_tile;
-    } else {
-        // If processing failed, set result to null.
-        m_result = nullptr;
+    // Apply the sequence of operations to the working image.
+    bool success = Operations::OperationPipeline::applyOperations(*m_result, m_operation_descriptors, *m_operation_factory);
+
+    if (!success) {
         spdlog::error("PhotoTask::execute: OperationPipeline::applyOperations failed.");
+        m_result = nullptr;
     }
 
-    // Mark progress as 100% upon completion (success or failure).
     m_progress = 1.0f;
     spdlog::info("PhotoTask::execute: Completed with success={}", success);
 }

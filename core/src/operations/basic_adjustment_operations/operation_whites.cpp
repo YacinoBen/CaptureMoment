@@ -11,11 +11,11 @@
 
 namespace CaptureMoment::Core::Operations {
 
-bool OperationWhites::execute(Common::ImageRegion& input, const OperationDescriptor& descriptor)
+bool OperationWhites::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
     // 1. Validation
-    if (!input.isValid()) {
-        spdlog::warn("OperationWhites::execute: Invalid input region");
+    if (!working_image.isValid()) {
+        spdlog::warn("OperationWhites::execute: Invalid working_image");
         return false;
     }
 
@@ -43,15 +43,24 @@ bool OperationWhites::execute(Common::ImageRegion& input, const OperationDescrip
         whites_value = std::clamp(whites_value, OperationWhites::MIN_WHITES_VALUE, OperationWhites::MAX_WHITES_VALUE);
     }
 
-    spdlog::debug("OperationWhites::execute: value={:.2f} on {}x{} ({}ch) region",
-                  whites_value, input.m_width, input.m_height, input.m_channels);
+
+    spdlog::debug("OperationWhites::execute: value={:.2f}", whites_value);
+
+    auto cpu_copy = working_image.exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("OperationWhites::execute: Failed to get CPU copy of working image.");
+        return false;
+    }
 
     // 3. Halide pipeline
     try {
-
         spdlog::info("OperationWhites::execute: Creating Halide buffer");
-        spdlog::info("Data size: {}", input.m_data.size());
-        spdlog::info("Expected size: {}", input.m_width * input.m_height * input.m_channels);
+
+        spdlog::info("OperationWhites::execute: Image size: {}x{} ({} ch), total elements: {}",
+                      working_image.getSize().first,
+                      working_image.getSize().second,
+                      working_image.getChannels(),
+                      working_image.getDataSize());
 
         // Create Halide function
         Halide::Func whites;
@@ -59,10 +68,10 @@ bool OperationWhites::execute(Common::ImageRegion& input, const OperationDescrip
 
         // Create input image from buffer (direct access via x, y, c)
         Halide::Buffer<float> input_buf(
-            input.m_data.data(),
-            input.m_width,
-            input.m_height,
-            input.m_channels
+            cpu_copy->m_data.data(),
+            cpu_copy->m_width,
+            cpu_copy->m_height,
+            cpu_copy->m_channels
             );
 
         spdlog::info("OperationWhites::execute: Halide buffer created successfully");
@@ -106,7 +115,8 @@ bool OperationWhites::execute(Common::ImageRegion& input, const OperationDescrip
         whites.realize(input_buf);
         spdlog::info("OperationWhites::execute: Halide realize completed successfully");
 
-        return true;
+        // Write the result back to the working image (the backend will handle CPU/GPU transfer)
+        return working_image.updateFromCPU(*cpu_copy);
 
     } catch (const std::exception& e) {
         spdlog::critical("OperationWhites::execute: Halide exception: {}", e.what());

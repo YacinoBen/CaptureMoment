@@ -38,7 +38,7 @@ Capture Moment is built for performance and modularity, using best-in-class libr
 |     Component    |      Technology     |                              Role                             |
 |:----------------:|:-------------------:|:-------------------------------------------------------------:|
 | Language         | C++20 / C++23       | Core Logic, Speed, and Control.                               |
-| Build System     | CMake 3.21+         | Cross-platform build configuration.                           |
+| Build System     | CMake 3.27+         | Cross-platform build configuration.                           |
 | I/O & Cache      | OpenImageIO         | Read/Write all image formats, Tile-based caching.             |
 | Processing       | Halide              | High-performance image processing pipeline optimization.      |
 | UI               | Qt6 Quick/QML      | Modern, declarative, and hardware-accelerated user interface. |

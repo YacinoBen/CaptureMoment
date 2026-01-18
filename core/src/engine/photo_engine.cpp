@@ -2,7 +2,7 @@
  * @file photo_engine.cpp
  * @brief Implementation of PhotoEngine
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #include "engine/photo_engine.h"
@@ -49,13 +49,9 @@ bool PhotoEngine::loadImage(std::string_view path)
     }
 
     auto update_future = m_state_manager->requestUpdate();
-
-    // Check the result of the asynchronous update
-    bool update_success = update_future.get(); // This will block until the update completes and return the bool result
+    bool update_success = update_future.get();
     if (!update_success) {
         spdlog::error("PhotoEngine::loadImage: StateImageManager::requestUpdate reported failure.");
-        // Depending on desired behavior, could return or throw here if critical.
-        // For now, just log the error. The image might still be in a previous valid state.
     } else {
         spdlog::debug("PhotoEngine::loadImage: StateImageManager::requestUpdate completed successfully.");
     }
@@ -63,7 +59,6 @@ bool PhotoEngine::loadImage(std::string_view path)
     spdlog::info("PhotoEngine::loadImage: Successfully loaded and initialized StateImageManager for '{}'.", path);
     return true;
 }
-
 
 // Commits the current working image managed by StateImageManager back to the source.
 bool PhotoEngine::commitWorkingImageToSource()
@@ -73,13 +68,19 @@ bool PhotoEngine::commitWorkingImageToSource()
         return false;
     }
 
-    auto current_working_image = m_state_manager->getWorkingImage();
-    if (!current_working_image) {
+    auto* current_working_image_hw = m_state_manager->getWorkingImage();
+    if (!current_working_image_hw) {
         spdlog::error("PhotoEngine::commitWorkingImageToSource: No valid working image to commit.");
         return false;
     }
 
-    return m_source_manager->setTile(*current_working_image);
+    auto cpu_copy = current_working_image_hw->exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("PhotoEngine::commitWorkingImageToSource: Failed to export working image to CPU copy.");
+        return false;
+    }
+
+    return m_source_manager->setTile(*cpu_copy);
 }
 
 // Resets the working image state via StateImageManager.
@@ -92,7 +93,6 @@ void PhotoEngine::resetWorkingImage()
     spdlog::debug("PhotoEngine::resetWorkingImage: Resetting StateImageManager.");
     if (!m_state_manager->resetToOriginal()) {
         spdlog::warn("PhotoEngine::resetWorkingImage: StateImageManager::resetToOriginal failed or was ignored.");
-        // Depending on desired behavior, could return or throw here if critical.
     }
 }
 
@@ -135,37 +135,53 @@ void PhotoEngine::applyOperations(const std::vector<Operations::OperationDescrip
 
     if (!m_state_manager->resetToOriginal()) {
         spdlog::warn("PhotoEngine::applyOperations: StateImageManager::resetToOriginal failed or was ignored.");
-        // Depending on desired behavior, could return here if critical.
     }
 
     for (const auto& op : ops) {
         if (!m_state_manager->addOperation(op)) {
             spdlog::warn("PhotoEngine::applyOperations: StateImageManager::addOperation failed for operation '{}'.", op.name);
-            // Depending on desired behavior, could return here if critical.
         }
     }
 
     auto update_future = m_state_manager->requestUpdate();
-
-    // Check the result of the asynchronous update
-    bool update_success = update_future.get(); // This will block until the update completes and return the bool result
+    bool update_success = update_future.get();
     if (!update_success) {
         spdlog::error("PhotoEngine::applyOperations: StateImageManager::requestUpdate reported failure.");
-        // Depending on desired behavior, could return or throw here if critical.
-        // For now, just log the error. The image might still be in a previous valid state.
     } else {
         spdlog::debug("PhotoEngine::applyOperations: StateImageManager::requestUpdate completed successfully.");
     }
 }
 
 // Gets the current working image from StateImageManager.
-std::shared_ptr<Common::ImageRegion> PhotoEngine::getWorkingImage() const
+ImageProcessing::IWorkingImageHardware* PhotoEngine::getWorkingImage() const
 {
     if (!m_state_manager) {
         spdlog::warn("PhotoEngine::getWorkingImage: StateImageManager is null, returning nullptr.");
         return nullptr;
     }
     return m_state_manager->getWorkingImage();
+}
+
+std::shared_ptr<Common::ImageRegion> PhotoEngine::getWorkingImageAsRegion() const
+{
+    if (!m_state_manager) {
+        spdlog::warn("PhotoEngine::getWorkingImageAsRegion: StateImageManager is null, returning nullptr.");
+        return nullptr;
+    }
+
+    auto* working_image_hw = m_state_manager->getWorkingImage();
+    if (!working_image_hw) {
+        spdlog::warn("PhotoEngine::getWorkingImageAsRegion: No valid working image hardware available.");
+        return nullptr;
+    }
+
+    auto cpu_copy = working_image_hw->exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("PhotoEngine::getWorkingImageAsRegion: Failed to export working image to CPU copy.");
+        return nullptr;
+    }
+
+    return cpu_copy;
 }
 
 } // namespace CaptureMoment::Core::Engine

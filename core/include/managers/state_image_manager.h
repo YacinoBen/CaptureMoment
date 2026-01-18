@@ -11,6 +11,8 @@
 #include "operations/operation_descriptor.h"
 #include "operations/operation_pipeline.h"
 #include "managers/source_manager.h"
+#include "image_processing/interfaces/i_working_image_hardware.h"
+
 #include <vector>
 #include <memory>
 #include <mutex>
@@ -134,14 +136,11 @@ public:
     [[nodiscard]] std::future<bool> requestUpdate(std::optional<UpdateCallback> callback = std::nullopt);
 
     /**
-     * @brief Gets the current working image.
-     * This method is thread-safe and provides a snapshot of the working image at the time of the call.
-     * If an update is in progress, this method returns the image state as it was before the update started.
-     *
-     * @return Shared pointer to the current working ImageRegion.
-     * Returns nullptr if no image is loaded or if the manager is in an invalid state.
+     * @brief Gets the current working image hardware abstraction.
+     * This method is thread-safe and provides access to the working image.
+     * @return Pointer to the current IWorkingImageHardware, or nullptr if not loaded.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImage() const;
+    [[nodiscard]] ImageProcessing::IWorkingImageHardware* getWorkingImage() const;
 
     /**
      * @brief Checks if an update of the working image is currently in progress.
@@ -185,7 +184,7 @@ private:
      * @brief The current state of the processed image.
      * This image is updated asynchronously based on the operations defined in m_active_operations.
      */
-    std::shared_ptr<Common::ImageRegion> m_working_image;
+    std::unique_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
     /**
      * @brief The file path of the original image loaded into the system.
      * This path is used as the base for all operations and to retrieve the original image data.

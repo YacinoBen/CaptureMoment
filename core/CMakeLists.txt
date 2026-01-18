@@ -19,6 +19,18 @@ set(CORE_SOURCES
     src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
 
+    # Image Processing
+    src/image_processing/cpu/working_image_cpu_default.cpp
+    src/image_processing/cpu/working_image_cpu_halide.cpp
+    src/image_processing/gpu/working_image_gpu_halide.cpp
+    src/image_processing/factories/working_image_factory.cpp
+
+    # Deciders
+    src/image_processing/deciders/benchmarking_backend_decider.cpp
+
+    # Config
+    src/config/app_config.cpp
+
     # Serializer
     src/serializer/provider/exiv2_initializer.cpp
     src/serializer/provider/exiv2_provider.cpp

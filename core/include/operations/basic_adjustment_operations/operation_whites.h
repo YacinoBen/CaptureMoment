@@ -56,19 +56,18 @@ public:
      */
     static constexpr float DEFAULT_WHITES_VALUE = OperationRanges::getWhitesDefaultValue();
 
-    // --- Execution ---
     /**
      * @brief Applies the whites adjustment.
-     * * Reads the "value" parameter from the descriptor and applies the whites
-     * * formula to every color channel (RGB) of every pixel in the region,
-     * * primarily affecting pixels with very high luminance (the "whites").
-     * * The alpha channel is left unchanged.
-     * * Performs a validation check to ensure the value is within the defined range [MIN_WHITES_VALUE, MAX_WHITES_VALUE].
-     * * @param input The region to modify.
+     * Reads the "value" parameter from the descriptor and applies the whites
+     * formula to every color channel (RGB) of every pixel in the working image,
+     * primarily affecting pixels with very high luminance (the "whites").
+     * The alpha channel is left unchanged.
+     * Performs a validation check to ensure the value is within the defined range [MIN_WHITES_VALUE, MAX_WHITES_VALUE].
+     * @param working_image The hardware-agnostic image buffer to modify.
      * @param params Must contain a "value" (float) parameter.
      * @return true if successful.
      */
-    [[nodiscard]] bool execute(Common::ImageRegion& input, const OperationDescriptor& params) override;
+    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 };
 
 } // namespace Operations

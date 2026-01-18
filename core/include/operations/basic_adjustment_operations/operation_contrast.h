@@ -55,18 +55,17 @@ public:
      */
     static constexpr float DEFAULT_CONTRAST_VALUE = OperationRanges::getContrastDefaultValue();
 
-    // --- Execution ---
     /**
      * @brief Applies the contrast adjustment.
-     * * Reads the "value" parameter from the descriptor and applies the contrast
-     * * formula to every color channel (RGB) of every pixel in the region.
-     * * The alpha channel is left unchanged.
-     * * Performs a validation check to ensure the value is within the defined range [MIN_CONTRAST_VALUE, MAX_CONTRAST_VALUE].
-     * * @param input The region to modify.
+     * Reads the "value" parameter from the descriptor and applies the contrast
+     * formula to every color channel (RGB) of every pixel in the working image.
+     * The alpha channel is left unchanged.
+     * Performs a validation check to ensure the value is within the defined range [MIN_CONTRAST_VALUE, MAX_CONTRAST_VALUE].
+     * @param working_image The hardware-agnostic image buffer to modify.
      * @param params Must contain a "value" (float) parameter.
      * @return true if successful.
      */
-    [[nodiscard]] bool execute(Common::ImageRegion& input, const OperationDescriptor& params) override;
+    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 };
 
 } // namespace Operations
