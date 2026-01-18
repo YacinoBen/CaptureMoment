@@ -13,7 +13,7 @@ Due to complex dependencies (specifically Halide and LLVM), instructions are sep
 Before selecting your platform, ensure you have these tools:
 
 1.  **Git**: To clone the repository.
-2.  **CMake 3.21+**: Our build system.
+2.  **CMake 3.27+**: Our build system.
 3.  **C++23 Compiler**:
     * **Windows**: MSVC 2022 or MinGW (GCC 13+).
     * **Linux**: GCC 13+ or Clang 16+.

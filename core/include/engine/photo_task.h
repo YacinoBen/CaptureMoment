@@ -2,7 +2,7 @@
  * @file processing_task.h
  * @brief Declaration of PhotoTask class.
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #pragma once
@@ -12,7 +12,7 @@
 
 #include "operations/operation_factory.h"
 #include "operations/operation_descriptor.h"
-#include "common/image_region.h"
+#include "image_processing/interfaces/i_working_image_hardware.h"
 #include "domain/i_processing_task.h"
 
 namespace CaptureMoment::Core {
@@ -27,7 +27,7 @@ namespace Engine {
  *
  * This class encapsulates the data (input tile, operations, factory) and the logic
  * to execute a series of image processing operations defined by OperationDescriptors
- * on a given ImageRegion. It uses the PipelineEngine internally to perform the
+ * on a given working image. It uses the PipelineEngine internally to perform the
  * actual processing steps.
  */
 class PhotoTask : public Domain::IProcessingTask
@@ -44,12 +44,12 @@ private:
     /**
      * @brief The input image region to process.
      */
-    std::shared_ptr<Common::ImageRegion> m_input_tile;
+    std::shared_ptr<Common::ImageRegion> m_input_tile; // <-- Reste un ImageRegion pour l'initialisation
     /**
-     * @brief The resulting image region after processing.
+     * @brief The resulting working image after processing.
      */
-    std::shared_ptr<Common::ImageRegion> m_result;
-    
+    std::unique_ptr<ImageProcessing::IWorkingImageHardware> m_result; // <-- Changé en unique_ptr<IWorkingImageHardware>
+
 public:
     /**
      * @brief Constructs a PhotoTask.
@@ -71,10 +71,10 @@ public:
     /**
      * @brief Executes the sequence of operations on the input tile.
      *
-     * This method iterates through the stored OperationDescriptors,
-     * uses the OperationFactory to create instances of the operations,
-     * and applies them sequentially to the input tile using the static
-     * PipelineEngine::applyOperations method. The result is stored internally.
+     * This method creates a working image from the input tile, iterates through the stored
+     * OperationDescriptors, uses the OperationFactory to create instances of the operations,
+     * and applies them sequentially using the static OperationPipeline::applyOperations method.
+     * The result is stored internally.
      * Progress is updated accordingly during execution.
      */
     void execute() override;
@@ -92,11 +92,11 @@ public:
     /**
      * @brief Gets the result of the processed task.
      *
-     * @return A shared pointer to the resulting ImageRegion. Returns the processed
-     *         tile if execution was successful, or nullptr if the task failed or
+     * @return A pointer to the resulting IWorkingImageHardware. Returns the processed
+     *         working image if execution was successful, or nullptr if the task failed or
      *         has not yet been executed.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> result() const override { return m_result; };
+    [[nodiscard]] ImageProcessing::IWorkingImageHardware* result() const override { return m_result.get(); };
 
     /**
      * @brief Gets the unique identifier for this task instance.
@@ -109,4 +109,4 @@ public:
 
 } // namespace Engine
 
-} // namespace CaptureMoment::core
+} // namespace CaptureMoment::Core

@@ -55,19 +55,18 @@ public:
      */
     static constexpr float DEFAULT_SHADOWS_VALUE = OperationRanges::getShadowsDefaultValue();
 
-    // --- Execution ---
     /**
      * @brief Applies the shadows adjustment.
-     * * Reads the "value" parameter from the descriptor and applies the shadows
-     * * formula to every color channel (RGB) of every pixel in the region,
-     * * primarily affecting pixels with lower luminance.
-     * * The alpha channel is left unchanged.
-     * * Performs a validation check to ensure the value is within the defined range [MIN_SHADOWS_VALUE, MAX_SHADOWS_VALUE].
-     * * @param input The region to modify.
+     * Reads the "value" parameter from the descriptor and applies the shadows
+     * formula to every color channel (RGB) of every pixel in the working image,
+     * primarily affecting pixels with lower luminance.
+     * The alpha channel is left unchanged.
+     * Performs a validation check to ensure the value is within the defined range [MIN_SHADOWS_VALUE, MAX_SHADOWS_VALUE].
+     * @param working_image The hardware-agnostic image buffer to modify.
      * @param params Must contain a "value" (float) parameter.
      * @return true if successful.
      */
-    [[nodiscard]] bool execute(Common::ImageRegion& input, const OperationDescriptor& params) override;
+    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 };
 
 } // namespace Operations

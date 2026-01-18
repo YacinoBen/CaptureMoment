@@ -11,11 +11,11 @@
 
 namespace CaptureMoment::Core::Operations {
 
-bool OperationBlacks::execute(Common::ImageRegion& input, const OperationDescriptor& descriptor)
+bool OperationBlacks::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
     // 1. Validation
-    if (!input.isValid()) {
-        spdlog::warn("OperationBlacks::execute: Invalid input region");
+    if (!working_image.isValid()) {
+        spdlog::warn("OperationBlacks::execute: Invalid working image");
         return false;
     }
 
@@ -43,15 +43,24 @@ bool OperationBlacks::execute(Common::ImageRegion& input, const OperationDescrip
         blacks_value = std::clamp(blacks_value, OperationBlacks::MIN_BLACKS_VALUE, OperationBlacks::MAX_BLACKS_VALUE);
     }
 
-    spdlog::debug("OperationBlacks::execute: value={:.2f} on {}x{} ({}ch) region",
-                  blacks_value, input.m_width, input.m_height, input.m_channels);
+    spdlog::debug("OperationBlacks::execute: value={:.2f}", blacks_value);
+
+
+    auto cpu_copy = working_image.exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("OperationBlacks::execute: Failed to get CPU copy of working image.");
+        return false;
+    }
 
     // 3. Halide pipeline
     try {
-
         spdlog::info("OperationBlacks::execute: Creating Halide buffer");
-        spdlog::info("Data size: {}", input.m_data.size());
-        spdlog::info("Expected size: {}", input.m_width * input.m_height * input.m_channels);
+
+        spdlog::info("OperationBlacks::execute: Image size: {}x{} ({} ch), total elements: {}",
+                     working_image.getSize().first,
+                     working_image.getSize().second,
+                     working_image.getChannels(),
+                     working_image.getDataSize());
 
         // Create Halide function
         Halide::Func blacks;
@@ -59,10 +68,10 @@ bool OperationBlacks::execute(Common::ImageRegion& input, const OperationDescrip
 
         // Create input image from buffer (direct access via x, y, c)
         Halide::Buffer<float> input_buf(
-            input.m_data.data(),
-            input.m_width,
-            input.m_height,
-            input.m_channels
+            cpu_copy->m_data.data(),
+            cpu_copy->m_width,
+            cpu_copy->m_height,
+            cpu_copy->m_channels
             );
 
         spdlog::info("OperationBlacks::execute: Halide buffer created successfully");
@@ -106,7 +115,7 @@ bool OperationBlacks::execute(Common::ImageRegion& input, const OperationDescrip
         blacks.realize(input_buf);
         spdlog::info("OperationBlacks::execute: Halide realize completed successfully");
 
-        return true;
+        return working_image.updateFromCPU(*cpu_copy);
 
     } catch (const std::exception& e) {
         spdlog::critical("OperationBlacks::execute: Halide exception: {}", e.what());

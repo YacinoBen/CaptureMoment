@@ -11,11 +11,11 @@
 
 namespace CaptureMoment::Core::Operations {
 
-bool OperationContrast::execute(Common::ImageRegion& input, const OperationDescriptor& descriptor)
+bool OperationContrast::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
     // 1. Validation
-    if (!input.isValid()) {
-        spdlog::warn("OperationContrast::execute: Invalid input region");
+    if (!working_image.isValid()) {
+        spdlog::warn("OperationContrast::execute: Invalid  working_image");
         return false;
     }
 
@@ -42,15 +42,25 @@ bool OperationContrast::execute(Common::ImageRegion& input, const OperationDescr
                      contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
         contrast_value = std::clamp(contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
     }
-    spdlog::debug("OperationContrast::execute: value={:.2f} on {}x{} ({}ch) region",
-                  contrast_value, input.m_width, input.m_height, input.m_channels);
+
+    spdlog::debug("OperationContrast::execute: value={:.2f}", contrast_value);
+
+    auto cpu_copy = working_image.exportToCPUCopy();
+    if (!cpu_copy) {
+        spdlog::error("OperationContrast::execute: Failed to get CPU copy of working image.");
+        return false;
+    }
 
     // 3. Halide pipeline
     try {
 
         spdlog::info("OperationContrast::execute: Creating Halide buffer");
-        spdlog::info("Data size: {}", input.m_data.size());
-        spdlog::info("Expected size: {}", input.m_width * input.m_height * input.m_channels);
+
+        spdlog::info("OperationContrast::execute: Image size: {}x{} ({} ch), total elements: {}",
+                     working_image.getSize().first,
+                     working_image.getSize().second,
+                     working_image.getChannels(),
+                     working_image.getDataSize());
 
         // Create Halide function
         Halide::Func contrast;
@@ -58,10 +68,10 @@ bool OperationContrast::execute(Common::ImageRegion& input, const OperationDescr
 
         // Create input image from buffer (direct access via x, y, c)
         Halide::Buffer<float> input_buf(
-            input.m_data.data(),
-            input.m_width,
-            input.m_height,
-            input.m_channels
+            cpu_copy->m_data.data(),
+            cpu_copy->m_width,
+            cpu_copy->m_height,
+            cpu_copy->m_channels
             );
 
         spdlog::info("OperationContrast::execute: Halide buffer created successfully");
@@ -84,8 +94,8 @@ bool OperationContrast::execute(Common::ImageRegion& input, const OperationDescr
         contrast.realize(input_buf);
         spdlog::info("OperationContrast::execute: Halide realize completed successfully");
 
-        return true;
-
+        // Write the result back to the working image (the backend will handle CPU/GPU transfer)
+        return working_image.updateFromCPU(*cpu_copy);
     } catch (const std::exception& e) {
         spdlog::critical("OperationContrast::execute: Halide exception: {}", e.what());
         return false;
