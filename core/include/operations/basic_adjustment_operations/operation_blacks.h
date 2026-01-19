@@ -78,18 +78,30 @@ public:
      * This method implements the fusion logic specific to the Blacks adjustment,
      * calculating luminance-based masks and applying the adjustment without
      * intermediate memory allocations, directly within the fused pipeline.
+     * All operations in the fused pipeline must use the same coordinate variables
+     * (x, y, c) to ensure consistency and proper chaining of operations.
      * @param input_func The Halide function representing the input to this operation.
      *                   This function contains the image data from the previous
      *                   operation in the pipeline or the original image if this is the first operation.
+     * @param x The Halide variable for the x dimension, shared across all operations
+     *          in the fused pipeline to ensure coordinate consistency.
+     * @param y The Halide variable for the y dimension, shared across all operations
+     *          in the fused pipeline to ensure coordinate consistency.
+     * @param c The Halide variable for the channel dimension, shared across all operations
+     *          in the fused pipeline to ensure coordinate consistency.
      * @param params The configuration/settings for this operation, containing the
      *               black level adjustment value and other relevant parameters.
      * @return A new Halide::Func representing the output of this operation,
      *         which can be used as input for the next operation in the fused pipeline.
      *         The returned function encapsulates the logic to adjust the black levels
-     *         based on luminance masking, operating directly on the pixel data stream.
+     *         based on luminance masking, operating directly on the pixel data stream
+     *         using the shared coordinate variables.
      */
     [[nodiscard]] Halide::Func appendToFusedPipeline(
         const Halide::Func& input_func,
+        const Halide::Var& x,
+        const Halide::Var& y,
+        const Halide::Var& c,
         const OperationDescriptor& params
     ) const override;
 };
