@@ -6,7 +6,8 @@
  */
 
 #pragma once
-#include "operations/i_operation.h"
+#include "operations/interfaces/i_operation.h"
+#include "operations/interfaces/i_operation_fusion_logic.h"
 #include "operations/operation_ranges.h"
 
 namespace CaptureMoment::Core {
@@ -30,7 +31,7 @@ namespace Operations {
  * - > 0: Brighten blacks (make them less black)
  * - < 0: Darken blacks (make them more black)
  */
-class OperationBlacks : public IOperation
+class OperationBlacks : public IOperation,  public IOperationFusionLogic 
 {
 public:
     // --- Metadata ---
@@ -68,6 +69,29 @@ public:
      * @return true if successful.
      */
     [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
+
+    /**
+     * @brief Appends this operation's logic to a fused Halide pipeline.
+     * This method is used by the PipelineBuilder to combine multiple operations
+     * into a single computational pass. It takes an input function and returns
+     * a new function representing the current operation applied to the input.
+     * This method implements the fusion logic specific to the Blacks adjustment,
+     * calculating luminance-based masks and applying the adjustment without
+     * intermediate memory allocations, directly within the fused pipeline.
+     * @param input_func The Halide function representing the input to this operation.
+     *                   This function contains the image data from the previous
+     *                   operation in the pipeline or the original image if this is the first operation.
+     * @param params The configuration/settings for this operation, containing the
+     *               black level adjustment value and other relevant parameters.
+     * @return A new Halide::Func representing the output of this operation,
+     *         which can be used as input for the next operation in the fused pipeline.
+     *         The returned function encapsulates the logic to adjust the black levels
+     *         based on luminance masking, operating directly on the pixel data stream.
+     */
+    [[nodiscard]] Halide::Func appendToFusedPipeline(
+        const Halide::Func& input_func,
+        const OperationDescriptor& params
+    ) const override;
 };
 
 } // namespace Operations
