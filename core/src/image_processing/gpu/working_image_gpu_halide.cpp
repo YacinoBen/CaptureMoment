@@ -154,12 +154,6 @@ std::shared_ptr<Common::ImageRegion> WorkingImageGPU_Halide::exportToCPUCopy()
     return cpu_image_copy;
 }
 
-std::shared_ptr<Common::ImageRegion> WorkingImageGPU_Halide::exportToCPUShared() const
-{
-    spdlog::warn("WorkingImageGPU_Halide::exportToCPUShared: Cannot share GPU data as ImageRegion*. Use exportToCPUCopy().");
-    return nullptr;
-}
-
 std::pair<size_t, size_t> WorkingImageGPU_Halide::getSize() const
 {
     if (!isValid()) {
@@ -210,16 +204,6 @@ size_t WorkingImageGPU_Halide::getDataSize() const
         return 0;
     }
     return m_cached_width * m_cached_height * m_cached_channels;
-}
-
-bool WorkingImageGPU_Halide::isValid() const
-{
-    return m_halide_gpu_buffer.defined() && m_metadata_valid;
-}
-
-Common::MemoryType WorkingImageGPU_Halide::getMemoryType() const
-{
-    return Common::MemoryType::GPU_MEMORY;
 }
 
 bool WorkingImageGPU_Halide::updateCachedMetadata() const {

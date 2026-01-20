@@ -68,21 +68,6 @@ public:
     [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUCopy() override;
 
     /**
-     * @brief Exports a shared reference to the current internal image data (stored on GPU).
-     *        This is a polymorphic wrapper around exportToGPUShared() to satisfy IWorkingImageHardware.
-     *
-     * @note This method attempts to transfer the GPU data to CPU temporarily to return an ImageRegion
-     *       (similar to exportToCPUCopy), which might not be the most efficient approach for
-     *       sharing GPU data directly. Consider using exportToGPUShared() for direct GPU access.
-     *       However, returning nullptr for GPU implementations highlights the mismatch between
-     *       the requested ImageRegion* type and the internal GPU data location.
-     *
-     * @return nullptr, as the internal data is on the GPU and not directly shareable as an ImageRegion*
-     *         without a transfer. Use exportToCPUCopy() or a dedicated GPU-sharing method instead.
-     */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUShared() const override; // Returns nullptr for GPU
-
-    /**
      * @brief Gets the dimensions (width, height) of the internal GPU image data.
      *
      * @return A pair containing the width (first) and height (second) of the image.
@@ -118,14 +103,14 @@ public:
      *
      * @return true if the internal GPU buffer is allocated and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override;
+    [[nodiscard]] bool isValid() const override { return m_halide_gpu_buffer.defined() && m_metadata_valid;};
 
     /**
      * @brief Gets the memory type where the image data resides.
      *
      * @return MemoryType::GPU_MEMORY, indicating the data is stored in GPU memory.
      */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override;
+    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::GPU_MEMORY;};
 
 private:
     /**
