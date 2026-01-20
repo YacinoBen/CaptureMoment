@@ -1,13 +1,14 @@
-    /**
-     * @file state_image_manager.cpp
-     * @brief Implementation of StateImageManager
-     * @author CaptureMoment Team
-     * @date 2025
-     */
+/**
+ * @file state_image_manager.cpp
+ * @brief Implementation of StateImageManager
+ * @author CaptureMoment Team
+ * @date 2026
+ */
 
 #include "managers/state_image_manager.h"
-#include "operations/operation_pipeline.h"
+#include "pipeline/operation_pipeline_builder.h"
 #include "managers/source_manager.h"
+#include "pipeline/interfaces/i_pipeline_executor.h"
 
 #include "image_processing/factories/working_image_factory.h"
 #include "config/app_config.h"
@@ -19,21 +20,18 @@
 
 namespace CaptureMoment::Core::Managers {
 
-// Constructs a StateImageManager with required dependencies.
 StateImageManager::StateImageManager(
     std::shared_ptr<Managers::SourceManager> source_manager,
-    std::shared_ptr<Operations::OperationPipeline> operation_pipeline,
-    std::shared_ptr<Operations::OperationFactory> operation_factory
+    std::shared_ptr<Pipeline::OperationPipelineBuilder> pipeline_builder
     )
     : m_source_manager(std::move(source_manager))
-    , m_operation_pipeline(std::move(operation_pipeline))
-    , m_operation_factory(std::move(operation_factory))
+    , m_pipeline_builder(std::move(pipeline_builder))
 {
-    if (!m_source_manager || !m_operation_pipeline || !m_operation_factory) {
+    if (!m_source_manager || !m_pipeline_builder) {
         spdlog::critical("StateImageManager: Null dependency provided during construction.");
         throw std::invalid_argument("StateImageManager: Null dependency provided.");
     }
-    spdlog::debug("StateImageManager: Constructed.");
+    spdlog::debug("StateImageManager: Constructed with fused pipeline support.");
 }
 
 // Destructor for StateImageManager.
@@ -112,7 +110,7 @@ std::future<bool> StateImageManager::requestUpdate(std::optional<UpdateCallback>
         return std::async(std::launch::deferred, []() { return false; });
     }
 
-    spdlog::debug("StateImageManager::requestUpdate: Initiating async update.");
+    spdlog::debug("StateImageManager::requestUpdate: Initiating async update with fused pipeline.");
 
     std::vector<Operations::OperationDescriptor> ops_to_apply;
     std::string original_path;
@@ -175,19 +173,26 @@ bool StateImageManager::performUpdate(
             spdlog::error("StateImageManager::performUpdate (thread {}): WorkingImageFactory::create failed.", thread_id_str);
             success = false;
         } else {
-            // Apply the sequence of operations using the pipeline
-            if (!m_operation_pipeline->applyOperations(*new_working_image, ops_to_apply, *m_operation_factory)) {
-                spdlog::error("StateImageManager::performUpdate (thread {}): OperationPipeline::applyOperations failed.", thread_id_str);
+            // Build the fused pipeline executor for the current sequence of operations
+            auto pipeline_executor = m_pipeline_builder->build(ops_to_apply, Operations::OperationFactory{});
+            if (!pipeline_executor) {
+                spdlog::error("StateImageManager::performUpdate (thread {}): OperationPipelineBuilder::build failed.", thread_id_str);
                 success = false;
             } else {
-                spdlog::debug("StateImageManager::performUpdate (thread {}): OperationPipeline applied {} operations successfully.", thread_id_str, ops_to_apply.size());
-                success = true;
+                // Execute the fused pipeline on the working image
+                if (!pipeline_executor->execute(*new_working_image)) {
+                    spdlog::error("StateImageManager::performUpdate (thread {}): IPipelineExecutor::execute failed.", thread_id_str);
+                    success = false;
+                } else {
+                    spdlog::debug("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.", thread_id_str, ops_to_apply.size());
+                    success = true;
 
-                // Update the internal state with the new working image
-                {
-                    std::lock_guard lock(m_mutex);
-                    m_working_image = std::move(new_working_image);
-                    spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id_str);
+                    // Update the internal state with the new working image
+                    {
+                        std::lock_guard lock(m_mutex);
+                        m_working_image = std::move(new_working_image);
+                        spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id_str);
+                    }
                 }
             }
         }
