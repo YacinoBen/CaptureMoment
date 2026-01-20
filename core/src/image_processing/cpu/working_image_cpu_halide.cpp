@@ -47,8 +47,8 @@ std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::convertHalideToImag
         cpu_image_copy->m_channels = static_cast<int>(m_halide_buffer.channels());
 
         // Calculate total elements and resize the data vector
-        size_t total_elements = static_cast<size_t>(m_halide_buffer.width()) * 
-                               m_halide_buffer.height() * 
+        size_t total_elements = static_cast<size_t>(m_halide_buffer.width()) *
+                               m_halide_buffer.height() *
                                m_halide_buffer.channels();
         cpu_image_copy->m_data.resize(total_elements);
 
