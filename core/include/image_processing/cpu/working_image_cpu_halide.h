@@ -114,14 +114,14 @@ public:
      *
      * @return true if the internal Halide buffer is allocated and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override;
+    [[nodiscard]] bool isValid() const override { return m_halide_buffer.defined(); };
 
     /**
      * @brief Gets the memory type where the image data resides.
      *
      * @return MemoryType::CPU_RAM, indicating the data is stored in main CPU RAM via Halide.
      */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override;
+    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::CPU_RAM; };
 
 private:
     /**
@@ -129,6 +129,8 @@ private:
      * Managed directly by this object. Halide::Buffer handles its own memory allocation/deallocation.
      */
     Halide::Buffer<float> m_halide_buffer;
+
+    
 };
 
 } // namespace ImageProcessing
