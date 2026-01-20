@@ -8,7 +8,7 @@
 #include "operations/operation_pipeline.h"
 #include "operations/operation_factory.h"
 #include "operations/operation_descriptor.h"
-#include "operations/i_operation.h"
+#include "operations/interfaces/i_operation.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Operations {
@@ -17,7 +17,8 @@ bool OperationPipeline::applyOperations(
     ImageProcessing::IWorkingImageHardware& working_image,
     const std::vector<OperationDescriptor>& operations,
     const OperationFactory& factory
-    ) {
+    )
+{
     spdlog::info("OperationPipeline::applyOperations: Starting with {} operations", operations.size());
     for (const auto& descriptor : operations) {
         if (!descriptor.enabled) {
@@ -34,7 +35,6 @@ bool OperationPipeline::applyOperations(
 
         spdlog::debug("OperationPipeline::applyOperations: Executing operation '{}'", descriptor.name);
 
-        // --- APPEL DE LA NOUVELLE SIGNATURE ---
         if (!operation->execute(working_image, descriptor)) {
             spdlog::error("OperationPipeline::applyOperations: Operation '{}' failed", descriptor.name);
             return false;
