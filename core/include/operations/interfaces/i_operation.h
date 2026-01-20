@@ -4,11 +4,12 @@
  * @author CaptureMoment Team
  * @date 2026
  */
+
 #pragma once
 
 #include "operations/operation_type.h"
 #include "operations/operation_descriptor.h"
-#include "image_processing/interfaces/i_working_image_hardware.h" // Remplace common/image_region.h
+#include "image_processing/interfaces/i_working_image_hardware.h"
 
 namespace CaptureMoment::Core {
 
