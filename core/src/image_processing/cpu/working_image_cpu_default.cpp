@@ -139,14 +139,4 @@ size_t WorkingImageCPU_Default::getDataSize() const
     return static_cast<size_t>(m_image_data->m_width) * m_image_data->m_height * m_image_data->m_channels;
 }
 
-bool WorkingImageCPU_Default::isValid() const
-{
-    return m_image_data && m_image_data->isValid();
-}
-
-Common::MemoryType WorkingImageCPU_Default::getMemoryType() const
-{
-    return Common::MemoryType::CPU_RAM;
-}
-
 } // namespace CaptureMoment::Core::ImageProcessing

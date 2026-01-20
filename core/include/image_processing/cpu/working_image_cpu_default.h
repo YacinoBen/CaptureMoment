@@ -74,7 +74,7 @@ public:
      * @return A shared pointer to the **internal** ImageRegion object (shallow copy).
      *         Returns nullptr if the internal data is invalid.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUShared() const override;
+    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUShared() const;
 
     /**
      * @brief Gets the dimensions (width, height) of the internal image data.
@@ -111,14 +111,14 @@ public:
      *
      * @return true if the internal ImageRegion is loaded and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override;
+    [[nodiscard]] bool isValid() const override { return m_image_data && m_image_data->isValid(); };
 
     /**
      * @brief Gets the memory type where the image data resides.
      *
      * @return MemoryType::CPU_RAM, indicating the data is stored in main CPU RAM.
      */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override;
+    [[nodiscard]] Common::MemoryType getMemoryType() const override  { return Common::MemoryType::CPU_RAM; };
 
 private:
     /**
