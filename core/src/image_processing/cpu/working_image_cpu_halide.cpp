@@ -124,12 +124,6 @@ std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::exportToCPUCopy()
     return convertHalideToImageRegion();
 }
 
-std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::exportToCPUShared() const
-{
-    spdlog::warn("WorkingImageCPU_Halide::exportToCPUShared: Cannot share Halide buffer data as ImageRegion without copying. Use exportToCPUCopy().");
-    return nullptr;
-}
-
 std::pair<size_t, size_t> WorkingImageCPU_Halide::getSize() const
 {
     if (!isValid()) {

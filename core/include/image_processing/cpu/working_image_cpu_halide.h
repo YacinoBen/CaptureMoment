@@ -9,7 +9,6 @@
 #include "image_processing/cpu/interfaces/i_working_image_cpu.h"
 
 #include <memory>
-#include <vector>
 
 #include "Halide.h"
 
@@ -64,20 +63,6 @@ public:
      *         Returns nullptr on failure (allocation or copy error).
      */
     [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUCopy() override;
-
-    /**
-     * @brief Exports a shared reference to the current internal image data.
-     *
-     * Because the internal data is managed by a Halide::Buffer, sharing it directly
-     * as an ImageRegion without copying is not straightforward. This method
-     * currently returns nullptr.
-     *
-     * @return A shared pointer to a **newly allocated** ImageRegion containing a copy of the image data
-     *         from the internal Halide buffer (effectively the same as exportToCPUCopy).
-     *         Returns nullptr on failure.
-     */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUShared() const override;
-
     /**
      * @brief Gets the dimensions (width, height) of the internal Halide buffer.
      *
@@ -130,7 +115,17 @@ private:
      */
     Halide::Buffer<float> m_halide_buffer;
 
-    
+    /**
+     * @brief Private helper method to convert the internal Halide buffer to an ImageRegion.
+     *
+     * This internal helper encapsulates the logic for converting the internal Halide::Buffer
+     * to a new ImageRegion instance. It handles the allocation, dimension setting, and
+     * data copying from the Halide buffer to the ImageRegion's data vector.
+     * This method is used by exportToCPUCopy to avoid code duplication.
+     * @return A shared pointer to a newly allocated ImageRegion containing the copied image data
+     * from the internal Halide buffer. Returns nullptr on failure (allocation or copy error).
+      */
+    [[nodiscard]] std::shared_ptr<Common::ImageRegion> convertHalideToImageRegion() const;
 };
 
 } // namespace ImageProcessing
