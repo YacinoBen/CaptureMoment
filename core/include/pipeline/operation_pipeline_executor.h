@@ -8,6 +8,7 @@
 #pragma once
 
 #include "pipeline/interfaces/i_pipeline_executor.h"
+#include "image_processing/interfaces/i_working_image_hardware.h"
 #include "operations/operation_descriptor.h"
 #include "operations/operation_factory.h"
 
@@ -45,7 +46,7 @@ public:
     explicit OperationPipelineExecutor(
         const std::vector<Operations::OperationDescriptor>& operations,
         const Operations::OperationFactory& factory
-    );
+        );
 
     /**
      * @brief Executes the pre-built fused adjustment pipeline on the given image.
@@ -107,18 +108,18 @@ private:
     void savePipeline() const;
     
     /**
-     * @brief Executes the pipeline using a concrete WorkingImageCPU_Halide implementation.
-     * 
+     * @brief Executes the pipeline using a concrete WorkingImageCPU_Halide or WorkingImageGPU_Halide implementation.
+     *
      * This method is called when the working_image parameter can be cast to
-     * WorkingImageCPU_Halide. It uses the internal conversion methods of the concrete
-     * implementation to avoid intermediate copies.
-     * 
-     * @param concrete_image The concrete WorkingImageCPU_Halide instance to process.
+     * a concrete Halide implementation (either CPU or GPU). It uses the internal
+     * conversion methods of the concrete implementation to avoid intermediate copies.
+     *
+     * @param working_image The concrete WorkingImage implementation instance to process.
      * @return true if the execution was successful, false otherwise.
      */
     [[nodiscard]] bool executeWithConcreteImplementation(
-        ImageProcessing::WorkingImageCPU_Halide& concrete_image
-    ) const;
+        ImageProcessing::IWorkingImageHardware& working_image
+        ) const;
     
     /**
      * @brief Executes the pipeline using a generic IWorkingImageHardware interface.
@@ -132,7 +133,7 @@ private:
      */
     [[nodiscard]] bool executeGeneric(
         ImageProcessing::IWorkingImageHardware& working_image
-    ) const;
+        ) const;
 };
 
 } // namespace Pipeline
