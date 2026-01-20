@@ -38,6 +38,9 @@ set(CORE_SOURCES
     src/serializer/strategy/configurable_xmp_path_strategy.cpp
     src/serializer/strategy/sidecar_xmp_path_strategy.cpp
 
+    # Pipeline
+    src/pipeline/operation_pipeline_executor.cpp
+
     src/serializer/file_serializer_manager.cpp
     src/serializer/operation_serialization.cpp
     src/serializer/file_serializer_writer.cpp
