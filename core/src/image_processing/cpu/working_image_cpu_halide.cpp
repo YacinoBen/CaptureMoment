@@ -13,7 +13,6 @@
 namespace CaptureMoment::Core::ImageProcessing {
 
 WorkingImageCPU_Halide::WorkingImageCPU_Halide(std::shared_ptr<Common::ImageRegion> initial_image)
-    : m_halide_buffer() // Default constructor creates an empty buffer
 {
     if (initial_image && initial_image->isValid()) {
         if (!updateFromCPU(*initial_image)) {
@@ -69,17 +68,6 @@ std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::convertHalideToImag
     }
 
     return cpu_image_copy;
-}
-
-
-void WorkingImageCPU_Halide::initializeHalide(const Common::ImageRegion& cpu_image)
-{
-    m_halide_buffer = Halide::Buffer<float>(
-        m_data.data(),
-        cpu_image.m_width,
-        cpu_image.m_height,
-        cpu_image.m_channels
-        );
 }
 
 bool WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion &cpu_image)
