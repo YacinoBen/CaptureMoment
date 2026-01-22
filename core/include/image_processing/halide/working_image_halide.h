@@ -6,9 +6,10 @@
  */
 
 #pragma once
-#include "image_processing/cpu/interfaces/i_working_image_cpu.h"
 
-#include <memory>
+#include <vector>
+
+#include "common/image_region.h"
 
 #include "Halide.h"
 
@@ -23,12 +24,12 @@ namespace ImageProcessing {
  * used by both CPU and GPU working image implementations. It provides the
  * common interface for direct buffer access during pipeline execution.
  */
-class WorkingImageHalide : public IWorkingImageCPU {
+class WorkingImageHalide {
 public:
     /**
      * @brief Virtual destructor.
      */
-    ~WorkingImageHalide() override = default;
+    virtual ~WorkingImageHalide() = default;
 
     /**
      * @brief Gets a reference to the internal Halide buffer managed by this object.

@@ -5,7 +5,8 @@
  * @date 2026
  */
 
-#include "image_processing/working_image_halide.h"
+#include "image_processing/halide/working_image_halide.h"
+
 #include <spdlog/spdlog.h>
 #include <memory>
 #include <cstring>
