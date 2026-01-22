@@ -121,6 +121,17 @@ private:
     Halide::Buffer<float> m_halide_gpu_buffer; // Placeholder: Type might vary based on Halide config
 
     /**
+     * @brief Internal storage for image data to be shared between GPU operations.
+     *
+     * This vector holds the actual pixel data in float format that can be accessed
+     * by both Halide operations and GPU-based processing. It serves as the backing
+     * store for the Halide::Buffer, allowing efficient in-place modifications
+     * without unnecessary data copying between operations.
+     * The vector is managed internally and updated through updateFromCPU operations.
+     */
+    std::vector<float> m_data;
+
+    /**
      * @brief Cached dimensions and channels of the GPU buffer.
      *        Helps avoid querying the GPU buffer repeatedly for metadata.
      */
@@ -138,6 +149,21 @@ private:
      * @return true if successful, false otherwise.
      */
     bool updateCachedMetadata() const;
+
+    /**
+     * @brief Initializes the internal Halide buffer to reference the current m_data vector.
+     *
+     * This private helper method creates a Halide::Buffer<float> that points to
+     * the internal m_data vector, establishing the connection between the managed
+     * data storage and the Halide processing engine. The buffer shares the same
+     * memory as m_data, enabling in-place modifications during pipeline execution.
+     * This method should only be called after m_data has been properly populated
+     * via updateFromCPU operations to ensure the buffer points to valid data.
+     *
+     * @param cpu_image The ImageRegion containing the dimensional metadata (width, height, channels)
+     *                  that defines the buffer layout. The actual pixel data comes from m_data.
+     */
+    void initializeHalide(const Common::ImageRegion &cpu_image);
 };
 
 } // namespace ImageProcessing

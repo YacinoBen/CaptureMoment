@@ -9,7 +9,6 @@
 #include <spdlog/spdlog.h>
 #include <memory>
 #include <cstring>
-#include <stdexcept>
 
 #include "HalideRuntime.h"
 
@@ -35,7 +34,17 @@ WorkingImageGPU_Halide::~WorkingImageGPU_Halide() {
     spdlog::debug("WorkingImageGPU_Halide: Destructor called");
 }
 
-bool WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
+void WorkingImageGPU_Halide::initializeHalide(const Common::ImageRegion& cpu_image)
+{
+    m_halide_gpu_buffer = Halide::Buffer<float>(
+        m_data.data(),
+        cpu_image.m_width,
+        cpu_image.m_height,
+        cpu_image.m_channels
+    );
+}
+
+bool WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion &cpu_image)
 {
     if (!cpu_image.isValid()) {
         spdlog::warn("WorkingImageGPU_Halide::updateFromCPU: Input ImageRegion is invalid");
@@ -49,19 +58,19 @@ bool WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
     }
 
     try {
-        // Create a new Halide buffer on the CPU first
-        m_halide_gpu_buffer = Halide::Buffer<float>(
-            cpu_image.m_width,
-            cpu_image.m_height,
-            cpu_image.m_channels
-        );
+        // Copy data from ImageRegion to internal storage
+        m_data = cpu_image.m_data;
 
-        // Copy data from the ImageRegion into the Halide buffer's host memory
-        std::memcpy(
-            m_halide_gpu_buffer.data(),
-            cpu_image.m_data.data(),
-            cpu_image.m_data.size() * sizeof(float)
-        );
+        if (m_data.empty()) {
+            spdlog::error("WorkingImageGPU_Halide::updateFromCPU: Data vector is empty after copy");
+            return false;
+        }
+
+        spdlog::debug("WorkingImageGPU_Halide::updateFromCPU: Copied {} elements from ImageRegion to internal storage",
+                      m_data.size());
+
+        // Initialize the Halide buffer to point to our internal data
+        initializeHalide(cpu_image);
 
         // Mark host data as dirty and copy to the GPU device
         m_halide_gpu_buffer.set_host_dirty();

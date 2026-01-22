@@ -49,7 +49,7 @@ public:
      * @param[in] cpu_image The source image data residing in CPU memory.
      * @return true if the update operation was successful, false otherwise.
      */
-    [[nodiscard]] bool updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    [[nodiscard]] bool updateFromCPU(const Common::ImageRegion &cpu_image) override;
 
     /**
      * @brief Exports the current internal Halide image data to a new CPU-based ImageRegion owned by the caller.
@@ -116,6 +116,32 @@ private:
     Halide::Buffer<float> m_halide_buffer;
 
     /**
+     * @brief Internal storage for image data to be shared between CPU operations.
+     *
+     * This vector holds the actual pixel data in float format that can be accessed
+     * by both Halide operations and CPU-based processing. It serves as the backing
+     * store for the Halide::Buffer, allowing efficient in-place modifications
+     * without unnecessary data copying between operations.
+     * The vector is managed internally and updated through updateFromCPU operations.
+     */
+    std::vector<float> m_data;
+
+    /**
+     * @brief Initializes the internal Halide buffer to reference the current m_data vector.
+     *
+     * This private helper method creates a Halide::Buffer<float> that points to
+     * the internal m_data vector, establishing the connection between the managed
+     * data storage and the Halide processing engine. The buffer shares the same
+     * memory as m_data, enabling in-place modifications during pipeline execution.
+     * This method should only be called after m_data has been properly populated
+     * via updateFromCPU operations to ensure the buffer points to valid data.
+     *
+     * @param cpu_image The ImageRegion containing the dimensional metadata (width, height, channels)
+     * that defines the buffer layout. The actual pixel data comes from m_data.
+     */
+    void initializeHalide(const Common::ImageRegion &cpu_image);
+
+    /**
      * @brief Private helper method to convert the internal Halide buffer to an ImageRegion.
      *
      * This internal helper encapsulates the logic for converting the internal Halide::Buffer
@@ -125,7 +151,7 @@ private:
      * @return A shared pointer to a newly allocated ImageRegion containing the copied image data
      * from the internal Halide buffer. Returns nullptr on failure (allocation or copy error).
       */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> convertHalideToImageRegion() const;
+    [[nodiscard]] std::shared_ptr<Common::ImageRegion> convertHalideToImageRegion();    
 };
 
 } // namespace ImageProcessing

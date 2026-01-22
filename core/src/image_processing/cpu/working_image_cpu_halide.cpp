@@ -31,9 +31,10 @@ WorkingImageCPU_Halide::~WorkingImageCPU_Halide() {
     spdlog::debug("WorkingImageCPU_Halide: Destructor called");
 }
 
-std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::convertHalideToImageRegion() const
+std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::convertHalideToImageRegion()
 {
     std::shared_ptr<Common::ImageRegion> cpu_image_copy;
+
     try {
         cpu_image_copy = std::make_shared<Common::ImageRegion>();
         if (!cpu_image_copy) {
@@ -46,39 +47,42 @@ std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::convertHalideToImag
         cpu_image_copy->m_height = static_cast<int>(m_halide_buffer.height());
         cpu_image_copy->m_channels = static_cast<int>(m_halide_buffer.channels());
 
-        // Calculate total elements and resize the data vector
-        size_t total_elements = static_cast<size_t>(m_halide_buffer.width()) *
-                               m_halide_buffer.height() *
-                               m_halide_buffer.channels();
-        cpu_image_copy->m_data.resize(total_elements);
+        cpu_image_copy->m_data = m_data;
 
-        // Copy data from the Halide buffer's host memory
-        std::memcpy(
-            cpu_image_copy->m_data.data(),
-            m_halide_buffer.data(),
-            total_elements * sizeof(float)
-        );
+
+        if (!cpu_image_copy->isValid()) {
+            spdlog::error("WorkingImageCPU_Halide::convertHalideToImageRegion: Exported ImageRegion is invalid.");
+            return nullptr;
+        }
+
+        spdlog::debug("WorkingImageCPU_Halide::convertHalideToImageRegion: Exported ImageRegion ({}x{}, {} ch)",
+                      cpu_image_copy->m_width, cpu_image_copy->m_height, cpu_image_copy->m_channels);
+
+        return cpu_image_copy;
 
     } catch (const std::bad_alloc& e) {
         spdlog::critical("WorkingImageCPU_Halide::convertHalideToImageRegion: Failed to allocate memory: {}", e.what());
         return nullptr;
     } catch (const std::exception& e) {
-        spdlog::critical("WorkingImageCPU_Halide::convertHalideToImageRegion: Exception during copy: {}", e.what());
-        return nullptr;
-    } catch (...) {
-        spdlog::critical("WorkingImageCPU_Halide::convertHalideToImageRegion: Unknown exception during copy.");
-        return nullptr;
-    }
-
-    if (!cpu_image_copy->isValid()) {
-        spdlog::error("WorkingImageCPU_Halide::convertHalideToImageRegion: Exported ImageRegion copy is invalid.");
+        spdlog::critical("WorkingImageCPU_Halide::convertHalideToImageRegion: Exception: {}", e.what());
         return nullptr;
     }
 
     return cpu_image_copy;
 }
 
-bool WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
+
+void WorkingImageCPU_Halide::initializeHalide(const Common::ImageRegion& cpu_image)
+{
+    m_halide_buffer = Halide::Buffer<float>(
+        m_data.data(),
+        cpu_image.m_width,
+        cpu_image.m_height,
+        cpu_image.m_channels
+        );
+}
+
+bool WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion &cpu_image)
 {
     if (!cpu_image.isValid()) {
         spdlog::warn("WorkingImageCPU_Halide::updateFromCPU: Input ImageRegion is invalid");
@@ -86,32 +90,29 @@ bool WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
     }
 
     try {
-        // Create a new Halide buffer with the correct shape
-        m_halide_buffer = Halide::Buffer<float>(
-            cpu_image.m_width,
-            cpu_image.m_height,
-            cpu_image.m_channels
-        );
 
-        // Copy data from the ImageRegion into the Halide buffer's host memory
-        std::memcpy(
-            m_halide_buffer.data(),
-            cpu_image.m_data.data(),
-            cpu_image.m_data.size() * sizeof(float)
-        );
+        m_data = cpu_image.m_data;
+
+        if (m_data.empty()) {
+            spdlog::error("WorkingImageCPU_Halide::updateFromCPU: Data vector is empty after copy");
+            return false;
+        }
+
+        spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Copied {} elements from ImageRegion to internal storage",
+                      m_data.size());
+
+
+        initializeHalide(cpu_image);
+
+        spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Created Halide::Buffer pointing to internal data ({}x{}, {} ch)",
+                      m_halide_buffer.width(), m_halide_buffer.height(), m_halide_buffer.channels());
+
+        return true;
 
     } catch (const std::exception& e) {
-        spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Exception during buffer creation or data copy: {}", e.what());
-        return false;
-    } catch (...) {
-        spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Unknown exception during buffer creation or data copy.");
+        spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Exception: {}", e.what());
         return false;
     }
-
-    spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Successfully updated Halide buffer ({}x{}, {} ch)",
-                  m_halide_buffer.width(), m_halide_buffer.height(), m_halide_buffer.channels());
-
-    return true;
 }
 
 std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Halide::exportToCPUCopy()
