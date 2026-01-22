@@ -24,21 +24,21 @@ namespace CaptureMoment::Core {
 
 namespace Pipeline {
 
- /**
-  * @brief Concrete implementation of IPipelineExecutor for executing fused adjustment operation pipelines.
-  *
-  * OperationPipelineExecutor encapsulates a compiled Halide pipeline for image adjustments
-  * and provides the method to execute it on a given IWorkingImageHardware.
-  * It inherits from IPipelineExecutor, fulfilling the contract for pipeline execution.
-  *
-  * Note: This class is intended to be instantiated by OperationPipelineBuilder.
-  * Direct instantiation from user code is not typically required.
-  *
-  * This class stores a compiled Halide pipeline in m_saved_pipeline to optimize
-  * repeated executions. The pipeline is rebuilt and recompiled only when the list
-  * of operations changes, not when just the parameters of existing operations change.
-  * This significantly improves performance for interactive adjustments.
-  */
+/**
+ * @brief Concrete implementation of IPipelineExecutor for executing fused adjustment operation pipelines.
+ *
+ * OperationPipelineExecutor encapsulates a compiled Halide pipeline for image adjustments
+ * and provides the method to execute it on a given IWorkingImageHardware.
+ * It inherits from IPipelineExecutor, fulfilling the contract for pipeline execution.
+ *
+ * Note: This class is intended to be instantiated by OperationPipelineBuilder.
+ * Direct instantiation from user code is not typically required.
+ *
+ * This class stores a compiled Halide pipeline in m_saved_pipeline to optimize
+ * repeated executions. The pipeline is rebuilt and recompiled only when the list
+ * of operations changes, not when just the parameters of existing operations change.
+ * This significantly improves performance for interactive adjustments.
+ */
 class OperationPipelineExecutor final : public IPipelineExecutor {
 public:
     /**
@@ -159,6 +159,29 @@ private:
      */
     [[nodiscard]] bool executeGeneric(
         ImageProcessing::IWorkingImageHardware& working_image
+        ) const;
+
+    /**
+     * @brief Executes the fused pipeline directly on the provided Halide buffer.
+     *
+     * This private helper method constructs and executes the complete pipeline
+     * from the list of operation descriptors directly onto the given buffer.
+     * The pipeline operates in-place, modifying the buffer's data without creating
+     * intermediate copies. This ensures optimal performance by writing results
+     * directly into the target memory location.
+     *
+     * @param buffer The Halide buffer on which to execute the pipeline. The buffer
+     *               must be properly initialized and contain valid image data.
+     * @param width The width of the image data in the buffer.
+     * @param height The height of the image data in the buffer.
+     * @param channels The number of color channels in the image data.
+     * @return true if the pipeline executed successfully, false if any error occurred.
+     */
+    [[nodiscard]] bool executePipelineOnBuffer(
+        Halide::Buffer<float>& buffer,
+        size_t width,
+        size_t height,
+        size_t channels
         ) const;
 };
 

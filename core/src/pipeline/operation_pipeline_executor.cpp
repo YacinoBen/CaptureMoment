@@ -1,6 +1,6 @@
 /**
  * @file operation_pipeline_executor.cpp
- * @brief Implementation of OperationPipelineExecutor
+ * @brief Implementation of OperationPipelineExecutor (OPTIMIZED)
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -8,7 +8,8 @@
 #include "pipeline/operation_pipeline_executor.h"
 #include "operations/interfaces/i_operation_fusion_logic.h"
 #include "operations/interfaces/i_operation.h"
-
+#include "image_processing/cpu/working_image_cpu_halide.h"
+#include "image_processing/gpu/working_image_gpu_halide.h"
 #include <Halide.h>
 #include <spdlog/spdlog.h>
 
@@ -18,331 +19,238 @@ OperationPipelineExecutor::OperationPipelineExecutor(
     const std::vector<Operations::OperationDescriptor>& operations,
     const Operations::OperationFactory& factory
     ) : m_operations(operations), m_factory(factory) {
-    // Compile the pipeline once during construction for efficiency
-    savePipeline();
+    // Pipeline is compiled at execution time, not construction time
+    // (because we need the actual image dimensions)
 }
 
 bool OperationPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& working_image) const {
-    if (!m_saved_pipeline) {
-        spdlog::error("OperationPipelineExecutor::execute: Pipeline not compiled or compilation failed.");
-        return false;
+
+    // Determine concrete type and execute directly
+    if (auto* cpu_impl = dynamic_cast<ImageProcessing::WorkingImageCPU_Halide*>(&working_image)) {
+        return executeWithConcreteCPU(*cpu_impl);
+    }
+    else if (auto* gpu_impl = dynamic_cast<ImageProcessing::WorkingImageGPU_Halide*>(&working_image)) {
+        return executeWithConcreteGPU(*gpu_impl);
     }
 
-    // Determine the execution strategy based on the configured backend and concrete image type
-    if (m_backend == Common::MemoryType::CPU_RAM) {
-        auto* cpu_impl = dynamic_cast<ImageProcessing::WorkingImageCPU_Halide*>(&working_image);
-        if (cpu_impl) {
-            return executeWithConcreteCPU(*cpu_impl);
-        }
-    } else if (m_backend == Common::MemoryType::GPU_MEMORY) {
-        auto* gpu_impl = dynamic_cast<ImageProcessing::WorkingImageGPU_Halide*>(&working_image);
-        if (gpu_impl) {
-            return executeWithConcreteGPU(*gpu_impl);
-        }
-    }
-
-    // If the configured backend doesn't match the concrete implementation,
-    // or if the concrete type cannot be determined, fall back to generic implementation
-    return executeGeneric(working_image);
+    spdlog::error("OperationPipelineExecutor::execute: Unsupported working image type.");
+    return false;
 }
 
-bool OperationPipelineExecutor::executeWithConcreteCPU(
-    ImageProcessing::WorkingImageCPU_Halide& concrete_image
-    ) const {
-    if (!m_saved_pipeline) {
-        spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Pipeline not compiled or compilation failed.");
-        return false;
-    }
-
+bool OperationPipelineExecutor::executeWithConcreteCPU(ImageProcessing::WorkingImageCPU_Halide& concrete_image) const
+{
     try {
-        // Get image dimensions for the execution
+        // Verify that image is valid
+        if (!concrete_image.isValid()) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Working image is invalid.");
+            return false;
+        }
+
+        // Get dimensions
         auto [width, height] = concrete_image.getSize();
         size_t channels = concrete_image.getChannels();
 
         if (width <= 0 || height <= 0 || channels == 0) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Invalid image dimensions ({}x{}x{}).", width, height, channels);
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Invalid image dimensions ({}x{}x{}).",
+                          width, height, channels);
             return false;
         }
 
-        // Export the current working image to CPU for processing with the compiled pipeline
-        auto cpu_region = concrete_image.exportToCPUCopy();
-        if (!cpu_region) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Failed to export working image to CPU for processing.");
+        spdlog::debug("OperationPipelineExecutor::executeWithConcreteCPU: Starting pipeline execution on {}x{}x{} image.",
+                      width, height, channels);
+
+        // Get the Halide buffer that points to m_data
+        // This buffer was initialized by updateFromCPU() in WorkingImageCPU_Halide
+        Halide::Buffer<float> working_buffer = concrete_image.getHalideBuffer();
+
+        if (!working_buffer.defined()) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Halide buffer is not defined.");
             return false;
         }
 
-        // Create input buffer from the exported CPU copy data
-        Halide::Buffer<float> input_buf(
-            cpu_region->m_data.data(),
-            static_cast<int>(width),
-            static_cast<int>(height),
-            static_cast<int>(channels)
-            );
-
-        // Execute the compiled pipeline
-        // The pipeline expects input and output buffers with the same dimensions
-        Halide::Realization outputs = m_saved_pipeline->realize({static_cast<int>(width), static_cast<int>(height), static_cast<int>(channels)});
-
-        if (outputs.size() == 0) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Pipeline execution produced no output.");
+        // Verify that dimensions match
+        if (working_buffer.width() != static_cast<int>(width) ||
+            working_buffer.height() != static_cast<int>(height) ||
+            working_buffer.channels() != static_cast<int>(channels)) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Buffer dimensions mismatch. "
+                          "Buffer: {}x{}x{}, Expected: {}x{}x{}",
+                          working_buffer.width(), working_buffer.height(), working_buffer.channels(),
+                          width, height, channels);
             return false;
         }
 
-        // Assuming the first output is the processed image
-        Halide::Buffer<float> output_buf = outputs[0].as<Halide::Buffer<float>>();
-
-        // Convert the Halide::Buffer output to an ImageRegion using the concrete implementation's own conversion capability
-        // This avoids using external converters and leverages the internal conversion logic
-        Common::ImageRegion output_region;
-        output_region.m_width = output_buf.width();
-        output_region.m_height = output_buf.height();
-        output_region.m_channels = output_buf.channels();
-        output_region.m_format = Common::PixelFormat::RGBA_F32; // Assuming default format
-
-        // Resize the data vector to match the buffer size
-        size_t total_elements = static_cast<size_t>(output_buf.width()) * output_buf.height() * output_buf.channels();
-        output_region.m_data.resize(total_elements);
-
-        // Copy data from Halide buffer to ImageRegion using internal conversion
-        std::memcpy(
-            output_region.m_data.data(),
-            output_buf.data(),
-            total_elements * sizeof(float)
-            );
-
-        if (!concrete_image.updateFromCPU(output_region)) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Failed to update working image with pipeline result.");
+        // Execute the pipeline directly on the buffer
+        // The pipeline realizes directly into this buffer
+        // Zero intermediate copy!
+        if (!executePipelineOnBuffer(working_buffer, width, height, channels)) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Pipeline execution failed.");
             return false;
         }
 
-        spdlog::debug("OperationPipelineExecutor::executeWithConcreteCPU: Successfully executed fused pipeline on {} operations.", m_operations.size());
+        spdlog::debug("OperationPipelineExecutor::executeWithConcreteCPU: Successfully executed fused pipeline on {} operations.",
+                      m_operations.size());
         return true;
 
     } catch (const Halide::Error& e) {
-        spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Halide error during execution: {}", e.what());
+        spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Halide error: {}", e.what());
         return false;
     } catch (const std::exception& e) {
-        spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Error during execution: {}", e.what());
+        spdlog::error("OperationPipelineExecutor::executeWithConcreteCPU: Exception: {}", e.what());
         return false;
     }
 }
 
-bool OperationPipelineExecutor::executeWithConcreteGPU(
-    ImageProcessing::WorkingImageGPU_Halide& concrete_image
-    ) const {
-    if (!m_saved_pipeline) {
-        spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Pipeline not compiled or compilation failed.");
-        return false;
-    }
-
+bool OperationPipelineExecutor::executeWithConcreteGPU(ImageProcessing::WorkingImageGPU_Halide& concrete_image) const
+{
     try {
-        // Get image dimensions for the execution
+        // Verify that image is valid
+        if (!concrete_image.isValid()) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Working image is invalid.");
+            return false;
+        }
+
+        // Get dimensions
         auto [width, height] = concrete_image.getSize();
         size_t channels = concrete_image.getChannels();
 
         if (width <= 0 || height <= 0 || channels == 0) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Invalid image dimensions ({}x{}x{}).", width, height, channels);
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Invalid image dimensions ({}x{}x{}).",
+                          width, height, channels);
             return false;
         }
 
-        // Export the current working image to CPU for processing with the compiled pipeline
-        auto cpu_region = concrete_image.exportToCPUCopy();
-        if (!cpu_region) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Failed to export working image to CPU for processing.");
+        spdlog::debug("OperationPipelineExecutor::executeWithConcreteGPU: Starting pipeline execution on {}x{}x{} image (GPU).",
+                      width, height, channels);
+
+        // Same approach for GPU
+        Halide::Buffer<float> working_buffer = concrete_image.getHalideBuffer();
+
+        if (!working_buffer.defined()) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Halide buffer is not defined.");
             return false;
         }
 
-        // Create input buffer from the exported CPU copy data
-        Halide::Buffer<float> input_buf(
-            cpu_region->m_data.data(),
-            static_cast<int>(width),
-            static_cast<int>(height),
-            static_cast<int>(channels)
-            );
-
-        // Execute the compiled pipeline
-        // The pipeline expects input and output buffers with the same dimensions
-        Halide::Realization outputs = m_saved_pipeline->realize({static_cast<int>(width), static_cast<int>(height), static_cast<int>(channels)});
-
-        if (outputs.size() == 0) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Pipeline execution produced no output.");
+        // Verify dimensions
+        if (working_buffer.width() != static_cast<int>(width) ||
+            working_buffer.height() != static_cast<int>(height) ||
+            working_buffer.channels() != static_cast<int>(channels)) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Buffer dimensions mismatch. "
+                          "Buffer: {}x{}x{}, Expected: {}x{}x{}",
+                          working_buffer.width(), working_buffer.height(), working_buffer.channels(),
+                          width, height, channels);
             return false;
         }
 
-        // Assuming the first output is the processed image
-        Halide::Buffer<float> output_buf = outputs[0].as<Halide::Buffer<float>>();
-
-        // Convert the Halide::Buffer output to an ImageRegion using the concrete implementation's own conversion capability
-        // This avoids using external converters and leverages the internal conversion logic
-        Common::ImageRegion output_region;
-        output_region.m_width = output_buf.width();
-        output_region.m_height = output_buf.height();
-        output_region.m_channels = output_buf.channels();
-        output_region.m_format = Common::PixelFormat::RGBA_F32; // Assuming default format
-
-        // Resize the data vector to match the buffer size
-        size_t total_elements = static_cast<size_t>(output_buf.width()) * output_buf.height() * output_buf.channels();
-        output_region.m_data.resize(total_elements);
-
-        // Copy data from Halide buffer to ImageRegion using internal conversion
-        std::memcpy(
-            output_region.m_data.data(),
-            output_buf.data(),
-            total_elements * sizeof(float)
-            );
-
-        if (!concrete_image.updateFromCPU(output_region)) {
-            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Failed to update working image with pipeline result.");
+        // Execute the pipeline
+        if (!executePipelineOnBuffer(working_buffer, width, height, channels)) {
+            spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Pipeline execution failed.");
             return false;
         }
 
-        spdlog::debug("OperationPipelineExecutor::executeWithConcreteGPU: Successfully executed fused pipeline on {} operations.", m_operations.size());
+        spdlog::debug("OperationPipelineExecutor::executeWithConcreteGPU: Successfully executed fused pipeline on {} operations.",
+                      m_operations.size());
         return true;
 
     } catch (const Halide::Error& e) {
-        spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Halide error during execution: {}", e.what());
+        spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Halide error: {}", e.what());
         return false;
     } catch (const std::exception& e) {
-        spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Error during execution: {}", e.what());
+        spdlog::error("OperationPipelineExecutor::executeWithConcreteGPU: Exception: {}", e.what());
         return false;
     }
 }
 
-bool OperationPipelineExecutor::executeGeneric(
-    ImageProcessing::IWorkingImageHardware& working_image
-    ) const {
-    if (!m_saved_pipeline) {
-        spdlog::error("OperationPipelineExecutor::executeGeneric: Pipeline not compiled or compilation failed.");
-        return false;
-    }
-
-    try {
-        // Get image dimensions for the execution
-        auto [width, height] = working_image.getSize();
-        size_t channels = working_image.getChannels();
-
-        if (width <= 0 || height <= 0 || channels == 0) {
-            spdlog::error("OperationPipelineExecutor::executeGeneric: Invalid image dimensions ({}x{}x{}).", width, height, channels);
-            return false;
-        }
-
-        // Export the current working image to CPU for processing with the compiled pipeline
-        auto cpu_region = working_image.exportToCPUCopy();
-        if (!cpu_region) {
-            spdlog::error("OperationPipelineExecutor::executeGeneric: Failed to export working image to CPU for processing.");
-            return false;
-        }
-
-        // Create input buffer from the exported CPU copy data
-        Halide::Buffer<float> input_buf(
-            cpu_region->m_data.data(),
-            static_cast<int>(width),
-            static_cast<int>(height),
-            static_cast<int>(channels)
-            );
-
-        // Execute the compiled pipeline
-        // The pipeline expects input and output buffers with the same dimensions
-        Halide::Realization outputs = m_saved_pipeline->realize({static_cast<int>(width), static_cast<int>(height), static_cast<int>(channels)});
-
-        if (outputs.size() == 0) {
-            spdlog::error("OperationPipelineExecutor::executeGeneric: Pipeline execution produced no output.");
-            return false;
-        }
-
-        // Assuming the first output is the processed image
-        Halide::Buffer<float> output_buf = outputs[0].as<Halide::Buffer<float>>();
-
-        // Convert the Halide::Buffer output to an ImageRegion manually
-        Common::ImageRegion output_region;
-        output_region.m_width = output_buf.width();
-        output_region.m_height = output_buf.height();
-        output_region.m_channels = output_buf.channels();
-        output_region.m_format = Common::PixelFormat::RGBA_F32; // Assuming default format
-
-        // Resize the data vector to match the buffer size
-        size_t total_elements = static_cast<size_t>(output_buf.width()) * output_buf.height() * output_buf.channels();
-        output_region.m_data.resize(total_elements);
-
-        // Copy data from Halide buffer to ImageRegion
-        std::memcpy(
-            output_region.m_data.data(),
-            output_buf.data(),
-            total_elements * sizeof(float)
-            );
-
-        if (!working_image.updateFromCPU(output_region)) {
-            spdlog::error("OperationPipelineExecutor::executeGeneric: Failed to update working image with pipeline result.");
-            return false;
-        }
-
-        spdlog::debug("OperationPipelineExecutor::executeGeneric: Successfully executed fused pipeline on {} operations.", m_operations.size());
-        return true;
-
-    } catch (const Halide::Error& e) {
-        spdlog::error("OperationPipelineExecutor::executeGeneric: Halide error during execution: {}", e.what());
-        return false;
-    } catch (const std::exception& e) {
-        spdlog::error("OperationPipelineExecutor::executeGeneric: Error during execution: {}", e.what());
-        return false;
-    }
-}
-
-void OperationPipelineExecutor::savePipeline() const {
+bool OperationPipelineExecutor::executePipelineOnBuffer(
+    Halide::Buffer<float>& buffer,
+    size_t width,
+    size_t height,
+    size_t channels
+    ) const
+{
     if (m_operations.empty()) {
-        spdlog::error("OperationPipelineExecutor::savePipeline: Cannot compile empty pipeline.");
-        return;
+        spdlog::debug("OperationPipelineExecutor::executePipelineOnBuffer: Empty operation list, nothing to execute.");
+        return true;
     }
 
     try {
-        // Create Halide variables for the coordinate system shared across all operations in the pipeline
+        spdlog::trace("OperationPipelineExecutor::executePipelineOnBuffer: Building pipeline for {} operations.",
+                      m_operations.size());
+
+        // Create Halide variables
         Halide::Var x, y, c;
 
-        // Create the input function for the pipeline (placeholder for the image data)
+        // Create input function that references the existing buffer
         Halide::Func input_func("input_image");
+        input_func(x, y, c) = buffer(x, y, c);
 
-        // Start with the input function and chain operations together
+        // Chain operations
         Halide::Func current_func = input_func;
+        int operation_count = 0;
 
         for (const auto& desc : m_operations) {
             if (!desc.enabled) {
+                spdlog::trace("OperationPipelineExecutor::executePipelineOnBuffer: Skipping disabled operation '{}'",
+                              desc.name);
                 continue;
             }
 
-            // Create the operation instance to get its fusion logic
+            // Create operation instance
             auto op_impl = m_factory.create(desc);
             if (!op_impl) {
-                spdlog::error("OperationPipelineExecutor::savePipeline: Cannot create operation '{}'. Skipping.", desc.name);
+                spdlog::warn("OperationPipelineExecutor::executePipelineOnBuffer: Cannot create operation '{}'. Skipping.",
+                             desc.name);
                 continue;
             }
 
-            // Cast to the fusion logic interface
+            // Verify that operation supports fusion
             auto fusion_logic = dynamic_cast<const Operations::IOperationFusionLogic*>(op_impl.get());
             if (!fusion_logic) {
-                spdlog::warn("OperationPipelineExecutor::savePipeline: Operation '{}' does not support fusion. Skipping.", desc.name);
+                spdlog::warn("OperationPipelineExecutor::executePipelineOnBuffer: Operation '{}' does not support fusion. Skipping.",
+                             desc.name);
                 continue;
             }
 
-            // Append this operation's logic to the pipeline
+            // Add this operation to the pipeline
             current_func = fusion_logic->appendToFusedPipeline(current_func, x, y, c, desc);
+            operation_count++;
+
+            spdlog::trace("OperationPipelineExecutor::executePipelineOnBuffer: Added operation '{}' to pipeline",
+                          desc.name);
         }
 
-        // Apply scheduling based on the configured backend (CPU or GPU)
+        if (operation_count == 0) {
+            spdlog::debug("OperationPipelineExecutor::executePipelineOnBuffer: No valid enabled operations to execute.");
+            return true;
+        }
+
+        spdlog::debug("OperationPipelineExecutor::executePipelineOnBuffer: Pipeline built with {} enabled operations.",
+                      operation_count);
+
+        // Apply scheduling
         if (m_backend == Common::MemoryType::GPU_MEMORY) {
+            spdlog::trace("OperationPipelineExecutor::executePipelineOnBuffer: Applying GPU scheduling");
             Halide::Var xo, yo, xi, yi;
             current_func.gpu_tile(x, y, xo, yo, xi, yi, 16, 16);
         } else {
+            spdlog::trace("OperationPipelineExecutor::executePipelineOnBuffer: Applying CPU scheduling");
             current_func.vectorize(x, 8).parallel(y);
         }
 
-        // Compile the final combined function into a Halide::Pipeline
-        m_saved_pipeline = std::make_unique<Halide::Pipeline>(current_func);
+        // Execute the pipeline directly into the provided buffer
+        // This writes the results directly into the buffer that points to m_data
+        current_func.realize(buffer);
 
-        spdlog::info("OperationPipelineExecutor::savePipeline: Successfully compiled pipeline for {} operations.", m_operations.size());
+        spdlog::debug("OperationPipelineExecutor::executePipelineOnBuffer: Pipeline executed successfully. "
+                      "Results written in-place to buffer ({}x{}x{}).",
+                      width, height, channels);
+        return true;
 
+    } catch (const Halide::Error& e) {
+        spdlog::error("OperationPipelineExecutor::executePipelineOnBuffer: Halide error: {}", e.what());
+        return false;
     } catch (const std::exception& e) {
-        spdlog::error("OperationPipelineExecutor::savePipeline: Error during pipeline compilation: {}", e.what());
-        m_saved_pipeline.reset(); // Ensure the pipeline pointer is null on failure
+        spdlog::error("OperationPipelineExecutor::executePipelineOnBuffer: Exception: {}", e.what());
+        return false;
     }
 }
 
