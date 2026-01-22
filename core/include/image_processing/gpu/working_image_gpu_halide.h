@@ -8,11 +8,11 @@
 #pragma once
 
 #include "image_processing/gpu/interfaces/i_working_image_gpu.h"
+#include "image_processing/halide/working_image_halide.h"
+
 #include "common/image_region.h"
 
 #include <memory>
-
-#include "Halide.h"
 
 namespace CaptureMoment::Core {
 

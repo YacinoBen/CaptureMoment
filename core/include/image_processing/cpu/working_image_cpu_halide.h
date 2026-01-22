@@ -7,10 +7,9 @@
 
 #pragma once
 #include "image_processing/halide/working_image_halide.h"
+#include "image_processing/cpu/interfaces/i_working_image_cpu.h"
 
 #include <memory>
-
-#include "Halide.h"
 
 namespace CaptureMoment::Core {
 
