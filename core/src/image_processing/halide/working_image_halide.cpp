@@ -8,8 +8,6 @@
 #include "image_processing/halide/working_image_halide.h"
 
 #include <spdlog/spdlog.h>
-#include <memory>
-#include <cstring>
 
 namespace CaptureMoment::Core::ImageProcessing {
 
