@@ -108,6 +108,19 @@ public:
      */
     [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::CPU_RAM; };
 
+    /**
+     * @brief Gets a reference to the internal Halide buffer managed by this object.
+     *
+     * This method provides direct access to the underlying Halide::Buffer<float>
+     * that holds the image data. The buffer shares memory with the internal m_data vector,
+     * allowing in-place modifications during pipeline execution. This enables the pipeline
+     * to operate directly on the managed data without requiring intermediate copies.
+     *
+     * @return A Halide::Buffer<float> object that references the internal data storage.
+     * The returned buffer points to the same memory location as m_data.
+     */
+    [[nodiscard]] Halide::Buffer<float> getHalideBuffer() const { return m_halide_buffer; };
+
 private:
     /**
      * @brief Internal Halide buffer holding the CPU image data.
