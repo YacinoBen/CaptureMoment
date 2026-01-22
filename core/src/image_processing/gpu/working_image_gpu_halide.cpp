@@ -15,8 +15,7 @@
 namespace CaptureMoment::Core::ImageProcessing {
 
 WorkingImageGPU_Halide::WorkingImageGPU_Halide(std::shared_ptr<Common::ImageRegion> initial_image)
-    : m_halide_gpu_buffer(), // Default constructor creates an empty buffer
-      m_cached_width(0), m_cached_height(0), m_cached_channels(0), m_metadata_valid(false)
+    : m_cached_width(0), m_cached_height(0), m_cached_channels(0), m_metadata_valid(false)
 {
     if (initial_image && initial_image->isValid()) {
         if (!updateFromCPU(*initial_image)) {
@@ -32,16 +31,6 @@ WorkingImageGPU_Halide::WorkingImageGPU_Halide(std::shared_ptr<Common::ImageRegi
 
 WorkingImageGPU_Halide::~WorkingImageGPU_Halide() {
     spdlog::debug("WorkingImageGPU_Halide: Destructor called");
-}
-
-void WorkingImageGPU_Halide::initializeHalide(const Common::ImageRegion& cpu_image)
-{
-    m_halide_gpu_buffer = Halide::Buffer<float>(
-        m_data.data(),
-        cpu_image.m_width,
-        cpu_image.m_height,
-        cpu_image.m_channels
-    );
 }
 
 bool WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion &cpu_image)
@@ -73,8 +62,8 @@ bool WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion &cpu_image)
         initializeHalide(cpu_image);
 
         // Mark host data as dirty and copy to the GPU device
-        m_halide_gpu_buffer.set_host_dirty();
-        int result = m_halide_gpu_buffer.copy_to_device(gpu_target);
+        m_halide_buffer.set_host_dirty();
+        int result = m_halide_buffer.copy_to_device(gpu_target);
         if (result != 0) {
             spdlog::critical("WorkingImageGPU_Halide::updateFromCPU: copy_to_device failed with error code: {}", result);
             return false;
@@ -128,7 +117,7 @@ std::shared_ptr<Common::ImageRegion> WorkingImageGPU_Halide::exportToCPUCopy()
         cpu_image_copy->m_data.resize(m_cached_width * m_cached_height * m_cached_channels);
 
         // Sync data from GPU device back to host memory
-        int result = m_halide_gpu_buffer.copy_to_host();
+        int result = m_halide_buffer.copy_to_host();
         if (result != 0) {
             spdlog::critical("WorkingImageGPU_Halide::exportToCPUCopy: copy_to_host failed with error code: {}", result);
             return nullptr;
@@ -137,7 +126,7 @@ std::shared_ptr<Common::ImageRegion> WorkingImageGPU_Halide::exportToCPUCopy()
         // Now copy from the synced host memory
         std::memcpy(
             cpu_image_copy->m_data.data(),
-            m_halide_gpu_buffer.data(),
+            m_halide_buffer.data(),
             cpu_image_copy->m_data.size() * sizeof(float)
         );
 
@@ -218,7 +207,7 @@ size_t WorkingImageGPU_Halide::getDataSize() const
 bool WorkingImageGPU_Halide::updateCachedMetadata() const {
     // In this implementation, metadata is cached during updateFromCPU.
     // This function is kept for interface completeness but is not used in getters.
-    if (m_halide_gpu_buffer.defined() && m_cached_width > 0 && m_cached_height > 0 && m_cached_channels > 0) {
+    if (m_halide_buffer.defined() && m_cached_width > 0 && m_cached_height > 0 && m_cached_channels > 0) {
         m_metadata_valid = true;
         return true;
     }

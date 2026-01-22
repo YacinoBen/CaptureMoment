@@ -103,7 +103,7 @@ public:
      *
      * @return true if the internal GPU buffer is allocated and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override { return m_halide_gpu_buffer.defined() && m_metadata_valid;};
+    [[nodiscard]] bool isValid() const override { return m_halide_buffer.defined() && m_metadata_valid;};
 
     /**
      * @brief Gets the memory type where the image data resides.
