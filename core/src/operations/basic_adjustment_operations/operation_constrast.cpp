@@ -6,100 +6,144 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_contrast.h"
+
 #include <spdlog/spdlog.h>
-#include <Halide.h>
+#include <algorithm>
 
 namespace CaptureMoment::Core::Operations {
 
+template<typename InputType>
+Halide::Func applyContrastAdjustment(
+    const InputType& input,
+    float contrast_value,
+    const Halide::Var& x,
+    const Halide::Var& y,
+    const Halide::Var& c
+    )
+{
+    Halide::Func contrast_func("contrast_op");
+
+    // Application de l'ajustement de contraste
+    contrast_func(x, y, c) = Halide::select(
+        c < 3, // R, G, B
+        Halide::clamp(0.5f + (input(x, y, c) - 0.5f) * contrast_value, 0.0f, 1.0f),
+        input(x, y, c) // A (Alpha inchangé)
+        );
+
+    return contrast_func;
+}
+
 bool OperationContrast::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
-    // 1. Validation
+    // 1. Validate the input working image
     if (!working_image.isValid()) {
-        spdlog::warn("OperationContrast::execute: Invalid  working_image");
+        spdlog::warn("OperationContrast::execute: Invalid working image provided");
         return false;
     }
 
+    // Skip execution if the operation is disabled
     if (!descriptor.enabled) {
-        spdlog::trace("OperationContrast::execute: Operation disabled, skipping");
+        spdlog::trace("OperationContrast::execute: Operation is disabled, skipping execution");
         return true;
     }
 
-    // 2. Extract parameter using key-value access
-    // Retrieves "value" key with default 0.0f if missing or type mismatch
-    float contrast_value = descriptor.getParam<float>("value", 0.0f);
+    // 2. Extract the contrast adjustment value parameter from the descriptor
+    float contrast_value = descriptor.getParam<float>("value", 1.0f);
 
-    // No-op optimization (using the default value from OperationRanges via static member)
-    if (contrast_value == OperationContrast::DEFAULT_CONTRAST_VALUE) { // Use the static member
-        spdlog::trace("OperationContrast::execute: Contrast value is default ({}), skipping", OperationContrast::DEFAULT_CONTRAST_VALUE);
+    // No-op optimization: Skip processing if the value matches the default
+    if (contrast_value == OperationContrast::DEFAULT_CONTRAST_VALUE) {
+        spdlog::trace("OperationContrast::execute: Contrast adjustment value is default ({}), skipping operation", OperationContrast::DEFAULT_CONTRAST_VALUE);
         return true;
     }
 
-    // Validate and clamp the value to the defined range (Business Logic - Core)
-    // Clamping is chosen here to ensure the operation always runs with a valid value,
-    // preventing potential issues from out-of-range inputs while logging the warning.
+    // Validate and clamp the contrast adjustment value to the defined operational range
     if (contrast_value < OperationContrast::MIN_CONTRAST_VALUE || contrast_value > OperationContrast::MAX_CONTRAST_VALUE) {
-        spdlog::warn("OperationContrast::execute: Contrast value ({}) is outside the valid range [{}, {}]. Clamping.",
+        spdlog::warn("OperationContrast::execute: Contrast adjustment value ({}) is outside the valid range [{}, {}]. Clamping.",
                      contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
         contrast_value = std::clamp(contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
     }
 
-    spdlog::debug("OperationContrast::execute: value={:.2f}", contrast_value);
+    spdlog::debug("OperationContrast::execute: Applying contrast adjustment with value={:.2f}", contrast_value);
 
+    // Export the current working image data to a CPU-accessible copy for processing
     auto cpu_copy = working_image.exportToCPUCopy();
     if (!cpu_copy) {
-        spdlog::error("OperationContrast::execute: Failed to get CPU copy of working image.");
+        spdlog::error("OperationContrast::execute: Failed to export working image to CPU copy for processing");
         return false;
     }
 
-    // 3. Halide pipeline
+    // 3. Execute the Halide-based image processing pipeline
     try {
+        spdlog::info("OperationContrast::execute: Creating Halide buffer for processing");
 
-        spdlog::info("OperationContrast::execute: Creating Halide buffer");
-
-        spdlog::info("OperationContrast::execute: Image size: {}x{} ({} ch), total elements: {}",
+        // Log image dimensions for debugging
+        spdlog::info("OperationContrast::execute: Processing image size: {}x{} ({} channels), total elements: {}",
                      working_image.getSize().first,
                      working_image.getSize().second,
                      working_image.getChannels(),
                      working_image.getDataSize());
 
-        // Create Halide function
-        Halide::Func contrast;
+        // Create Halide variables for the coordinate system
         Halide::Var x, y, c;
 
-        // Create input image from buffer (direct access via x, y, c)
+        // Create input image buffer from the exported CPU copy data
         Halide::Buffer<float> input_buf(
             cpu_copy->m_data.data(),
-            cpu_copy->m_width,
-            cpu_copy->m_height,
-            cpu_copy->m_channels
+            static_cast<int>(cpu_copy->m_width),
+            static_cast<int>(cpu_copy->m_height),
+            static_cast<int>(cpu_copy->m_channels)
             );
 
         spdlog::info("OperationContrast::execute: Halide buffer created successfully");
 
-        // Apply contrast: scale pixel values around the midpoint (0.5)
-        // Formula: p_c = 0.5 + (p_c - 0.5) * (1.0 + value)
-        // This is applied to RGB channels (0, 1, 2), Alpha (channel 3) remains unchanged.
-        contrast(x, y, c) = Halide::select(
-            c < 3, // If channel is R, G, or B
-            0.5f + (input_buf(x, y, c) - 0.5f) * (1.0f + contrast_value), // Apply contrast formula
-            input_buf(x, y, c) // Else, keep Alpha channel unchanged
-            );
+        // Appliquer l'ajustement de contraste en utilisant la fonction utilitaire
+        auto contrast_func = applyContrastAdjustment(input_buf, contrast_value, x, y, c);
 
-        // Schedule for parallel execution
-        spdlog::info("OperationContrast::execute: Halide function defined");
-        contrast.parallel(y, 8).vectorize(x, 8); // Similar scheduling as brightness
-        spdlog::info("OperationContrast::execute: Schedule applied, about to realize");
+        // Schedule the Halide function for optimized parallel execution
+        spdlog::info("OperationContrast::execute: Halide function defined with contrast logic");
+        contrast_func.parallel(y, 8).vectorize(x, 8); // Parallelize over Y-axis, vectorize over X-axis for performance
+        spdlog::info("OperationContrast::execute: Parallel and vectorization schedule applied, about to realize");
 
-        // Realize back into the original buffer
-        contrast.realize(input_buf);
-        spdlog::info("OperationContrast::execute: Halide realize completed successfully");
+        // Execute the Halide pipeline and write the result back to the input buffer
+        contrast_func.realize(input_buf);
+        spdlog::info("OperationContrast::execute: Halide realization completed successfully");
 
-        // Write the result back to the working image (the backend will handle CPU/GPU transfer)
+        // Update the working image with the processed CPU copy data
         return working_image.updateFromCPU(*cpu_copy);
+
     } catch (const std::exception& e) {
-        spdlog::critical("OperationContrast::execute: Halide exception: {}", e.what());
+        spdlog::critical("OperationContrast::execute: Exception occurred during Halide processing: {}", e.what());
         return false;
     }
+}
+
+Halide::Func OperationContrast::appendToFusedPipeline(
+    const Halide::Func& input_func,
+    const Halide::Var& x,
+    const Halide::Var& y,
+    const Halide::Var& c,
+    const OperationDescriptor& params
+    ) const
+{
+    // Extract the contrast adjustment value parameter from the operation descriptor
+    float contrast_value = params.getParam<float>("value", 1.0f);
+
+    // No-op optimization: Return the input function unchanged if the value is at default
+    if (contrast_value == OperationContrast::DEFAULT_CONTRAST_VALUE) {
+        spdlog::trace("OperationContrast::appendToFusedPipeline: No-op requested, returning input function unchanged");
+        return input_func;
+    }
+
+    // Validate and clamp the contrast adjustment value to the defined operational range
+    if (contrast_value < OperationContrast::MIN_CONTRAST_VALUE || contrast_value > OperationContrast::MAX_CONTRAST_VALUE) {
+        spdlog::warn("OperationContrast::appendToFusedPipeline: Clamping adjustment value to valid range [{}, {}]",
+                     OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
+        contrast_value = std::clamp(contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
+    }
+
+    spdlog::debug("OperationContrast::appendToFusedPipeline: Building fusion fragment with value={:.2f}", contrast_value);
+
+    return applyContrastAdjustment(input_func, contrast_value, x, y, c);
 }
 
 } // namespace CaptureMoment::Core::Operations

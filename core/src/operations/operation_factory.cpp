@@ -7,7 +7,7 @@
 
 #include "operations/operation_factory.h"
 #include "operations/operation_descriptor.h"
-#include "operations/i_operation.h"
+#include "operations/interfaces/i_operation.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Operations {

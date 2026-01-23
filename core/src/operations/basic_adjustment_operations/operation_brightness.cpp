@@ -8,95 +8,142 @@
 #include "operations/basic_adjustment_operations/operation_brightness.h"
 
 #include <spdlog/spdlog.h>
-#include <Halide.h>
-#include <algorithm> // For std::clamp
+#include <algorithm>
 
 namespace CaptureMoment::Core::Operations {
 
+template<typename InputType>
+Halide::Func applyBrightnessAdjustment(
+    const InputType& input,
+    float brightness_value,
+    const Halide::Var& x,
+    const Halide::Var& y,
+    const Halide::Var& c
+    )
+{
+    Halide::Func brightness_func("brightness_op");
+
+    // Application de l'ajustement de luminosité
+    brightness_func(x, y, c) = Halide::select(
+        c < 3, // R, G, B
+        Halide::clamp(input(x, y, c) + brightness_value, 0.0f, 1.0f),
+        input(x, y, c) // A (Alpha inchangé)
+        );
+
+    return brightness_func;
+}
+
 bool OperationBrightness::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
-    // 1. Validation
+    // 1. Validate the input working image
     if (!working_image.isValid()) {
-        spdlog::warn("OperationBrightness::execute: Invalid working image");
+        spdlog::warn("OperationBrightness::execute: Invalid working image provided");
         return false;
     }
 
+    // Skip execution if the operation is disabled
     if (!descriptor.enabled) {
-        spdlog::trace("OperationBrightness::execute: Operation disabled, skipping");
+        spdlog::trace("OperationBrightness::execute: Operation is disabled, skipping execution");
         return true;
     }
 
-    // 2. Extract parameter using key-value access
-    // Retrieves "value" key with default 0.0f if missing or type mismatch
-    float brightness_value { descriptor.getParam<float>("value", 0.0f) };
+    // 2. Extract the brightness adjustment value parameter from the descriptor
+    float brightness_value = descriptor.getParam<float>("value", 0.0f);
 
-    // No-op optimization (using the default value from OperationRanges)
-    if (brightness_value == OperationBrightness::DEFAULT_BRIGHTNESS_VALUE) { // Use the static member
-        spdlog::trace("OperationBrightness::execute: Brightness value is default ({}), skipping", OperationBrightness::DEFAULT_BRIGHTNESS_VALUE);
+    // No-op optimization: Skip processing if the value matches the default
+    if (brightness_value == OperationBrightness::DEFAULT_BRIGHTNESS_VALUE) {
+        spdlog::trace("OperationBrightness::execute: Brightness adjustment value is default ({}), skipping operation", OperationBrightness::DEFAULT_BRIGHTNESS_VALUE);
         return true;
     }
 
-    // 3. Validate and clamp the value to the defined range (Business Logic - Core)
-    // Clamping is chosen here to ensure the operation always runs with a valid value,
-    // preventing potential issues from out-of-range inputs while logging the warning.
+    // Validate and clamp the brightness adjustment value to the defined operational range
     if (brightness_value < OperationBrightness::MIN_BRIGHTNESS_VALUE || brightness_value > OperationBrightness::MAX_BRIGHTNESS_VALUE) {
-        spdlog::warn("OperationBrightness::execute: Brightness value ({}) is outside the valid range [{}, {}]. Clamping.",
+        spdlog::warn("OperationBrightness::execute: Brightness adjustment value ({}) is outside the valid range [{}, {}]. Clamping.",
                      brightness_value, OperationBrightness::MIN_BRIGHTNESS_VALUE, OperationBrightness::MAX_BRIGHTNESS_VALUE);
         brightness_value = std::clamp(brightness_value, OperationBrightness::MIN_BRIGHTNESS_VALUE, OperationBrightness::MAX_BRIGHTNESS_VALUE);
     }
 
-    spdlog::debug("OperationBrightness::execute: value={:.2f}", brightness_value);
+    spdlog::debug("OperationBrightness::execute: Applying brightness adjustment with value={:.2f}", brightness_value);
 
+    // Export the current working image data to a CPU-accessible copy for processing
     auto cpu_copy = working_image.exportToCPUCopy();
     if (!cpu_copy) {
-        spdlog::error("OperationBrightness::execute: Failed to get CPU copy of working image.");
+        spdlog::error("OperationBrightness::execute: Failed to export working image to CPU copy for processing");
         return false;
     }
 
-    // 4. Halide pipeline
-
+    // 3. Execute the Halide-based image processing pipeline
     try {
-        spdlog::info("OperationBrightness::execute: Creating Halide buffer");
+        spdlog::info("OperationBrightness::execute: Creating Halide buffer for processing");
 
-        spdlog::info("OperationBrightness::execute: Image size: {}x{} ({} ch), total elements: {}",
+        // Log image dimensions for debugging
+        spdlog::info("OperationBrightness::execute: Processing image size: {}x{} ({} channels), total elements: {}",
                      working_image.getSize().first,
                      working_image.getSize().second,
                      working_image.getChannels(),
                      working_image.getDataSize());
 
-        // Create Halide function using the CPU copy
-        Halide::Func brightness;
+        // Create Halide variables for the coordinate system
         Halide::Var x, y, c;
 
+        // Create input image buffer from the exported CPU copy data
         Halide::Buffer<float> input_buf(
             cpu_copy->m_data.data(),
-            cpu_copy->m_width,
-            cpu_copy->m_height,
-            cpu_copy->m_channels
+            static_cast<int>(cpu_copy->m_width),
+            static_cast<int>(cpu_copy->m_height),
+            static_cast<int>(cpu_copy->m_channels)
             );
 
-        // Apply brightness: add to RGB (channels 0-2), keep Alpha (channel 3)
-        brightness(x, y, c) = Halide::select(
-            c < 3,
-            input_buf(x, y, c) + brightness_value,
-            input_buf(x, y, c)
-            );
+        spdlog::info("OperationBrightness::execute: Halide buffer created successfully");
 
-        // Schedule for parallel execution
-        brightness.parallel(y, 8).vectorize(x, 8);
+        // Appliquer l'ajustement de luminosité en utilisant la fonction utilitaire
+        auto brightness_func = applyBrightnessAdjustment(input_buf, brightness_value, x, y, c);
 
-        // Realize back into the CPU buffer
-        brightness.realize(input_buf);
+        // Schedule the Halide function for optimized parallel execution
+        spdlog::info("OperationBrightness::execute: Halide function defined with brightness logic");
+        brightness_func.parallel(y, 8).vectorize(x, 8); // Parallelize over Y-axis, vectorize over X-axis for performance
+        spdlog::info("OperationBrightness::execute: Parallel and vectorization schedule applied, about to realize");
 
-        spdlog::info("OperationBrightness::execute: Halide realize completed successfully");
+        // Execute the Halide pipeline and write the result back to the input buffer
+        brightness_func.realize(input_buf);
+        spdlog::info("OperationBrightness::execute: Halide realization completed successfully");
 
-        // Write the result back to the working image (the backend will handle CPU/GPU transfer)
+        // Update the working image with the processed CPU copy data
         return working_image.updateFromCPU(*cpu_copy);
 
     } catch (const std::exception& e) {
-        spdlog::critical("OperationBrightness::execute: Halide exception: {}", e.what());
+        spdlog::critical("OperationBrightness::execute: Exception occurred during Halide processing: {}", e.what());
         return false;
     }
+}
+
+Halide::Func OperationBrightness::appendToFusedPipeline(
+    const Halide::Func& input_func,
+    const Halide::Var& x,
+    const Halide::Var& y,
+    const Halide::Var& c,
+    const OperationDescriptor& params
+    ) const
+{
+    // Extract the brightness adjustment value parameter from the operation descriptor
+    float brightness_value = params.getParam<float>("value", 0.0f);
+
+    // No-op optimization: Return the input function unchanged if the value is at default
+    if (brightness_value == OperationBrightness::DEFAULT_BRIGHTNESS_VALUE) {
+        spdlog::trace("OperationBrightness::appendToFusedPipeline: No-op requested, returning input function unchanged");
+        return input_func;
+    }
+
+    // Validate and clamp the brightness adjustment value to the defined operational range
+    if (brightness_value < OperationBrightness::MIN_BRIGHTNESS_VALUE || brightness_value > OperationBrightness::MAX_BRIGHTNESS_VALUE) {
+        spdlog::warn("OperationBrightness::appendToFusedPipeline: Clamping adjustment value to valid range [{}, {}]",
+                     OperationBrightness::MIN_BRIGHTNESS_VALUE, OperationBrightness::MAX_BRIGHTNESS_VALUE);
+        brightness_value = std::clamp(brightness_value, OperationBrightness::MIN_BRIGHTNESS_VALUE, OperationBrightness::MAX_BRIGHTNESS_VALUE);
+    }
+
+    spdlog::debug("OperationBrightness::appendToFusedPipeline: Building fusion fragment with value={:.2f}", brightness_value);
+
+    return applyBrightnessAdjustment(input_func, brightness_value, x, y, c);
 }
 
 } // namespace CaptureMoment::Core::Operations

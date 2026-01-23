@@ -124,7 +124,27 @@ static bool applyOperations(
 );
 ```
 
-### 6. UI Integration
+### 6.Pipeline Fusion Architecture
+#### WorkingImageHalide Base Class
+* **Shared Infrastructure:** Base class providing common Halide buffer functionality for both CPU and GPU implementations.
+* **Memory Management:** Uses **std::vector<float>** as backing store for Halide buffers, enabling in-place modifications without unnecessary copies.
+* **Direct Buffer Access:** Provides **getHalideBuffer()** method for direct pipeline execution.
+#### IPipelineExecutor & OperationPipelineExecutor
+
+* **IPipelineExecutor:** Abstract interface for executing a pre-built pipeline on an image.
+* **OperationPipelineExecutor:** Concrete implementation that executes fused adjustment operation pipelines using Halide's computational graph optimization.
+
+#### OperationPipelineBuilder
+* Builds and compiles the fused Halide pipeline for the stored operations.
+* **Optimization:** Creates combined computational passes that eliminate intermediate buffer copies between operations.
+* **Integration:** Works with **IOperationFusionLogic** implementations to chain operations into a single pipeline.
+
+#### IOperationFusionLogic Interface
+* **appendToFusedPipeline:** Operations implement this interface to provide their fusion logic for combining operations into a single computational graph.
+* **Sequential vs Fused:** Operations maintain both execute (for sequential processing) and **appendToFusedPipeline** (for pipeline fusion) methods.
+* **[[maybe_unused]]:** Sequential execute methods are marked as unused when primarily using fused execution.
+
+### 7. UI Integration
 The UI layer remains completely unaware of the hardware abstraction:
 
 * **PhotoEngine::getWorkingImageAsRegion():** Exports the current working image to CPU for display.
@@ -132,18 +152,24 @@ The UI layer remains completely unaware of the hardware abstraction:
 * **Rendering Items:** Work exclusively with CPU data (**ImageRegion**).
 This ensures the UI code stays simple and focused on presentation logic.
 
-#### Performance Considerations
-##### Memory Transfer Overhead
+### 8. Performance Considerations
+#### Memory Transfer Overhead
 * GPU processing involves copying data from CPU to GPU (**updateFromCPU**) and back (**exportToCPUCopy**).
 * The benchmarking system accounts for this overhead when deciding the optimal backend.
 * For small images or simple operations, CPU is often faster due to avoiding transfer costs.
 
-##### Halide Optimization
+#### Halide Optimization
 * Both CPU and GPU implementations use Halide for optimal code generation.
 * CPU version uses vectorization and multi-threading.
 * GPU version uses tiling and GPU-specific scheduling directives.
 
-##### Benchmarking Accuracy
+#### Pipeline Fusion Performance
+* **Zero-Copy Processing:** **WorkingImageHalide** base class eliminates unnecessary data copying by sharing memory between **std::vector<float>** and **Halide::Buffer**.
+* **In-Place Processing:** Halide buffers operate directly on shared data vectors, eliminating redundant copies.
+* **Optimized Scheduling:** Pipeline fusion creates single computational passes instead of multiple sequential operations.
+* ***Hardware Agnostic:** Same fusion logic works for both CPU and GPU backends through the unified interface.
+
+#### Benchmarking Accuracy
 * Benchmarks use representative operations (brightness/contrast) that simulate real-world usage.
 * Multiple runs with deterministic data ensure consistent results.
 * Results are cached in **AppConfig** to avoid repeated benchmarking.

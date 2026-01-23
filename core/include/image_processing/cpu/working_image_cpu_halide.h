@@ -6,25 +6,23 @@
  */
 
 #pragma once
+#include "image_processing/halide/working_image_halide.h"
 #include "image_processing/cpu/interfaces/i_working_image_cpu.h"
 
 #include <memory>
-#include <vector>
-
-#include "Halide.h"
 
 namespace CaptureMoment::Core {
 
 namespace ImageProcessing {
 
 /**
- * @brief Concrete implementation of IWorkingImageCPU for image data stored in CPU RAM using Halide.
+ * @brief Concrete implementation of WorkingImageCPU_Halide for image data stored in CPU RAM using Halide.
  *
  * This class holds the image data within standard CPU memory (RAM), managed
- * by a Halide::Buffer for optimized CPU processing. It inherits from IWorkingImageCPU
+ * by a Halide::Buffer for optimized CPU processing. It inherits from WorkingImageHalide
  * and implements its specific Halide-based logic.
  */
-class WorkingImageCPU_Halide final : public IWorkingImageCPU {
+class WorkingImageCPU_Halide final : public IWorkingImageCPU, public WorkingImageHalide {
 public:
     /**
      * @brief Constructs a WorkingImageCPU_Halide object, optionally initializing it with an ImageRegion.
@@ -50,7 +48,7 @@ public:
      * @param[in] cpu_image The source image data residing in CPU memory.
      * @return true if the update operation was successful, false otherwise.
      */
-    [[nodiscard]] bool updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    [[nodiscard]] bool updateFromCPU(const Common::ImageRegion &cpu_image) override;
 
     /**
      * @brief Exports the current internal Halide image data to a new CPU-based ImageRegion owned by the caller.
@@ -64,20 +62,6 @@ public:
      *         Returns nullptr on failure (allocation or copy error).
      */
     [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUCopy() override;
-
-    /**
-     * @brief Exports a shared reference to the current internal image data.
-     *
-     * Because the internal data is managed by a Halide::Buffer, sharing it directly
-     * as an ImageRegion without copying is not straightforward. This method
-     * currently returns nullptr.
-     *
-     * @return A shared pointer to a **newly allocated** ImageRegion containing a copy of the image data
-     *         from the internal Halide buffer (effectively the same as exportToCPUCopy).
-     *         Returns nullptr on failure.
-     */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUShared() const override;
-
     /**
      * @brief Gets the dimensions (width, height) of the internal Halide buffer.
      *
@@ -114,21 +98,28 @@ public:
      *
      * @return true if the internal Halide buffer is allocated and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override;
+    [[nodiscard]] bool isValid() const override { return m_halide_buffer.defined(); };
 
     /**
      * @brief Gets the memory type where the image data resides.
      *
      * @return MemoryType::CPU_RAM, indicating the data is stored in main CPU RAM via Halide.
      */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override;
+    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::CPU_RAM; };
 
 private:
+
     /**
-     * @brief Internal Halide buffer holding the CPU image data.
-     * Managed directly by this object. Halide::Buffer handles its own memory allocation/deallocation.
-     */
-    Halide::Buffer<float> m_halide_buffer;
+     * @brief Private helper method to convert the internal Halide buffer to an ImageRegion.
+     *
+     * This internal helper encapsulates the logic for converting the internal Halide::Buffer
+     * to a new ImageRegion instance. It handles the allocation, dimension setting, and
+     * data copying from the Halide buffer to the ImageRegion's data vector.
+     * This method is used by exportToCPUCopy to avoid code duplication.
+     * @return A shared pointer to a newly allocated ImageRegion containing the copied image data
+     * from the internal Halide buffer. Returns nullptr on failure (allocation or copy error).
+      */
+    [[nodiscard]] std::shared_ptr<Common::ImageRegion> convertHalideToImageRegion();    
 };
 
 } // namespace ImageProcessing

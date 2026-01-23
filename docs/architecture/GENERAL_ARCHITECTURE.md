@@ -42,22 +42,23 @@ Capture Moment is built on three pillars:
     * **Persistence:** Saving and loading the list of applied image adjustments as XMP metadata associated with the source image file.
     * **Type Safety:** Ensuring correct serialization/deserialization of operation parameters and types using `magic_enum`.
 
-### 5. Fast String Conversion (Core Utils)
-* **Library:** [**fast_float**](https://github.com/fastfloat/fast_float) (Optional, if needed for maximum speed deserialization)
-    * **Alternative:** Standard library functions (`std::from_chars`, `std::stof`, `std::stod`) with conditional fallbacks.
-* **Role:**
-    * **Efficiency:** Performing high-speed conversion between string representations (stored in XMP) and numerical values (used internally) during deserialization.
-
 ### 6. Dependency Management
-* **Tool:** [Vcpkg](https://vcpkg.io/)
+
 * **Role:** Ensures all libraries (OIIO, OCIO, Halide, Qt, Exiv2, magic_enum) are compiled with the same ABI across all platforms.
 
+#### Windows
+* **Tool:** [Vcpkg](https://vcpkg.io/)
+#### Windows
+* **Tool:** [Homebrew](https://brew.sh/)
+
+#### UBuntu
+* **Tool:** [APT](https://launchpad.net/ubuntu)
 
 ## Architectures
 
-* [**Core Design:**](CORE_DESIGN.md).
-* [**UI Core Design**](UI_CORE_ARCHITECTURE.md).
-* [**UI Desktop Design**](UI_DESKTOP_ARCHITECTURE.md).
+* [**Core Design**](./CORE_DESIGN.md).
+* [**UI Core Design**](./UI_CORE_ARCHITECTURE.md).
+* [**UI Desktop Design**](./UI_DESKTOP_ARCHITECTURE.md).
 
 ## 📚 Additional Resources
 

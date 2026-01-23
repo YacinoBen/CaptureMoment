@@ -7,7 +7,6 @@
 
 #include "controller/image_controller_base.h"
 #include "models/operations/i_operation_model.h"
-#include "operations/operation_registry.h"
 #include "display/display_manager.h"
 #include "managers/operation_state_manager.h"
 
@@ -24,10 +23,6 @@ ImageControllerBase::ImageControllerBase(QObject* parent)
     : QObject(parent)
 {
 
-    // Create Core components
-    auto source = std::make_shared<Core::Managers::SourceManager>();
-    auto factory = std::make_shared<Core::Operations::OperationFactory>();
-    auto pipeline = std::make_shared<Core::Operations::OperationPipeline>();
 
     // Create the operation state manager
     m_operation_state_manager = std::make_unique<CaptureMoment::UI::Managers::OperationStateManager>();
@@ -47,11 +42,8 @@ ImageControllerBase::ImageControllerBase(QObject* parent)
     m_display_manager = std::make_unique<CaptureMoment::UI::Display::DisplayManager>(this);
     spdlog::info("ImageControllerBase: Initialized DisplayManager");
 
-    // Register all operations (Brightness, Contrast, etc.)
-    Core::Operations::OperationRegistry::registerAll(*factory);
-
     // Create PhotoEngine with registered operations and new dependencies
-    m_engine = std::make_shared<Core::Engine::PhotoEngine>(source, factory, pipeline);
+    m_engine = std::make_shared<Core::Engine::PhotoEngine>();
     spdlog::info("ImageControllerBase: Initialized with PhotoEngine");
 
     connectModelsToStateManager();

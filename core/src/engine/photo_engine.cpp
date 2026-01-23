@@ -2,32 +2,25 @@
  * @file photo_engine.cpp
  * @brief Implementation of PhotoEngine
  * @author CaptureMoment Team
- * @date 2026
+ * @date 2025
  */
 
 #include "engine/photo_engine.h"
 #include "managers/state_image_manager.h"
+
 #include <string_view>
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Engine {
 
 // Constructs a PhotoEngine instance with required dependencies.
-PhotoEngine::PhotoEngine(
-    std::shared_ptr<Managers::SourceManager> source_manager,
-    std::shared_ptr<Operations::OperationFactory> operation_factory,
-    std::shared_ptr<Operations::OperationPipeline> operation_pipeline
-    )
-    : m_source_manager{std::move(source_manager)}
-    , m_operation_factory{std::move(operation_factory)}
-    , m_operation_pipeline{std::move(operation_pipeline)}
+PhotoEngine::PhotoEngine()
 {
-    m_state_manager = std::make_unique<Managers::StateImageManager>(
-        m_source_manager,
-        m_operation_pipeline,
-        m_operation_factory
-        );
-    spdlog::debug("PhotoEngine: Constructed with StateImageManager.");
+    m_source_manager = std::make_shared<Managers::SourceManager>();
+
+    m_state_manager = std::make_unique<Managers::StateImageManager>(m_source_manager);
+
+    spdlog::debug("PhotoEngine: Constructed with StateImageManager using fused pipeline.");
 }
 
 // Loads an image file into the engine via SourceManager and initializes StateImageManager.

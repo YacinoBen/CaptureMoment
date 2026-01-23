@@ -12,13 +12,11 @@ Due to complex dependencies (specifically Halide and LLVM), instructions are sep
 
 Before selecting your platform, ensure you have these tools:
 
-1.  **Git**: To clone the repository.
-2.  **CMake 3.27+**: Our build system.
-3.  **C++23 Compiler**:
+1.  **CMake 3.27+**
+2.  **C++23 Compiler**:
     * **Windows**: MSVC 2022 or MinGW (GCC 13+).
     * **Linux**: GCC 13+ or Clang 16+.
     * **macOS**: Apple Clang 16+ (Xcode 15+).
-4.  **Vcpkg** (Highly Recommended for Windows): To manage OpenImageIO, Halide, etc installations automatically.
 
 ---
 ## ⚙️ Global Build Configuration
@@ -36,12 +34,11 @@ Before selecting your platform, ensure you have these tools:
 | Library     | Version      | Link                                                     |
 |-------------|:------------------:|----------------------------------------------------------|
 | OpenImageIO | 3.1.8.0             | https://github.com/AcademySoftwareFoundation/OpenImageIO |
-| Halide      | 17.0.0 or 18.0.0             | https://github.com/halide/Halide                         |
-| spdlog      | 1.16.0 or 1.12.0            | https://github.com/gabime/spdlog                         |
-| Exiv2         | 0.28.7| https://github.com/Exiv2/exiv2   
-| Magicmagic_enum       | 0.9.7| https://github.com/Neargye/magic_enum 
-
-| Qt6         | 6.9.3| https://doc.qt.io/qt-6/                                  |
+| Halide      | 21.x +           | https://github.com/halide/Halide                         |
+| spdlog      | 1.16.0      | https://github.com/gabime/spdlog                         |
+| Exiv2         | 0.28.7| https://github.com/Exiv2/exiv2  
+| Magicmagic_enum          |0.9.7| https://github.com/Neargye/magic_enum/
+|  Qt6           | 6.10| https://doc.qt.io/qt-6/ 
 
 ---
 ## 📦 Vcpkg Configuration (General)
@@ -57,28 +54,9 @@ Binary Caching : To avoid recompiling LLVM (a huge Halide dependency) on every c
 
 Click the link for your OS for detailed instructions:
 
-* [🟦 **Windows**](guidelines/BUILDING_WINDOWS.md).
-* [🐧 **Linux**](guidelines/BUILDING_LINUX.md) (Ubuntu, Fedora, Arch).
-* [🍎 **macOS**](guidelines/BUILDING_MACOS.md) (Homebrew and Xcode).
-
-## ⚡ Quick Start (Standard Machines)
-
-If you have **Vcpkg** installed and configured, the universal command is:
-
-```bash
-git clone the repos
-cd capturemoment
-```
-**Debug**
-```bash
-cmake --preset=debug-vcpkg
-cmake --build build/debug-vcpkg
-```
-**Release**
-```bash
-cmake --preset=release-vcpkg
-cmake --build build/release-vcpkg
-```
+* [🟦 **Windows**](./guidelines/BUILDING_WINDOWS.md).
+* [🐧 **Linux**](./guidelines/BUILDING_LINUX.md) (Ubuntu, Fedora, Arch).
+* [🍎 **macOS**](./guidelines/BUILDING_MACOS.md) (Homebrew and Xcode).
 
 ## Understood the core 
 
