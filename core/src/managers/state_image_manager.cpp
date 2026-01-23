@@ -11,6 +11,8 @@
 #include "pipeline/interfaces/i_pipeline_executor.h"
 
 #include "image_processing/factories/working_image_factory.h"
+#include "operations/operation_registry.h"
+
 #include "config/app_config.h"
 
 #include <spdlog/spdlog.h>
@@ -31,6 +33,10 @@ StateImageManager::StateImageManager(
         spdlog::critical("StateImageManager: Null dependency provided during construction.");
         throw std::invalid_argument("StateImageManager: Null dependency provided.");
     }
+
+    m_operation_factory = std::make_shared<Operations::OperationFactory>();
+    Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
+
     spdlog::debug("StateImageManager: Constructed with fused pipeline support.");
 }
 
@@ -180,6 +186,8 @@ bool StateImageManager::performUpdate(
                 success = false;
             } else {
                 // Execute the fused pipeline on the working image
+                auto pipeline_executor = m_pipeline_builder->build(ops_to_apply, *m_operation_factory);
+
                 if (!pipeline_executor->execute(*new_working_image)) {
                     spdlog::error("StateImageManager::performUpdate (thread {}): IPipelineExecutor::execute failed.", thread_id_str);
                     success = false;

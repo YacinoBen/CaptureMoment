@@ -7,7 +7,6 @@
 
 #include "engine/photo_engine.h"
 #include "managers/state_image_manager.h"
-#include "operations/operation_registry.h"
 
 #include <string_view>
 #include <spdlog/spdlog.h>
@@ -18,7 +17,6 @@ namespace CaptureMoment::Core::Engine {
 PhotoEngine::PhotoEngine()
 {
     m_source_manager = std::make_shared<Managers::SourceManager>();
-    m_operation_factory = std::make_shared<Operations::OperationFactory>();
     m_pipeline_builder = std::make_shared<Pipeline::OperationPipelineBuilder>();
 
     m_state_manager = std::make_unique<Managers::StateImageManager>(
@@ -26,8 +24,6 @@ PhotoEngine::PhotoEngine()
         m_pipeline_builder
         );
 
-
-    Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
     spdlog::debug("PhotoEngine: Constructed with StateImageManager using fused pipeline.");
 }
 

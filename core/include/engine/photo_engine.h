@@ -8,7 +8,6 @@
 #pragma once
 
 #include "managers/source_manager.h"
-#include "operations/operation_factory.h"
 #include "pipeline/operation_pipeline_builder.h"
 #include "managers/state_image_manager.h"
 
@@ -37,10 +36,7 @@ private:
      * @brief Shared pointer to the manager responsible for loading and providing image data.
      */
     std::shared_ptr<Managers::SourceManager> m_source_manager;
-    /**
-     * @brief Shared pointer to the factory responsible for creating operation instances.
-     */
-    std::shared_ptr<Operations::OperationFactory> m_operation_factory;
+
     /**
      * @brief Shared pointer to the pipeline builder responsible for creating fused operation pipelines.
      */

@@ -6,8 +6,8 @@
  */
 
 #include "pipeline/operation_pipeline_executor.h"
-#include "operations/interfaces/i_operation_fusion_logic.h"
 #include "operations/interfaces/i_operation.h"
+#include "operations/interfaces/i_operation_fusion_logic.h"
 #include "image_processing/cpu/working_image_cpu_halide.h"
 #include "image_processing/gpu/working_image_gpu_halide.h"
 #include <Halide.h>
@@ -18,12 +18,14 @@ namespace CaptureMoment::Core::Pipeline {
 OperationPipelineExecutor::OperationPipelineExecutor(
     const std::vector<Operations::OperationDescriptor>& operations,
     const Operations::OperationFactory& factory
-    ) : m_operations(operations), m_factory(factory) {
+    ) : m_operations(operations), m_factory(factory)
+{
     // Pipeline is compiled at execution time, not construction time
     // (because we need the actual image dimensions)
 }
 
-bool OperationPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& working_image) const {
+bool OperationPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& working_image) const
+{
 
     // Determine concrete type and execute directly
     if (auto* cpu_impl = dynamic_cast<ImageProcessing::WorkingImageCPU_Halide*>(&working_image)) {

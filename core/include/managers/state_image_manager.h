@@ -11,6 +11,7 @@
 #include "pipeline/operation_pipeline_builder.h"
 #include "managers/source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
+#include "operations/operation_factory.h"
 
 #include <vector>
 #include <memory>
@@ -191,6 +192,11 @@ private:
      * This flag is used to prevent multiple simultaneous update requests.
      */
     std::atomic<bool> m_is_updating {false};
+
+    /**
+     * @brief Shared pointer to the factory responsible for creating operation instances.
+     */
+    std::shared_ptr<Operations::OperationFactory> m_operation_factory;
 
     /**
      * @brief Shared pointer to the SourceManager dependency.
