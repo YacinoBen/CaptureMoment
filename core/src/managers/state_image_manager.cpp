@@ -23,16 +23,15 @@
 namespace CaptureMoment::Core::Managers {
 
 StateImageManager::StateImageManager(
-    std::shared_ptr<Managers::SourceManager> source_manager,
-    std::shared_ptr<Pipeline::OperationPipelineBuilder> pipeline_builder
-    )
+    std::shared_ptr<Managers::SourceManager> source_manager)
     : m_source_manager(std::move(source_manager))
-    , m_pipeline_builder(std::move(pipeline_builder))
 {
-    if (!m_source_manager || !m_pipeline_builder) {
+    if (!m_source_manager) {
         spdlog::critical("StateImageManager: Null dependency provided during construction.");
         throw std::invalid_argument("StateImageManager: Null dependency provided.");
     }
+
+    m_pipeline_builder = std::make_shared<Pipeline::OperationPipelineBuilder>();
 
     m_operation_factory = std::make_shared<Operations::OperationFactory>();
     Core::Operations::OperationRegistry::registerAll(*m_operation_factory);

@@ -17,12 +17,8 @@ namespace CaptureMoment::Core::Engine {
 PhotoEngine::PhotoEngine()
 {
     m_source_manager = std::make_shared<Managers::SourceManager>();
-    m_pipeline_builder = std::make_shared<Pipeline::OperationPipelineBuilder>();
 
-    m_state_manager = std::make_unique<Managers::StateImageManager>(
-        m_source_manager,
-        m_pipeline_builder
-        );
+    m_state_manager = std::make_unique<Managers::StateImageManager>(m_source_manager);
 
     spdlog::debug("PhotoEngine: Constructed with StateImageManager using fused pipeline.");
 }

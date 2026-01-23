@@ -11,7 +11,9 @@
 #include "pipeline/operation_pipeline_builder.h"
 #include "managers/source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
+
 #include "operations/operation_factory.h"
+#include "pipeline/operation_pipeline_builder.h"
 
 #include <vector>
 #include <memory>
@@ -55,9 +57,7 @@ public:
      * @throws std::invalid_argument if any dependency is null.
      */
     explicit StateImageManager(
-        std::shared_ptr<Managers::SourceManager> source_manager,
-        std::shared_ptr<Pipeline::OperationPipelineBuilder> pipeline_builder
-        );
+        std::shared_ptr<Managers::SourceManager> source_manager);
 
     /**
      * @brief Destructor.
@@ -177,6 +177,12 @@ private:
      * This vector represents the current sequence of active operations that define the state of the working image.
      */
     std::vector<Operations::OperationDescriptor> m_active_operations;
+
+    /**
+     * @brief Shared pointer to the pipeline builder responsible for creating fused operation pipelines.
+     */
+    std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
+
     /**
      * @brief The current state of the processed image.
      * This image is updated asynchronously based on the operations defined in m_active_operations using fused pipeline execution.
@@ -203,11 +209,6 @@ private:
      * Used to retrieve the original image data from the source file.
      */
     std::shared_ptr<Managers::SourceManager> m_source_manager;
-    /**
-     * @brief Shared pointer to the OperationPipelineBuilder dependency.
-     * Used to create fused Halide pipeline executors for processing the sequence of operations.
-     */
-    std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
 
     /**
      * @brief Performs the core image update logic on a worker thread using fused pipeline execution.
