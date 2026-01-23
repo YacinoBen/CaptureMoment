@@ -59,6 +59,11 @@ public:
 
     /**
      * @brief Applies the blacks adjustment.
+     *
+     * This method provides sequential execution capability for the whites adjustment operation.
+     * While primarily replaced by the fused pipeline system (appendToFusedPipeline), it remains
+     * available for specific use cases such as debugging, testing, or standalone operation execution.
+     *
      * Reads the "value" parameter from the descriptor and applies the blacks
      * formula to every color channel (RGB) of every pixel in the working image,
      * primarily affecting pixels with very low luminance (the "blacks").
@@ -68,7 +73,7 @@ public:
      * @param params Must contain a "value" (float) parameter.
      * @return true if successful.
      */
-    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
+    [[maybe_unused]] [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 
     /**
      * @brief Appends this operation's logic to a fused Halide pipeline.

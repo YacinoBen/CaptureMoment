@@ -107,9 +107,9 @@ bool OperationBlacks::execute(ImageProcessing::IWorkingImageHardware& working_im
         // The buffer is constructed directly from the raw data pointer of the ImageRegion
         Halide::Buffer<float> input_buf(
             cpu_copy->m_data.data(),
-            cpu_copy->m_width,
-            cpu_copy->m_height,
-            cpu_copy->m_channels
+            static_cast<int>(cpu_copy->m_width),
+            static_cast<int>(cpu_copy->m_height),
+            static_cast<int>(cpu_copy->m_channels)
         );
 
        spdlog::info("OperationBlacks::execute: Halide buffer created successfully");
