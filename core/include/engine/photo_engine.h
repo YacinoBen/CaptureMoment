@@ -2,14 +2,12 @@
  * @file photo_engine.h
  * @brief Declaration of PhotoEngine class
  * @author CaptureMoment Team
- * @date 2026
+ * @date 2025
  */
 
 #pragma once
 
 #include "managers/source_manager.h"
-#include "operations/operation_factory.h"
-#include "operations/operation_pipeline.h"
 #include "managers/state_image_manager.h"
 
 #include <memory>
@@ -37,14 +35,6 @@ private:
      * @brief Shared pointer to the manager responsible for loading and providing image data.
      */
     std::shared_ptr<Managers::SourceManager> m_source_manager;
-    /**
-     * @brief Shared pointer to the factory responsible for creating operation instances.
-     */
-    std::shared_ptr<Operations::OperationFactory> m_operation_factory;
-    /**
-     * @brief Shared pointer to the pipeline responsible for applying sequences of operations.
-     */
-    std::shared_ptr<Operations::OperationPipeline> m_operation_pipeline;
 
     /**
      * @brief Unique pointer to the manager responsible for the cumulative image processing state.
@@ -58,15 +48,8 @@ public:
      *
      * Initializes the engine with the necessary managers and factories.
      *
-     * @param[in] source_manager A shared pointer to the SourceManager instance.
-     * @param[in] operation_factory A shared pointer to the OperationFactory instance.
-     * @param[in] operation_pipeline A shared pointer to the OperationPipeline instance.
      */
-    PhotoEngine(
-        std::shared_ptr<Managers::SourceManager> source_manager,
-        std::shared_ptr<Operations::OperationFactory> operation_factory,
-        std::shared_ptr<Operations::OperationPipeline> operation_pipeline
-        );
+    PhotoEngine();
 
     /**
      * @brief Loads an image file into the engine.

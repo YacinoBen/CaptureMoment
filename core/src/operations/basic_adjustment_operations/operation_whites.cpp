@@ -6,122 +6,160 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_whites.h"
+
 #include <spdlog/spdlog.h>
-#include <Halide.h>
+#include <algorithm>
 
 namespace CaptureMoment::Core::Operations {
 
+template<typename InputType>
+Halide::Func applyWhitesAdjustment(
+    const InputType& input,
+    float whites_value,
+    const Halide::Var& x,
+    const Halide::Var& y,
+    const Halide::Var& c,
+    float low_threshold = 0.7f,
+    float high_threshold = 1.0f
+    )
+{
+    Halide::Func whites_func("whites_op");
+    Halide::Func luminance_func("luminance_whites");
+    Halide::Func mask_func("mask_whites");
+
+    // Calcul de la luminance en utilisant les variables passées en paramètre
+    luminance_func(x, y) = 0.299f * input(x, y, 0) + 0.587f * input(x, y, 1) + 0.114f * input(x, y, 2);
+
+    // Masque basé sur la luminance
+    mask_func(x, y) = Halide::select(
+        luminance_func(x, y) <= low_threshold,
+        0.0f,
+        luminance_func(x, y) >= high_threshold,
+        1.0f,
+        (luminance_func(x, y) - low_threshold) / (high_threshold - low_threshold)
+        );
+
+    // Application de l'ajustement blanc en utilisant les variables passées en paramètre
+    whites_func(x, y, c) = Halide::select(
+        c < 3, // R, G, B
+        input(x, y, c) + whites_value * mask_func(x, y),
+        input(x, y, c) // A (Alpha inchangé)
+        );
+
+    return whites_func;
+}
+
 bool OperationWhites::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
 {
-    // 1. Validation
+    // 1. Validate the input working image
     if (!working_image.isValid()) {
-        spdlog::warn("OperationWhites::execute: Invalid working_image");
+        spdlog::warn("OperationWhites::execute: Invalid working image provided");
         return false;
     }
 
+    // Skip execution if the operation is disabled
     if (!descriptor.enabled) {
-        spdlog::trace("OperationWhites::execute: Operation disabled, skipping");
+        spdlog::trace("OperationWhites::execute: Operation is disabled, skipping execution");
         return true;
     }
 
-    // 2. Extract parameter using key-value access
-    // Retrieves "value" key with default 0.0f if missing or type mismatch
+    // 2. Extract the white adjustment value parameter from the descriptor
     float whites_value = descriptor.getParam<float>("value", 0.0f);
 
-    // No-op optimization (using the default value from OperationRanges via static member)
-    if (whites_value == OperationWhites::DEFAULT_WHITES_VALUE) { // Use the static member
-        spdlog::trace("OperationWhites::execute: Whites value is default ({}), skipping", OperationWhites::DEFAULT_WHITES_VALUE);
+    // No-op optimization: Skip processing if the value matches the default
+    if (whites_value == OperationWhites::DEFAULT_WHITES_VALUE) {
+        spdlog::trace("OperationWhites::execute: White adjustment value is default ({}), skipping operation", OperationWhites::DEFAULT_WHITES_VALUE);
         return true;
     }
 
-    // Validate and clamp the value to the defined range (Business Logic - Core)
-    // Clamping is chosen here to ensure the operation always runs with a valid value,
-    // preventing potential issues from out-of-range inputs while logging the warning.
+    // Validate and clamp the white adjustment value to the defined operational range
     if (whites_value < OperationWhites::MIN_WHITES_VALUE || whites_value > OperationWhites::MAX_WHITES_VALUE) {
-        spdlog::warn("OperationWhites::execute: Whites value ({}) is outside the valid range [{}, {}]. Clamping.",
+        spdlog::warn("OperationWhites::execute: White adjustment value ({}) is outside the valid range [{}, {}]. Clamping.",
                      whites_value, OperationWhites::MIN_WHITES_VALUE, OperationWhites::MAX_WHITES_VALUE);
         whites_value = std::clamp(whites_value, OperationWhites::MIN_WHITES_VALUE, OperationWhites::MAX_WHITES_VALUE);
     }
 
+    spdlog::debug("OperationWhites::execute: Applying white adjustment with value={:.2f}", whites_value);
 
-    spdlog::debug("OperationWhites::execute: value={:.2f}", whites_value);
-
+    // Export the current working image data to a CPU-accessible copy for processing
     auto cpu_copy = working_image.exportToCPUCopy();
     if (!cpu_copy) {
-        spdlog::error("OperationWhites::execute: Failed to get CPU copy of working image.");
+        spdlog::error("OperationWhites::execute: Failed to export working image to CPU copy for processing");
         return false;
     }
 
-    // 3. Halide pipeline
+    // 3. Execute the Halide-based image processing pipeline
     try {
-        spdlog::info("OperationWhites::execute: Creating Halide buffer");
+        spdlog::info("OperationWhites::execute: Creating Halide buffer for processing");
 
-        spdlog::info("OperationWhites::execute: Image size: {}x{} ({} ch), total elements: {}",
-                      working_image.getSize().first,
-                      working_image.getSize().second,
-                      working_image.getChannels(),
-                      working_image.getDataSize());
+        // Log image dimensions for debugging
+        spdlog::info("OperationWhites::execute: Processing image size: {}x{} ({} channels), total elements: {}",
+                     working_image.getSize().first,
+                     working_image.getSize().second,
+                     working_image.getChannels(),
+                     working_image.getDataSize());
 
-        // Create Halide function
-        Halide::Func whites;
+        // Create Halide variables for the coordinate system
         Halide::Var x, y, c;
 
-        // Create input image from buffer (direct access via x, y, c)
+        // Create input image buffer from the exported CPU copy data
         Halide::Buffer<float> input_buf(
             cpu_copy->m_data.data(),
-            cpu_copy->m_width,
-            cpu_copy->m_height,
-            cpu_copy->m_channels
+            static_cast<int>(cpu_copy->m_width),
+            static_cast<int>(cpu_copy->m_height),
+            static_cast<int>(cpu_copy->m_channels)
             );
 
         spdlog::info("OperationWhites::execute: Halide buffer created successfully");
 
-        // Apply whites adjustment: Modify pixels based on their luminance
-        // A simple approach: Use a mask based on luminance to determine how much to adjust
-        // Luminance approximation: 0.299*R + 0.587*G + 0.114*B
-        Halide::Func luminance;
-        luminance(x, y) = 0.299f * input_buf(x, y, 0) + 0.587f * input_buf(x, y, 1) + 0.114f * input_buf(x, y, 2);
+        // Appliquer l'ajustement blanc en utilisant la fonction utilitaire
+        auto whites_func = applyWhitesAdjustment(input_buf, whites_value, x, y, c);
 
-        // Create a mask that increases the adjustment effect for very bright pixels
-        // For example, a mask that is 0 for pixels below a high threshold and approaches 1 for the brightest pixels
-        // Using a smoothstep-like function: (x - low) / (high - low), clamped between 0 and 1
-        // Here, low = 0.7 (or higher), high = 1.0 (adjustable thresholds)
-        const float low_threshold = 0.7f; // Only affect pixels above this luminance
-        const float high_threshold = 1.0f; // Max luminance
+        // Schedule the Halide function for optimized parallel execution
+        spdlog::info("OperationWhites::execute: Halide function defined with luminance mask logic");
+        whites_func.parallel(y, 8).vectorize(x, 8); // Parallelize over Y-axis, vectorize over X-axis for performance
+        spdlog::info("OperationWhites::execute: Parallel and vectorization schedule applied, about to realize");
 
-        Halide::Func mask;
-        mask(x, y) = Halide::select(
-            luminance(x, y) <= low_threshold,
-            0.0f, // No adjustment for pixels below the threshold
-            luminance(x, y) >= high_threshold,
-            1.0f, // Full adjustment for pixels at maximum luminance
-            (luminance(x, y) - low_threshold) / (high_threshold - low_threshold) // Smooth transition from threshold to max
-            );
+        // Execute the Halide pipeline and write the result back to the input buffer
+        whites_func.realize(input_buf);
+        spdlog::info("OperationWhites::execute: Halide realization completed successfully");
 
-        // Apply the adjustment: Add (or subtract) the value, scaled by the mask
-        // This primarily affects the brightest pixels (whites) more than mid-tones
-        whites(x, y, c) = Halide::select(
-            c < 3, // If channel is R, G, or B
-            input_buf(x, y, c) + whites_value * mask(x, y), // Apply adjustment scaled by mask
-            input_buf(x, y, c) // Else, keep Alpha channel unchanged
-            );
-
-        // Schedule for parallel execution
-        spdlog::info("OperationWhites::execute: Halide function defined");
-        whites.parallel(y, 8).vectorize(x, 8);
-        spdlog::info("OperationWhites::execute: Schedule applied, about to realize");
-
-        // Realize back into the original buffer
-        whites.realize(input_buf);
-        spdlog::info("OperationWhites::execute: Halide realize completed successfully");
-
-        // Write the result back to the working image (the backend will handle CPU/GPU transfer)
+        // Update the working image with the processed CPU copy data
         return working_image.updateFromCPU(*cpu_copy);
 
     } catch (const std::exception& e) {
-        spdlog::critical("OperationWhites::execute: Halide exception: {}", e.what());
+        spdlog::critical("OperationWhites::execute: Exception occurred during Halide processing: {}", e.what());
         return false;
     }
+}
+
+Halide::Func OperationWhites::appendToFusedPipeline(
+    const Halide::Func& input_func,
+    const Halide::Var& x,
+    const Halide::Var& y,
+    const Halide::Var& c,
+    const OperationDescriptor& params
+    ) const
+{
+    // Extract the white adjustment value parameter from the operation descriptor
+    float whites_value = params.getParam<float>("value", 0.0f);
+
+    // No-op optimization: Return the input function unchanged if the value is at default
+    if (whites_value == OperationWhites::DEFAULT_WHITES_VALUE) {
+        spdlog::trace("OperationWhites::appendToFusedPipeline: No-op requested, returning input function unchanged");
+        return input_func;
+    }
+
+    // Validate and clamp the white adjustment value to the defined operational range
+    if (whites_value < OperationWhites::MIN_WHITES_VALUE || whites_value > OperationWhites::MAX_WHITES_VALUE) {
+        spdlog::warn("OperationWhites::appendToFusedPipeline: Clamping adjustment value to valid range [{}, {}]",
+                     OperationWhites::MIN_WHITES_VALUE, OperationWhites::MAX_WHITES_VALUE);
+        whites_value = std::clamp(whites_value, OperationWhites::MIN_WHITES_VALUE, OperationWhites::MAX_WHITES_VALUE);
+    }
+
+    spdlog::debug("OperationWhites::appendToFusedPipeline: Building fusion fragment with value={:.2f}", whites_value);
+
+    return applyWhitesAdjustment(input_func, whites_value, x, y, c);
 }
 
 } // namespace CaptureMoment::Core::Operations

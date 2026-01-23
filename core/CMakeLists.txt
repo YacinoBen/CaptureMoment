@@ -24,6 +24,7 @@ set(CORE_SOURCES
     src/image_processing/cpu/working_image_cpu_halide.cpp
     src/image_processing/gpu/working_image_gpu_halide.cpp
     src/image_processing/factories/working_image_factory.cpp
+    src/image_processing/halide/working_image_halide.cpp
 
     # Deciders
     src/image_processing/deciders/benchmarking_backend_decider.cpp
@@ -37,6 +38,10 @@ set(CORE_SOURCES
     src/serializer/strategy/appdata_xmp_path_strategy.cpp
     src/serializer/strategy/configurable_xmp_path_strategy.cpp
     src/serializer/strategy/sidecar_xmp_path_strategy.cpp
+
+    # Pipeline
+    src/pipeline/operation_pipeline_executor.cpp
+    src/pipeline/operation_pipeline_builder.cpp
 
     src/serializer/file_serializer_manager.cpp
     src/serializer/operation_serialization.cpp

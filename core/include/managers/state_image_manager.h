@@ -2,16 +2,18 @@
  * @file state_image_manager.h
  * @brief Declaration of StateImageManager class
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #pragma once
 
-#include "common/image_region.h"
 #include "operations/operation_descriptor.h"
-#include "operations/operation_pipeline.h"
+#include "pipeline/operation_pipeline_builder.h"
 #include "managers/source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
+
+#include "operations/operation_factory.h"
+#include "pipeline/operation_pipeline_builder.h"
 
 #include <vector>
 #include <memory>
@@ -28,14 +30,14 @@ namespace CaptureMoment::Core {
 namespace Managers {
 
 /**
-     * @brief Manages the working image state by applying a sequence of active operations.
-     *
-     * This class is responsible for maintaining the current state of the image being edited
-     * by applying a list of active operations on the original image.
-     * It acts as a central point for operation state management, decoupled from UI and history logic.
-     * It orchestrates the update of the working image using the OperationPipeline.
-     * The update process is performed asynchronously on a separate thread to avoid blocking the caller.
-     */
+ * @brief Manages the working image state by applying a sequence of active operations using fused pipeline execution.
+ *
+ * This class is responsible for maintaining the current state of the image being edited
+ * by applying a list of active operations on the original image using a fused Halide pipeline.
+ * It acts as a central point for operation state management, decoupled from UI and history logic.
+ * It orchestrates the update of the working image using the OperationPipelineBuilder and OperationPipelineExecutor.
+ * The update process is performed asynchronously on a separate thread to avoid blocking the caller.
+ */
 class StateImageManager {
 public:
     /**
@@ -48,18 +50,14 @@ public:
     /**
      * @brief Constructs a StateImageManager.
      *
-     * Initializes the manager with required dependencies for image processing.
+     * Initializes the manager with required dependencies for image processing using fused pipeline execution.
      *
      * @param source_manager Shared pointer to the SourceManager for original image access.
-     * @param operation_pipeline Shared pointer to the OperationPipeline for applying operations.
-     * @param operation_factory Shared pointer to the OperationFactory for operation creation.
+     * @param pipeline_builder Shared pointer to the OperationPipelineBuilder for creating fused pipelines.
      * @throws std::invalid_argument if any dependency is null.
      */
     explicit StateImageManager(
-        std::shared_ptr<Managers::SourceManager> source_manager,
-        std::shared_ptr<Operations::OperationPipeline> operation_pipeline,
-        std::shared_ptr<Operations::OperationFactory> operation_factory
-        );
+        std::shared_ptr<Managers::SourceManager> source_manager);
 
     /**
      * @brief Destructor.
@@ -84,7 +82,7 @@ public:
     /**
      * @brief Adds a new operation to the active sequence.
      * This operation is appended to the end of the list. The working image update is triggered.
-     * The update itself happens asynchronously.
+     * The update itself happens asynchronously using fused pipeline execution.
      *
      * @param descriptor The operation descriptor to add.
      * @return true if the operation was added successfully.
@@ -93,7 +91,7 @@ public:
 
     /**
      * @brief Modifies an existing operation in the active sequence.
-     * The working image update is triggered after modification.
+     * The working image update is triggered after modification using fused pipeline execution.
      * The update itself happens asynchronously.
      *
      * @param index Index of the operation to modify within the active sequence.
@@ -104,7 +102,7 @@ public:
 
     /**
      * @brief Removes an operation from the active sequence.
-     * The working image update is triggered after removal.
+     * The working image update is triggered after removal using fused pipeline execution.
      * The update itself happens asynchronously.
      *
      * @param index Index of the operation to remove within the active sequence.
@@ -114,7 +112,7 @@ public:
 
     /**
      * @brief Clears all active operations, resetting the working image to the original state.
-     * The working image update is triggered, effectively re-applying an empty operation list.
+     * The working image update is triggered, effectively re-applying an empty operation list using fused pipeline execution.
      * The update itself happens asynchronously.
      *
      * @return true if the reset process was initiated successfully.
@@ -159,7 +157,6 @@ public:
      */
     [[nodiscard]] std::string getOriginalImageSourcePath() const;
 
-
     /**
      * @brief Gets the current list of active operations.
      * This method provides a thread-safe snapshot of the operations
@@ -180,9 +177,15 @@ private:
      * This vector represents the current sequence of active operations that define the state of the working image.
      */
     std::vector<Operations::OperationDescriptor> m_active_operations;
+
+    /**
+     * @brief Shared pointer to the pipeline builder responsible for creating fused operation pipelines.
+     */
+    std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
+
     /**
      * @brief The current state of the processed image.
-     * This image is updated asynchronously based on the operations defined in m_active_operations.
+     * This image is updated asynchronously based on the operations defined in m_active_operations using fused pipeline execution.
      */
     std::unique_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
     /**
@@ -197,26 +200,21 @@ private:
     std::atomic<bool> m_is_updating {false};
 
     /**
-     * @brief Shared pointer to the SourceManager dependency.
-     * Used to retrieve the original image data from the source file.
-     */
-    std::shared_ptr<Managers::SourceManager> m_source_manager;
-    /**
-     * @brief Shared pointer to the OperationPipeline dependency.
-     * Used to execute the sequence of operations defined in m_active_operations.
-     */
-    std::shared_ptr<Operations::OperationPipeline> m_operation_pipeline;
-    /**
-     * @brief Shared pointer to the OperationFactory dependency.
-     * Used by the OperationPipeline to instantiate concrete operation objects.
+     * @brief Shared pointer to the factory responsible for creating operation instances.
      */
     std::shared_ptr<Operations::OperationFactory> m_operation_factory;
 
     /**
-     * @brief Performs the core image update logic on a worker thread.
+     * @brief Shared pointer to the SourceManager dependency.
+     * Used to retrieve the original image data from the source file.
+     */
+    std::shared_ptr<Managers::SourceManager> m_source_manager;
+
+    /**
+     * @brief Performs the core image update logic on a worker thread using fused pipeline execution.
      * This private method is executed by std::async. It retrieves the original image,
-     * applies the given sequence of operations using the pipeline, and updates the internal
-     * m_working_image member in a thread-safe manner.
+     * builds a fused pipeline using the pipeline builder, executes it on the working image,
+     * and updates the internal m_working_image member in a thread-safe manner.
      * It also handles the execution of the optional callback.
      *
      * @param ops_to_apply The sequence of operations to apply to the original image.

@@ -74,26 +74,6 @@ public:
     [[nodiscard]] virtual std::shared_ptr<Common::ImageRegion> exportToCPUCopy() = 0;
 
     /**
-     * @brief Exports a shared reference to the current internal image data (if stored on CPU).
-     *
-     * This method provides a shared pointer to the internal ImageRegion object.
-     * This is a **shallow copy** operation (increases the reference count).
-     * The returned shared pointer points to the same underlying data managed by
-     * this IWorkingImageHardware object.
-     *
-     * @warning This method is only meaningful if the underlying implementation
-     * stores data on the CPU (e.g., WorkingImageCPU). Calling this on a GPU-based
-     * implementation (e.g., WorkingImageGPU) might return nullptr or require
-     * a transfer to CPU first, depending on the implementation details.
-     * Check getMemoryType() before calling if behavior on GPU is uncertain.
-     *
-     * @return A shared pointer to the **internal** ImageRegion object (shallow copy).
-     *         Returns nullptr if the internal data is invalid or if the data is not stored on the CPU
-     *         and the implementation cannot provide a direct shared reference.
-     */
-    [[nodiscard]] virtual std::shared_ptr<Common::ImageRegion> exportToCPUShared() const = 0;
-
-    /**
      * @brief Gets the dimensions (width, height) of the image data.
      *
      * @return A pair containing the width (first) and height (second) of the image.
