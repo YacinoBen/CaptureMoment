@@ -138,30 +138,50 @@ static BackendResult benchmark_for_device_api(
 
 Common::MemoryType BenchmarkingBackendDecider::decide() const
 {
-    spdlog::info("BenchmarkingBackendDecider: Starting backend performance benchmark...");
+    spdlog::info("BenchmarkingBackendDecider::decide Starting backend performance benchmark...");
 
     // --- LOG 1: Host target features ---
     Halide::Target host_target = Halide::get_host_target();
-    spdlog::info("Host Target Features:");
+
+    spdlog::info("BenchmarkingBackendDecider::decide List Target Features:");
+
+    std::vector<std::pair<Halide::Target::Feature, std::string>> features_to_check = {
+        {Halide::Target::CUDA, "CUDA"},
+        {Halide::Target::OpenCL, "OpenCL"},
+        {Halide::Target::Vulkan, "Vulkan"},
+        {Halide::Target::Metal, "Metal"},
+        {Halide::Target::D3D12Compute, "DirectX12"}
+    };
+
+    for (const auto& [feature, name] : features_to_check)
+    {
+        if (host_target.has_feature(feature)) {
+            spdlog::info("  - {}: Supported", name);
+        } else {
+            spdlog::info("  - {}: Not Supported", name);
+        }
+    }
+
+    spdlog::info("BenchmarkingBackendDecider::decide Try toEnable Host Target Features:");
     std::vector<Halide::Target::Feature> supported_features;
     if (host_target.has_feature(Halide::Target::CUDA)) {
-        spdlog::info("  - CUDA: Supported");
+        spdlog::info("BenchmarkingBackendDecider::decide - CUDA: Supported");
         supported_features.push_back(Halide::Target::CUDA);
     }
     if (host_target.has_feature(Halide::Target::OpenCL)) {
-        spdlog::info("  - OpenCL: Supported");
+        spdlog::info("BenchmarkingBackendDecider::decide - OpenCL: Supported");
         supported_features.push_back(Halide::Target::OpenCL);
     }
     if (host_target.has_feature(Halide::Target::Vulkan)) {
-        spdlog::info("  - Vulkan: Supported");
+        spdlog::info("BenchmarkingBackendDecider::decide - Vulkan: Supported");
         supported_features.push_back(Halide::Target::Vulkan);
     }
     if (host_target.has_feature(Halide::Target::Metal)) {
-        spdlog::info("  - Metal: Supported");
+        spdlog::info("BenchmarkingBackendDecider::decide - Metal: Supported");
         supported_features.push_back(Halide::Target::Metal);
     }
     if (host_target.has_feature(Halide::Target::D3D12Compute)) {
-        spdlog::info("  - DirectX12: Supported");
+        spdlog::info("BenchmarkingBackendDecider::decide - DirectX12: Supported");
         supported_features.push_back(Halide::Target::D3D12Compute);
     }
     if (supported_features.empty()) {
