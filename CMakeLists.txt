@@ -12,6 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(CompilerDetection)
+include(BuildOptimization) # For build optimizations like Unity Build, LTO, PCH
 include(VcpkgHelpers)
 include(PackageHelpers)
 

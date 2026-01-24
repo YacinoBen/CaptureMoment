@@ -45,6 +45,8 @@ set(CAPTUREMOMENT_QT_CORE_LIB capturemoment_qt_core_lib)
 # --- Creation of the library ---
 qt_add_library(${CAPTUREMOMENT_QT_CORE_LIB} STATIC)
 
+capturemoment_enable_optimizations(${CAPTUREMOMENT_QT_CORE_LIB})
+
 # Explicitly ensure AUTOMOC runs on this target
 set_target_properties(${CAPTUREMOMENT_QT_CORE_LIB} PROPERTIES
     AUTOMOC TRUE
