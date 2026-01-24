@@ -9,63 +9,75 @@
 
 #include "image_processing/gpu/interfaces/i_working_image_gpu.h"
 #include "image_processing/halide/working_image_halide.h"
-
-#include "common/image_region.h"
+#include "common/error_handling/core_error.h"
 
 #include <memory>
+#include <expected>
 
 namespace CaptureMoment::Core {
 
 namespace ImageProcessing {
 
 /**
- * @brief Concrete implementation of WorkingImageGPU_Halide for image data stored in GPU memory using Halide.
+ * @brief Concrete implementation of WorkingImageGPU_Halide for image data stored on GPU.
  *
- * This class holds the image data within GPU memory, managed by a Halide::Buffer
- * configured for GPU execution. It inherits from WorkingImageHalide
- * and implements its specific Halide-based logic.
+ * Architecture:
+ * - Inherits IWorkingImageGPU: Provides the interface contract for GPU images.
+ * - Inherits WorkingImageHalide: Provides the shared Halide buffer logic.
+ *
+ * GPU Specifics:
+ * - Manages Host-to-Device (updateFromCPU) and Device-to-Host (exportToCPUCopy) transfers.
+ * - Caches metadata (width, height, channels) because querying GPU memory directly
+ *   during getters is expensive or unreliable.
+ * - Uses `std::expected` for robust error reporting of GPU transfers.
  */
+
 class WorkingImageGPU_Halide final : public IWorkingImageGPU, public WorkingImageHalide {
 public:
     /**
-     * @brief Constructs a WorkingImageGPU_Halide object, optionally initializing it with an ImageRegion.
-     *        The initial image data (if provided) is transferred to GPU memory.
-     * @param initial_image Optional initial image data. If provided, it's transferred to GPU.
-     *                      If not provided, the object starts with an invalid state (empty GPU buffer).
+     * @brief Constructs a WorkingImageGPU_Halide.
+     * @param initial_image Optional initial image data. Ownership is transferred via move.
      */
-    explicit WorkingImageGPU_Halide(std::shared_ptr<Common::ImageRegion> initial_image = nullptr);
+    explicit WorkingImageGPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image = nullptr);
 
     /**
      * @brief Virtual destructor.
      */
     ~WorkingImageGPU_Halide() override;
 
-    // --- IWorkingImageHardware Interface Implementation ---
-    // (Must implement all methods from IWorkingImageHardware)
+    // ============================================================
+    // IWorkingImageHardware Interface Implementation
+    // ============================================================
 
     /**
-     * @brief Updates the internal GPU image data from a CPU-based ImageRegion.
+     * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.
+     * Includes a copy to the GPU device.
      *
-     * This method transfers the data from the provided CPU image region
-     * into the internal GPU memory buffer managed by this object.
-     *
-     * @param[in] cpu_image The source image data residing in CPU memory.
-     * @return true if the update operation (transfer to GPU) was successful, false otherwise.
+     * @param cpu_image The source image data.
+     * @return std::expected<void, std::error_code>.
      */
-    [[nodiscard]] bool updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    [[nodiscard]] std::expected<void, std::error_code>
+    updateFromCPU(const Common::ImageRegion& cpu_image) override;
+
 
     /**
-     * @brief Exports the current internal GPU image data to a new CPU-based ImageRegion owned by the caller.
+     * @brief Updates internal image data by MOVING from a CPU-based ImageRegion.
+     * Transfers ownership of the CPU buffer, then copies to GPU device.
      *
-     * This method transfers the data from the internal GPU memory buffer
-     * to a newly allocated CPU memory buffer, creating a new ImageRegion instance.
-     * The caller receives ownership of the returned shared pointer.
-     *
-     * @return A shared pointer to a **newly allocated** ImageRegion containing the copied image data
-     *         transferred from GPU to CPU.
-     *         Returns nullptr on failure (allocation, transfer, or copy error).
+     * @param cpu_image The source image data (rvalue reference).
+     * @return std::expected<void, std::error_code>.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUCopy() override;
+    [[nodiscard]] std::expected<void, std::error_code>
+    updateFromCPU(Common::ImageRegion&& cpu_image);
+
+    /**
+     * @brief Exports current internal image data to a new CPU-based ImageRegion.
+     * Includes a copy from the GPU device to Host memory.
+     *
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+    exportToCPUCopy() override;
 
     /**
      * @brief Gets the dimensions (width, height) of the internal GPU image data.
@@ -128,10 +140,10 @@ private:
     mutable bool m_metadata_valid{false};
 
     /**
-     * @brief Updates the cached metadata from the GPU buffer.
-     * @return true if successful, false otherwise.
+     * @brief Updates the internal cache of dimensions.
+     * GPU getters should use this cache to avoid device queries.
      */
-    bool updateCachedMetadata() const;
+    void updateCachedMetadata(const Common::ImageRegion& region);
 };
 
 } // namespace ImageProcessing
