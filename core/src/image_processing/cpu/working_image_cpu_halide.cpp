@@ -7,7 +7,6 @@
 
 #include "image_processing/cpu/working_image_cpu_halide.h"
 #include <spdlog/spdlog.h>
-#include <memory>
 #include <utility> // For std::move
 #include <cstring>
 

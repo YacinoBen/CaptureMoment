@@ -10,7 +10,6 @@
 #include "image_processing/gpu/working_image_gpu_halide.h"
 #include "config/app_config.h"
 #include <spdlog/spdlog.h>
-#include <memory>
 #include <utility>
 #include <cstring>
 
