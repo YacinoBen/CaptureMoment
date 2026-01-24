@@ -8,7 +8,7 @@
  * on the CPU or a specific GPU API (CUDA, Metal, etc.).
  *
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #pragma once
