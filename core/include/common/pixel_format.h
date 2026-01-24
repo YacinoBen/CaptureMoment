@@ -2,7 +2,7 @@
  * @file pixel_format.h
  * @brief Defines the pixel storage formats used throughout the CaptureMoment Core library.
  *
- * This header provides the @ref CaptureMoment::Core::PixelFormat enum,
+ * This header provides the @ref CaptureMoment::Core::Common::PixelFormat enum,
  * which specifies how pixel data is stored in memory, including the number of channels
  * and the data type per channel. It's primarily used within the @ref ImageRegion
  * structure to define the format of its pixel data buffer.
@@ -13,12 +13,13 @@
 
 #pragma once
 
-#include <spdlog/spdlog.h>
-#include <cstdint> // Required for fixed-width integer types like uint8_t
+#include <cstddef>  // Required for size_t
+#include <cstdint>  // Required for uint8_t
 
 namespace CaptureMoment::Core {
 
 namespace Common {
+
 /**
  * @enum PixelFormat
  * @brief Enumerates the supported pixel storage formats in memory.
@@ -26,14 +27,14 @@ namespace Common {
  * This enum defines the layout and data type for individual pixels.
  * It specifies both the number of channels (e.g., RGB vs. RGBA) and
  * the data type used for each channel's value (e.g., float32 vs. uint8).
- * 
+ *
  * @note The @ref RGBA_F32 format is the recommended default for internal
  *       processing pipelines as it supports High Dynamic Range (HDR) data
  *       and preserves maximum precision during calculations.
  *
  * @see Common::ImageRegion::m_format
  */
-enum class PixelFormat : uint8_t {
+enum class PixelFormat : std::uint8_t {
     /**
      * @brief 4-channel format: Red, Green, Blue, Alpha in 32-bit float.
      *
@@ -43,7 +44,7 @@ enum class PixelFormat : uint8_t {
      *                    for normalized data. HDR values can exceed `[0.0f, 1.0f]`.
      * - **Usage:** Standard format for internal image processing pipelines
      *             where HDR support and high precision are required.
-     * 
+     *
      * @code
      * ImageRegion region;
      * region.format = PixelFormat::RGBA_F32;
@@ -51,7 +52,7 @@ enum class PixelFormat : uint8_t {
      * @endcode
      */
     RGBA_F32,
-    
+
     /**
      * @brief 3-channel format: Red, Green, Blue in 32-bit float.
      *
@@ -63,16 +64,17 @@ enum class PixelFormat : uint8_t {
     RGB_F32,
 
     /**
-     * @brief 3-channel format: Red, Green, Blue in 8-bit unsigned integer.
+     * @brief 4-channel format: Red, Green, Blue, Alpha in 8-bit unsigned integer.
+     *     (BUGFIX: Original comment said 3-channel, corrected for RGBA).
      *
-     * Each pixel is stored as 3 consecutive `uint8_t` values (0-255).
-     * - **Size per pixel:** 3 bytes (3 channels * 1 byte per uint8_t)
+     * Each pixel is stored as 4 consecutive `uint8_t` values (0-255).
+     * - **Size per pixel:** 4 bytes (4 channels * 1 byte per uint8_t)
      * - **Value range:** `[0, 255]` (corresponding to `[0.0f, 1.0f]` when normalized)
-     * - **Usage:** Standard format for image export to formats like JPEG
-     *             where alpha is not supported and memory usage is a concern.
+     * - **Usage:** Standard format for image export to formats like PNG
+     *             where alpha is supported.
      */
     RGBA_U8,
-    
+
     /**
      * @brief 3-channel format: Red, Green, Blue in 8-bit unsigned integer.
      *
@@ -89,8 +91,9 @@ enum class PixelFormat : uint8_t {
  * @brief Returns the number of channels for a given PixelFormat.
  * @param pf The pixel format.
  * @return The number of channels (e.g., 3 for RGB, 4 for RGBA).
+ *         Returns 0 if the format is invalid.
  */
-[[nodiscard]] constexpr int getChannelCount(PixelFormat pf) noexcept
+[[nodiscard]] constexpr std::uint8_t getChannelCount(PixelFormat pf) noexcept
 {
     switch(pf) {
     case PixelFormat::RGBA_F32:
@@ -99,23 +102,29 @@ enum class PixelFormat : uint8_t {
     case PixelFormat::RGB_F32:
     case PixelFormat::RGB_U8:
         return 3;
-    default :
-        spdlog::error("PixelFormat::getChannelCount : no channel found");
+    default:
+        // In C++23, one might use std::unreachable() here,
+        // but returning 0 is safer for robustness against bad casts.
         return 0;
     }
 }
+
 /**
  * @brief Returns the size in bytes of a single pixel for a given PixelFormat.
  * @param fmt The pixel format.
  * @return The size in bytes (e.g., 12 for RGB_F32, 16 for RGBA_F32).
+ *         Returns 0 if the format is invalid.
  */
-[[nodiscard]] constexpr size_t getPixelSizeInBytes(PixelFormat pf) noexcept
+[[nodiscard]] constexpr std::size_t getPixelSizeInBytes(PixelFormat fmt) noexcept
 {
-    const int channels = getChannelCount(pf);
-    if (pf == PixelFormat::RGBA_F32 || pf == PixelFormat::RGB_F32) {
+    // Cast explicitly to size_t to avoid signed/unsigned warnings
+    const std::size_t channels = static_cast<std::size_t>(getChannelCount(fmt));
+
+    if (fmt == PixelFormat::RGBA_F32 || fmt == PixelFormat::RGB_F32) {
         return channels * sizeof(float);
-    } else { // U8 formats
-        return channels * sizeof(uint8_t);
+    } else {
+        // Assume U8 formats if not float (handles both RGB_U8 and RGBA_U8)
+        return channels * sizeof(std::uint8_t);
     }
 }
 
