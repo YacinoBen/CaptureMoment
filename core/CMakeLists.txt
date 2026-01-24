@@ -72,10 +72,8 @@ endforeach()
 # Create library
 add_library(capturemoment_core STATIC ${CORE_SOURCES})
 
-capturemoment_enable_optimizations(capturemoment_core)
-
-# If we create a pch.h file later, simply change the line above to:
-# capturemoment_enable_optimizations(capturemoment_core include/pch.h)
+# PCH file and optimization
+capturemoment_enable_optimizations(capturemoment_core include/pch.h)
 
 # Add headers for IDE
 file(GLOB_RECURSE HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
