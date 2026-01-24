@@ -1,8 +1,9 @@
 /**
  * @file benchmarking_backend_decider.cpp
  * @brief Implementation of BenchmarkingBackendDecider using std::array for fixed GPU priority list.
+ * @details Strict priority order enforced: CUDA > DX12 > Metal > Vulkan > OpenCL (Legacy).
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #include "image_processing/deciders/benchmarking_backend_decider.h"
@@ -12,7 +13,6 @@
 #include <string>
 
 namespace CaptureMoment::Core::ImageProcessing {
-
 
 // Gets human-readable name for a Target::Feature
 static std::string feature_to_string(Halide::Target::Feature feature)
@@ -38,7 +38,11 @@ static Halide::Func create_benchmark_pipeline(const Halide::Buffer<float>& input
     return pipeline;
 }
 
-Common::MemoryType BenchmarkingBackendDecider::decide() const
+// ============================================================
+// Main Decision Logic
+// ============================================================
+
+Common::MemoryType BenchmarkingBackendDecider::decide()
 {
     spdlog::info("[BackendDecider] Starting backend performance benchmark...");
 
@@ -48,6 +52,7 @@ Common::MemoryType BenchmarkingBackendDecider::decide() const
     if (cpu_time == std::chrono::milliseconds::max())
     {
         spdlog::warn("[BackendDecider] CPU benchmark failed completely. Defaulting to CPU.");
+        m_winning_target = Halide::get_host_target();
         return Common::MemoryType::CPU_RAM;
     }
     spdlog::info("[BackendDecider] CPU Baseline: {} ms", cpu_time.count());
@@ -68,19 +73,25 @@ Common::MemoryType BenchmarkingBackendDecider::decide() const
         }
     }
 
-    // Create pipeline graph once (it's same for all backends)
+    // Create pipeline graph once (it's the same for all backends)
     auto pipeline = create_benchmark_pipeline(test_buffer);
 
-    // --- Phase 3: Detect & Benchmark GPUs (Priority Order) ---
+    // --- Phase 3: Detect & Benchmark GPUs (Strict Priority Order) ---
 
-    // Using std::array for fixed-size, stack-allocated list.
+    // PRIORITY LOGIC:
+    // 1. CUDA: NVIDIA Hardware-specific, highly optimized.
+    // 2. DirectX 12: Windows Native, low overhead.
+    // 3. Metal: macOS/iOS Native, best integration on Apple Silicon.
+    // 4. Vulkan: Cross-platform, robust, modern.
+    // 5. OpenCL: Legacy / Fallback. Less performant than Vulkan/DX12. Always last.
+
     std::array<std::pair<Halide::Target::Feature, std::string>, 5> gpu_priorities =
         { {
-            {Halide::Target::CUDA, "CUDA"},
-            {Halide::Target::D3D12Compute, "DirectX12"},
-            {Halide::Target::Metal, "Metal"},
-            {Halide::Target::Vulkan, "Vulkan"},
-            {Halide::Target::OpenCL, "OpenCL"}
+            {Halide::Target::CUDA, "CUDA"},              // High Priority (NVIDIA)
+            {Halide::Target::D3D12Compute, "DirectX12"}, // High Priority (Windows)
+            {Halide::Target::Metal, "Metal"},             // High Priority (macOS)
+            {Halide::Target::Vulkan, "Vulkan"},           // Medium Priority (Cross-platform)
+            {Halide::Target::OpenCL, "OpenCL"}            // Low Priority (Legacy / Fallback) - NEVER FIRST
         } };
 
     Halide::Target host_target = Halide::get_host_target();
@@ -116,6 +127,7 @@ Common::MemoryType BenchmarkingBackendDecider::decide() const
     if (!best_gpu_time.has_value())
     {
         spdlog::info("[BackendDecider] No GPU benchmark succeeded. Using CPU backend.");
+        m_winning_target = host_target; // Fallback to Host
         return Common::MemoryType::CPU_RAM;
     }
 
@@ -128,15 +140,31 @@ Common::MemoryType BenchmarkingBackendDecider::decide() const
     {
         spdlog::info("[BackendDecider] GPU ({} ms) is significantly faster than CPU ({} ms). SELECTING GPU.",
                      best_gpu_time.value().count(), cpu_time.count());
+
+        // Reconstruct the winning feature from the name to set it properly
+        Halide::Target::Feature winning_feature = Halide::Target::OpenCL; // Default
+        if (best_gpu_name == "CUDA") winning_feature = Halide::Target::CUDA;
+        else if (best_gpu_name == "DirectX12") winning_feature = Halide::Target::D3D12Compute;
+        else if (best_gpu_name == "Metal") winning_feature = Halide::Target::Metal;
+        else if (best_gpu_name == "Vulkan") winning_feature = Halide::Target::Vulkan;
+
+        m_winning_target = host_target;
+        m_winning_target.set_feature(winning_feature);
+
         return Common::MemoryType::GPU_MEMORY;
     }
     else
     {
         spdlog::info("[BackendDecider] CPU ({} ms) is comparable or faster than GPU ({} ms). SELECTING CPU.",
                      cpu_time.count(), best_gpu_time.value().count());
+        m_winning_target = host_target;
         return Common::MemoryType::CPU_RAM;
     }
 }
+
+// ============================================================
+// Benchmark Implementations
+// ============================================================
 
 std::chrono::milliseconds BenchmarkingBackendDecider::benchmark_cpu() const
 {
@@ -196,8 +224,6 @@ BenchmarkingBackendDecider::benchmark_gpu_feature(Halide::Target::Feature featur
         // Realize on GPU
         Halide::Buffer<float> result = pipeline.realize({k_benchmark_width, k_benchmark_height, k_benchmark_channels});
         // Sync implicitly happens here or we rely on realize blocking
-        // Some Halide versions need explicit copy_to_host if we use result later,
-        // but for timing, realize() is the blocking point.
         auto end = std::chrono::high_resolution_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

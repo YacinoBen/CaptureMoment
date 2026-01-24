@@ -1,6 +1,6 @@
 /**
  * @file benchmarking_backend_decider.h
- * @brief Concrete implementation of IBackendDecider that chooses the backend based on performance benchmarks.
+ * @brief Concrete implementation of IBackendDecider that chooses backend based on performance benchmarks.
  *
  * This class implements a sophisticated benchmarking strategy to determine the optimal
  * hardware backend (CPU or a specific GPU API) for the application. It evaluates
@@ -8,16 +8,14 @@
  * the best performance relative to a CPU baseline.
  *
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #pragma once
 
 #include "image_processing/interfaces/i_backend_decider.h"
 #include <chrono>
-#include <memory>
 #include <optional>
-#include <array>
 
 namespace CaptureMoment::Core {
 
@@ -51,10 +49,6 @@ namespace ImageProcessing {
  */
 class BenchmarkingBackendDecider final : public IBackendDecider {
 public:
-    /**
-     * @brief Virtual destructor.
-     * @details Defaulted as no resources are managed by this class itself.
-     */
     ~BenchmarkingBackendDecider() override = default;
 
     /**
@@ -66,11 +60,23 @@ public:
      * 2. Runs a CPU benchmark.
      * 3. Iterates through available GPU APIs.
      * 4. Compares the best GPU time against the CPU time.
+     * 5. Stores the winning Halide::Target internally.
      *
      * @return Common::MemoryType::GPU_MEMORY if a GPU is significantly faster.
      * @return Common::MemoryType::CPU_RAM if no GPU is available, or if the CPU is faster.
      */
-    [[nodiscard]] Common::MemoryType decide() const override;
+    [[nodiscard]] Common::MemoryType decide() override;
+
+    /**
+     * @brief Gets the winning Halide::Target object selected by `decide()`.
+     *
+     * @details
+     * This method returns the specific Halide configuration that was selected
+     * during the benchmark (e.g., Host Target + CUDA feature, or just Host Target).
+     *
+     * @return A const reference to the configured Halide::Target object.
+     */
+    [[nodiscard]] const Halide::Target& getWinningTarget() const;
 
 private:
     // ============================================================
@@ -140,6 +146,11 @@ private:
      */
     [[nodiscard]] std::optional<std::chrono::milliseconds>
     benchmark_gpu_feature(Halide::Target::Feature feature, const Halide::Buffer<float>& test_buffer) const;
+
+    /**
+     * @brief Stores the winning Halide Target object selected during `decide()`.
+     */
+    Halide::Target m_winning_target;
 };
 
 } // namespace ImageProcessing
