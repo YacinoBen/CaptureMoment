@@ -25,6 +25,7 @@ set(CORE_SOURCES
     src/image_processing/gpu/working_image_gpu_halide.cpp
     src/image_processing/factories/working_image_factory.cpp
     src/image_processing/halide/working_image_halide.cpp
+    src/image_processing/registration/working_image_registration.cpp
 
     # Deciders
     src/image_processing/deciders/benchmarking_backend_decider.cpp
