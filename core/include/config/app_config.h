@@ -12,36 +12,51 @@
 namespace CaptureMoment::Core{
 
 namespace Config {
+
 /**
  * @brief Singleton class for managing application-wide configuration settings.
  *
  * This class provides a global point of access to configuration values that are
  * determined at startup (e.g., by benchmarking or user preference) and remain
  * constant during the application's lifetime.
- * It follows the Meyer's Singleton pattern for thread-safe initialization.
+ *
+ * @note While a Singleton is used here for convenience, in highly decoupled
+ *       subsystems (e.g., `StateImageManager`), consider passing the configured
+ *       values via Dependency Injection (Constructor) to improve testability.
  */
+
 class AppConfig {
 public:
     /**
      * @brief Gets the singleton instance of AppConfig.
-     * This method is thread-safe for initialization.
-     * @return A reference to the single AppConfig instance.
+     * Thread-safe (C++11 standard).
      */
     static AppConfig& instance();
 
     /**
-     * @brief Sets the processing backend (CPU or GPU) for image operations.
-     * This method should be called once during application startup.
+     * @brief Sets the processing backend.
      * @param backend The chosen memory type (CPU_RAM or GPU_MEMORY).
      */
     void setProcessingBackend(Common::MemoryType backend);
 
     /**
      * @brief Gets the configured processing backend.
-     * This method can be called from anywhere in the codebase.
-     * @return The MemoryType representing the chosen backend (CPU_RAM or GPU_MEMORY).
+     * @return The MemoryType representing the chosen backend.
      */
-    [[nodiscard]] Common::MemoryType getProcessingBackend() const;
+    [[nodiscard]] Common::MemoryType getProcessingBackend() const noexcept;
+
+
+    // ============================================================
+    // Testing Utilities (Optional, but recommended for Seniors)
+    // ============================================================
+#ifdef ENABLE_TESTS // Defined via CMake when BUILD_TESTS is ON
+    /**
+     * @brief Resets the configuration to defaults.
+     * Used exclusively in unit tests to ensure state isolation.
+     * @warning Do not call this in production code.
+     */
+    void reset();
+#endif
 
 private:
     /**
