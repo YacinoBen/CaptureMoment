@@ -1,0 +1,1 @@
+target_compile_definitions(capturemoment_tests PRIVATE ENABLE_TESTS)
