@@ -9,9 +9,11 @@
 
 #include "common/types/memory_type.h"
 #include "common/image_region.h"
+#include "common/error_handling/core_error.h"
 
 #include <memory>
 #include <cstddef>
+#include <expected>
 
 namespace CaptureMoment::Core {
 
@@ -42,36 +44,26 @@ public:
     virtual ~IWorkingImageHardware() = default;
 
     /**
-     * @brief Updates the internal image data of this object from a CPU-based ImageRegion.
+     * @brief Updates the internal image data from a CPU-based ImageRegion.
      *
-     * Depending on the concrete implementation (CPU or GPU), this method will
-     * either copy data within CPU memory or transfer data from the provided
-     * CPU memory source to the internal storage location (CPU or GPU).
-     *
-     * This method is typically used to initialize or update the working image
-     * state from a source that resides in CPU memory (e.g., loaded via OIIO).
-     *
-     * @param[in] cpu_image The source image data residing in CPU memory.
-     * @return true if the update operation was successful, false otherwise.
+     * @param cpu_image The source image data.
+     * @return std::expected<void, std::error_code>.
+     *         Returns {} (void) on success, or an error code on failure.
      */
-    [[nodiscard]] virtual bool updateFromCPU(const Common::ImageRegion& cpu_image) = 0;
+    [[nodiscard]] virtual std::expected<void, std::error_code>
+    updateFromCPU(const Common::ImageRegion& cpu_image) = 0;
 
     /**
-     * @brief Exports the current internal image data to a new CPU-based ImageRegion owned by the caller.
+     * @brief Exports the current internal image data to a new CPU-based ImageRegion.
      *
-     * This method creates a **new** ImageRegion instance on the heap and copies
-     * the internal image data into it. The caller receives ownership of the returned
-     * shared pointer and is responsible for its lifetime.
-     * This involves a **deep copy** of the image data.
+     * Uses std::expected to return either the result or an error,
+     * avoiding the "Error by nullptr" ambiguity.
      *
-     * This method is typically used when the caller needs an independent copy
-     * of the image data that can be modified or held without affecting the
-     * original IWorkingImageHardware object.
-     *
-     * @return A shared pointer to a **newly allocated** ImageRegion containing the copied image data.
-     *         Returns nullptr on failure (allocation or copy error).
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
+     *         Returns the unique_ptr on success, or an error code on failure.
      */
-    [[nodiscard]] virtual std::shared_ptr<Common::ImageRegion> exportToCPUCopy() = 0;
+    [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+    exportToCPUCopy() = 0;
 
     /**
      * @brief Gets the dimensions (width, height) of the image data.
