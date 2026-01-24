@@ -18,10 +18,17 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
 
     spdlog::info("Starting backend benchmark...");
+    // 1. Create the Decider
     CaptureMoment::Core::ImageProcessing::BenchmarkingBackendDecider benchmark_decider;
-    auto backend =  benchmark_decider.decide();
-    CaptureMoment::Core::Config::AppConfig::instance().setProcessingBackend(backend);
 
+    // 2. Run Benchmarks and select MemoryType (CPU vs GPU)
+    auto backend_memory_type = benchmark_decider.decide();
+
+    // 3. Store the MemoryType decision in AppConfig
+    CaptureMoment::Core::Config::AppConfig::instance().setProcessingBackend(backend_memory_type);
+
+    // 4. Store the specific Halide Target (Host+CUDA, Host+Vulkan, etc.) in AppConfig
+    CaptureMoment::Core::Config::AppConfig::setHalideTarget(benchmark_decider.getWinningTarget());
 
     // Register QML types Rendering
     qmlRegisterType<CaptureMoment::UI::QMLPaintedImageItem>(
