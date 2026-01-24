@@ -64,7 +64,7 @@ public:
      *         - `MemoryType::CPU_RAM`: If CPU is the optimal or only available choice.
      *         - `MemoryType::GPU_MEMORY`: If a GPU backend is selected.
      */
-    [[nodiscard]] virtual Common::MemoryType decide() const = 0;
+    [[nodiscard]] virtual Common::MemoryType decide() = 0;
 
 protected:
     /**
