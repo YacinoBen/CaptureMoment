@@ -66,7 +66,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **`BenchmarkingBackendDecider`:** Performs runtime benchmarking to determine the optimal backend and stores the result in `AppConfig`.
 * **Initialization:** The benchmark runs once at application startup in `main()`, and the result is used throughout the application lifecycle.
 
-* [**See more**](core/IMAGE_PROCESSING.md.md).
+* [**See more**](core/IMAGE_PROCESSING.md).
 
 ---
 
@@ -258,6 +258,6 @@ This organization clarifies the role of each component and prevents naming colli
 
 * [**Operations**](core/OPERATIONS.md).
 * [**Image Processing**](core/IMAGE_PROCESSING.md).
-* [**Serializer**](core/SERIALIZER.md.md).
+* [**Serializer**](core/SERIALIZER.md).
 
 ---
