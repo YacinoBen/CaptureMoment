@@ -7,8 +7,7 @@
 #include "rendering/qml_sgs_image_item.h"
 #include "rendering/qml_rhi_image_item.h"
 
-#include "image_processing/deciders/benchmarking_backend_decider.h"
-#include "config/app_config.h"
+#include "core_initialization.h"
 
 #include <spdlog/spdlog.h>
 
@@ -17,18 +16,9 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     QQmlApplicationEngine engine;
 
-    spdlog::info("Starting backend benchmark...");
-    // 1. Create the Decider
-    CaptureMoment::Core::ImageProcessing::BenchmarkingBackendDecider benchmark_decider;
+    spdlog::info("Initialization");
+    CaptureMoment::Core::initialize();
 
-    // 2. Run Benchmarks and select MemoryType (CPU vs GPU)
-    auto backend_memory_type = benchmark_decider.decide();
-
-    // 3. Store the MemoryType decision in AppConfig
-    CaptureMoment::Core::Config::AppConfig::instance().setProcessingBackend(backend_memory_type);
-
-    // 4. Store the specific Halide Target (Host+CUDA, Host+Vulkan, etc.) in AppConfig
-    CaptureMoment::Core::Config::AppConfig::setHalideTarget(benchmark_decider.getWinningTarget());
 
     // Register QML types Rendering
     qmlRegisterType<CaptureMoment::UI::QMLPaintedImageItem>(

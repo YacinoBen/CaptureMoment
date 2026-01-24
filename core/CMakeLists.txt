@@ -10,6 +10,9 @@ message(STATUS "[core] CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Source files (only .cpp files that get compiled)
 set(CORE_SOURCES
+    # Initialization
+    src/core_initialization.cpp
+
     # Manager
     src/managers/source_manager.cpp
     src/managers/state_image_manager.cpp
