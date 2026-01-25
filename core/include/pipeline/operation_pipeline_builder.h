@@ -1,6 +1,16 @@
 /**
  * @file operation_pipeline_builder.h
- * @brief Declaration of OperationPipelineBuilder for pipeline fusion of adjustment operations.
+ * @brief Declaration of OperationPipelineBuilder for creating fused adjustment pipelines.
+ *
+ * @details
+ * This class is a Factory/Builder. It takes a list of adjustment
+ * operations (Brightness, Contrast, etc.) and constructs a single, optimized
+ * Halide pipeline that combines them.
+ *
+ * The heavy lifting (building the computation graph) happens in the constructor
+ * of the resulting `OperationPipelineExecutor`. This executor is then reused for
+ * every frame/interaction, providing maximum performance.
+ *
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -8,6 +18,7 @@
 #pragma once
 
 #include "pipeline/interfaces/i_pipeline_executor.h"
+#include "pipeline/interfaces/i_halide_pipeline_executor.h"
 #include "operations/operation_descriptor.h"
 #include "operations/operation_factory.h"
 
@@ -19,39 +30,38 @@ namespace CaptureMoment::Core {
 namespace Pipeline {
 
 /**
- * @brief Class responsible for building a fused Halide pipeline for adjustment operations.
+ * @class OperationPipelineBuilder
+ * @brief Factory for building `OperationPipelineExecutor` objects.
  *
- * OperationPipelineBuilder analyzes a sequence of OperationDescriptors related to
- * image adjustments (e.g., Brightness, Contrast) and constructs a single, optimized
- * Halide pipeline that combines all the specified operations. The result is an
- * OperationPipelineExecutor object, which can then be used to execute the pipeline
- * on an IWorkingImageHardware.
+ * @details
+ * This class orchestrates the construction of the pipeline:
+ * 1. Iterating through operation descriptors.
+ * 2. Retrieving their fusion logic (via `IOperationFusionLogic`).
+ * 3. Constructing a single Halide::Func graph (Operator Fusion).
+ * 4. Creating the `OperationPipelineExecutor` instance which stores the compiled graph.
  *
- * This class embodies the core of the adjustment pipeline fusion strategy, centralizing
- * the logic for combining multiple adjustment operations into a single computational pass.
+ * The result is an `OperationPipelineExecutor` object ready for fast execution.
  */
 class OperationPipelineBuilder {
 public:
     /**
-     * @brief Builds a fused Halide pipeline for the given adjustment operations.
+     * @brief Builds a fused pipeline executor for a given list of operations.
      *
-     * This static method takes a list of adjustment operations, analyzes them, and constructs
-     * a combined Halide pipeline. It schedules it for the appropriate backend
-     * (CPU/GPU based on IWorkingImageHardware's type or AppConfig).
+     * @details
+     * This static method creates an `OperationPipelineExecutor` instance.
+     * The executor will compile the fused Halide pipeline once (in its constructor)
+     * and reuse it for every `execute` call. This is crucial for performance
+     * in interactive applications where parameters might change but the set of
+     * operations usually remains stable.
      *
-     * @param[in] operations A vector of OperationDescriptor objects defining
-     *                       the sequence of adjustment operations to apply and fuse.
-     * @param[in] factory The OperationFactory instance used to potentially
-     *                    retrieve operation-specific pipeline fragments or metadata
-     *                    required for fusion (though fusion logic is internal).
-     * @return A unique pointer to an IPipelineExecutor object, which encapsulates
-     *         the compiled pipeline and provides an execute method.
-     *         Returns nullptr if the pipeline construction fails.
+     * @param[in] operations A vector of `OperationDescriptor` objects defining the sequence.
+     * @param[in] factory The factory used to instantiate operations for their fusion logic.
+     * @return A unique pointer to the `OperationPipelineExecutor`. Returns nullptr on failure.
      */
     [[nodiscard]] static std::unique_ptr<IPipelineExecutor> build(
         const std::vector<Operations::OperationDescriptor>& operations,
         const Operations::OperationFactory& factory
-    );
+        );
 };
 
 } // namespace Pipeline
