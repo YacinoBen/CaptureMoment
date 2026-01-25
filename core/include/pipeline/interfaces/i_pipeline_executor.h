@@ -1,13 +1,26 @@
 /**
  * @file i_pipeline_executor.h
- * @brief Declaration of the IPipelineExecutor interface.
+ * @brief Abstract interface for executing a compiled image processing pipeline.
+ *
+ * @details
+ * This interface defines the contract for running a pre-built (fused)
+ * Halide pipeline on an image. It acts as the "Runner".
+ *
+ * **Usage:**
+ * @code
+ * auto executor = OperationPipelineBuilder::build(ops, factory);
+ * executor->execute(image_buffer); // Generic
+ * @endcode
+ *
+ * **Extensibility:**
+ * Concrete implementations can implement hardware-specific paths
+ * (e.g., `IHalidePipelineExecutor` for direct memory access).
+ *
  * @author CaptureMoment Team
  * @date 2026
  */
 
 #pragma once
-
-#include "image_processing/interfaces/i_working_image_hardware.h"
 
 namespace CaptureMoment::Core {
 
@@ -15,34 +28,45 @@ namespace Pipeline {
 
 /**
  * @interface IPipelineExecutor
- * @brief Abstract interface for executing a pre-built pipeline on an image.
+ * @brief Abstract interface for executing a pre-compiled Halide pipeline.
  *
- * IPipelineExecutor defines the contract for any class that can execute
- * a compiled pipeline (e.g., a fused Halide pipeline) on an IWorkingImageHardware.
- * This allows for different types of pipeline executors (e.g., for adjustments,
- * erasures, filters) to be used polymorphically.
+ * @details
+ * This interface separates the *construction* and *caching* of a pipeline
+ * (handled by `OperationPipelineBuilder` and the executor) from the *execution* phase.
+ * It ensures that the heavy lifting (JIT compilation, scheduling) happens
+ * only once (or when operations change), while the actual run
+ * (Halide::Func::realize) can be called repeatedly at maximum speed.
+ *
+ * Implementations are expected to handle the specific scheduling
+ * (CPU vectorization vs GPU tiling) required by the target hardware.
  */
 class IPipelineExecutor {
 public:
     /**
-     * @brief Virtual destructor for safe inheritance.
+     * @brief Virtual destructor.
      */
     virtual ~IPipelineExecutor() = default;
 
     /**
-     * @brief Executes the pre-built pipeline on the given image.
+     * @brief Executes the compiled pipeline on a generic working image.
      *
-     * This pure virtual method must be implemented by derived classes to
-     * execute the specific pipeline logic encapsulated by the executor.
+     * @details
+     * This is the standard entry point. Concrete implementations (like
+     * `OperationPipelineExecutor`) may attempt to cast the image to a more
+     * specific type (e.g., `WorkingImageCPU_Halide`) to access the raw
+     * Halide buffer directly (Fast Path).
      *
-     * @param[in,out] working_image The hardware-agnostic image buffer to process.
-     *                              The image is modified in-place by the pipeline.
-     * @return true if the execution was successful, false otherwise
-     *         (e.g., runtime error during execution).
+     * @param[in,out] working_image The hardware-agnostic image containing the pixel data.
+     * @return true if pipeline executed successfully, false otherwise.
      */
-    [[nodiscard]] virtual bool execute(ImageProcessing::IWorkingImageHardware& working_image) const = 0;
-};
+    [[nodiscard]] virtual bool execute(ImageProcessing::IWorkingImageHardware& working_image) = 0;
 
+protected:
+    /**
+     * @brief Protected constructor to enforce abstract nature.
+     */
+    IPipelineExecutor() = default;
+};
 } // namespace Pipeline
 
 } // namespace CaptureMoment::Core
