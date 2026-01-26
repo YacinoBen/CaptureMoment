@@ -1,25 +1,45 @@
 /**
  * @file core_error.h
- * @brief Central error handling system for CaptureMoment Core.
+ * @brief Central error handling system for CaptureMoment Core library.
+ *
+ * @details
+ * This header provides global error definitions and categories for CaptureMoment Core.
+ *
+ * It centralizes how errors are defined and described for the logger (spdlog).
+ *
+ * **Architecture:**
+ * 1. **`CoreError`**: Enum containing domain-specific error codes (InvalidImageRegion, AllocationFailed).
+ * 2. **`CoreErrorCategory`**: Categories for filtering logs.
+ *
+ * **Integration:**
+ * Include this header in `core/pch.h` for global availability.
+ *
  * @author CaptureMoment Team
- * @date 2025
+ * @date 2026
  */
 
 #pragma once
 
-#include <system_error>
-#include <string>
+#include <string_view>
+#include <Halide.h>
+#include <include "config/app_config.h" // Pour m_backend
+#include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core {
 
 namespace ErrorHandling {
+
 /**
- * @brief Enumeration of all specific error codes for the CaptureMoment Core library.
+ * @brief Enumeration of all error codes for CaptureMoment Core.
  *
- * Using an enum allows static type checking, while the std::error_category
- * allows human-readable string generation and cross-system error compatibility.
+ * @details
+ * This enum centralizes error codes for different subsystems (Image Processing, Serialization).
+ * Using an enum allows static type checking and human-readable string conversion.
  */
 enum class CoreError {
+    /**
+     * @brief No error.
+     */
     Success = 0,
 
     /**
@@ -33,78 +53,106 @@ enum class CoreError {
     AllocationFailed = 2,
 
     /**
-     * @brief Halide buffer validation failed.
+     * @brief Halide buffer is invalid or undefined.
      */
     InvalidHalideBuffer = 3,
 
     /**
-     * @brief Operation attempted on an uninitialized or invalid working image.
+     * @brief File not found or permission denied (I/O error).
      */
-    InvalidWorkingImage = 4,
-    
+    IOError = 4,
+
     /**
-     * @brief Generic I/O error (File not found, read error, etc.).
+     * @brief An unexpected error occurred.
      */
-    IOError = 5
+    Unexpected = 99
 };
 
 /**
- * @brief std::error_category specialization for CoreError.
+ * @brief Enumeration of error categories for robust logging.
  *
- * This class defines how CoreError is converted to the std::error_code system.
- * It provides the default error message string for each error code.
+ * @details
+ * This enum maps `CoreError` codes to high-level category names (System, GPU, Serialization).
+ * It ensures that critical errors are easily distinguishable in the logs.
  */
-class CoreErrorCategory : public std::error_category {
-public:
+enum class CoreErrorCategory {
     /**
-     * @brief Returns the name of the category ("CoreError").
+     * @brief General system or unknown errors.
      */
-    [[nodiscard]] const char* name() const noexcept override {
-        return "CaptureMomentCoreError";
-    }
+    System = 0,
 
     /**
-     * @brief Returns a human-readable description of the error code.
-     * @param ev The error value (int representation of CoreError).
-     * @return A string describing the error.
+     * @brief Errors related to Image Processing.
      */
-    [[nodiscard]] std::string message(int ev) const override {
-        switch (static_cast<CoreError>(ev)) {
-            case CoreError::Success:          return "Success";
-            case CoreError::InvalidImageRegion: return "Provided ImageRegion is invalid (dimensions or data mismatch)";
-            case CoreError::AllocationFailed:  return "Memory allocation failed (out of memory)";
-            case CoreError::InvalidHalideBuffer: return "Halide buffer is undefined or invalid";
-            case CoreError::InvalidWorkingImage: return "Working image is in invalid state";
-            case CoreError::IOError:          return "Input/Output operation failed";
-            default:                           return "Unknown CaptureMoment Core Error";
-        }
-    }
+    ImageProcessing = 1,
+
+    /**
+     * @brief Errors related to Serialization or Hardware abstraction.
+     */
+    Serialization = 2
 };
 
 /**
- * @brief Global instance of the category.
- * Standard pattern for std::error_code integration.
+ * @brief Converts `CoreError` code to a human-readable category string.
+ *
+ * @details
+ * This helper function isolates the logic of string mapping from `CoreError`.
+ *
+ * @param code The error code.
+ * @return A string_view of the category name (e.g., "ImageProcessing", "System").
  */
-inline const CoreErrorCategory& getCoreErrorCategory() {
-    static CoreErrorCategory instance;
-    return instance;
+[[nodiscard]] std::string_view core_error_to_category(CoreError code)
+{
+    switch (code)
+    {
+    case CoreError::Success:
+        return "System";
+
+    case CoreError::InvalidImageRegion:
+        return "ImageProcessing";
+
+    case CoreError::AllocationFailed:
+        return "ImageProcessing";
+
+    case CoreError::InvalidHalideBuffer:
+        return "ImageProcessing";
+
+    case CoreError::IOError:
+        return "Serialization";
+
+    case CoreError::Unexpected:
+        return "System";
+
+    default:
+        return "Unknown";
+    }
 }
 
+// ============================================================
+// Helpers
+// ============================================================
+
 /**
- * @brief Enables automatic conversion from CoreError to std::error_code.
- * This allows returning CoreError directly where std::error_code is expected.
+ * @brief Returns the memory type corresponding to a specific error code.
+ *
+ * @param code The `CoreError` enum value.
+ * @return MemoryType.
  */
-inline std::error_code make_error_code(CoreError e) {
-    return std::error_code(static_cast<int>(e), getCoreErrorCategory());
+[[nodiscard]] Common::MemoryType error_to_memory_type(CoreError code)
+{
+    switch (code)
+    {
+    case CoreError::AllocationFailed:
+        return Common::MemoryType::CPU_RAM;
+
+    case CoreError::InvalidHalideBuffer:
+        return Common::MemoryType::GPU_MEMORY;
+
+    default:
+        return Common::MemoryType::CPU_RAM; // Default safe fallback
+    }
 }
 
 } // namespace ErrorHandling
 
 } // namespace CaptureMoment::Core
-
-// ============================================================================
-// Standard Library Specialization
-// Allows is_error_code_enum<CoreError> to be true.
-// ============================================================================
-template<>
-struct std::is_error_code_enum<CaptureMoment::Core::ErrorHandling::CoreError> : std::true_type {};
