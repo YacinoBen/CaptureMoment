@@ -36,7 +36,7 @@
 /**
  * @brief Specific interface for GPU-based image buffers.
  */
-#include "image_processing/interfaces/i_working_image_gpu.h"
+#include "image_processing/gpu/interfaces/i_working_image_gpu.h"
 
 /**
  * @brief Interface for backend selection strategies.
@@ -76,15 +76,3 @@
  * Runs performance tests to select the fastest available backend.
  */
 #include "image_processing/deciders/benchmarking_backend_decider.h"
-
-/**
- * @brief Hardware detection based backend decider.
- * Selects backend based on available hardware features.
- */
-#include "image_processing/deciders/hardware_detection_backend_decider.h"
-
-/**
- * @brief User preference based backend decider.
- * Forces a specific backend as requested by the user.
- */
-#include "image_processing/deciders/user_preference_backend_decider.h"
