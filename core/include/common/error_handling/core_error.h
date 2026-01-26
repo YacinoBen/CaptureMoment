@@ -22,7 +22,7 @@
 
 #include <string_view>
 #include <Halide.h>
-#include <include "config/app_config.h" // Pour m_backend
+#include "config/app_config.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core {
