@@ -1,6 +1,28 @@
 /**
  * @file operation_pipeline_executor.h
- * @brief Declaration of OperationPipelineExecutor, a concrete implementation of IPipelineExecutor for adjustment operations.
+ * @brief Declaration of OperationPipelineExecutor (Fused Adjustment Pipeline).
+ *
+ * @details
+ * This class is a concrete implementation of `IPipelineExecutor` (and
+ * implicitly `IHalidePipelineExecutor`).
+ *
+ * It implements the "Fused Pipeline" strategy for image adjustments.
+ * Instead of executing:
+ * 1. `Brightnes -> Image`
+ * 2. `Contrast -> Result`
+ * 3. `Black -> Result` (3 memory reads/writes)
+ *
+ * It compiles a single function: `output = black(contrast(brightness(input)))`.
+ * This eliminates intermediate buffer allocations/deallocations (Zero-Copy).
+ *
+ * **Architecture:**
+ * - **Caching**: The compiled Halide pipeline (`m_saved_pipeline`) is constructed once
+ *   and reused for all subsequent executions unless the operation list changes.
+ * - **Backend Support**: Works with both `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide`.
+ *   It retrieves the appropriate `Halide::Target` from `AppConfig`.
+ * - **Fast Path**: Uses `executeOnHalideBuffer()` when the underlying image
+ *   supports it (e.g., `WorkingImageHalide`), skipping generic wrappers.
+ *
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -8,183 +30,194 @@
 #pragma once
 
 #include "pipeline/interfaces/i_pipeline_executor.h"
-#include "image_processing/cpu/working_image_cpu_halide.h"
-#include "image_processing/gpu/working_image_gpu_halide.h"
+#include "pipeline/interfaces/i_halide_pipeline_executor.h"
+#include "image_processing/halide/working_image_halide.h"
 #include "operations/operation_descriptor.h"
 #include "operations/operation_factory.h"
-#include "config/app_config.h"
 #include "common/types/memory_type.h"
 
 #include <vector>
 #include <memory>
-
-#include <Halide.h>
 
 namespace CaptureMoment::Core {
 
 namespace Pipeline {
 
 /**
- * @brief Concrete implementation of IPipelineExecutor for executing fused adjustment operation pipelines.
+ * @class OperationPipelineExecutor
+ * @brief Concrete implementation for executing fused adjustment pipelines.
  *
- * OperationPipelineExecutor encapsulates a compiled Halide pipeline for image adjustments
- * and provides the method to execute it on a given IWorkingImageHardware.
- * It inherits from IPipelineExecutor, fulfilling the contract for pipeline execution.
- *
- * Note: This class is intended to be instantiated by OperationPipelineBuilder.
- * Direct instantiation from user code is not typically required.
- *
- * This class stores a compiled Halide pipeline in m_saved_pipeline to optimize
- * repeated executions. The pipeline is rebuilt and recompiled only when the list
- * of operations changes, not when just the parameters of existing operations change.
- * This significantly improves performance for interactive adjustments.
+ * @details
+ * This class encapsulates the heavy lifting (building the Halide function graph)
+ * and the cached execution logic.
+ * The `execute` method provides a generic entry point, while `executeOnHalideBuffer`
+ * offers a high-performance path when the raw buffer is available.
+ * This executor is optimized for fused Halide pipelines and does not handle
+ * generic fallback execution. Use `FallbackPipelineExecutor` for that.
  */
-class OperationPipelineExecutor final : public IPipelineExecutor {
+class OperationPipelineExecutor final : public IPipelineExecutor, public IHalidePipelineExecutor {
 public:
     /**
-     * @brief Constructor that takes the operations and factory needed to build the fused pipeline.
-     * @param operations The list of operation descriptors to be fused.
-     * @param factory The operation factory to retrieve fusion logic implementations.
+     * @brief Constructs a fused pipeline executor for a specific list of operations.
+     *
+     * @details
+     * The constructor performs the expensive "Just-In-Time" (JIT) compilation
+     * of the pipeline. It iterates through the operations, retrieves their
+     * `IOperationFusionLogic` via the factory, and constructs a fused
+     * `Halide::Pipeline` object.
+     *
+     * @param[in] operations The list of operation descriptors defining the adjustments.
+     * @param[in] factory The factory used to instantiate operation instances.
      */
-    explicit OperationPipelineExecutor(
-        const std::vector<Operations::OperationDescriptor>& operations,
-        const Operations::OperationFactory& factory);
+    OperationPipelineExecutor(
+        std::vector<Operations::OperationDescriptor>&& operations,
+        const Operations::OperationFactory& factory
+        );
 
     /**
-     * @brief Executes the pre-built fused adjustment pipeline on the given image.
+     * @brief Executes the fused pipeline on a generic working image.
      *
-     * Implements the execute method from IPipelineExecutor.
-     * This method runs the specific fused Halide pipeline logic for adjustments
-     * on the provided working_image. The pipeline is compiled once upon construction
-     * and reused for subsequent executions, unless the operation list changes.
+     * @details
+     * This method determines the concrete type of the working image (CPU or GPU)
+     * based on the configured backend in AppConfig, and dispatches to the
+     * appropriate specialized method (`executeWithConcreteHalide`).
+     * It serves as the main entry point for the generic `IPipelineExecutor` interface.
+     * If the working image type does not match the configured backend,
+     * execution will fail.
      *
-     * @param[in,out] working_image The hardware-agnostic image buffer to process.
-     *                              The image is modified in-place by the fused adjustment pipeline.
-     * @return true if the execution was successful, false otherwise
-     *         (e.g., runtime error during execution).
+     * @param[in,out] working_image The hardware-agnostic image to process.
+     * @return true if execution succeeded, false otherwise (e.g., incompatible image type).
      */
-    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image) const override;
+    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image) override;
+
+    /**
+     * @brief Executes the fused pipeline directly on a raw Halide buffer (Fast Path).
+     *
+     * @details
+     * This method implements `IHalidePipelineExecutor`.
+     * It runs the cached compiled pipeline on the provided buffer.
+     * This is the most efficient way to process an image when the underlying
+     * `WorkingImageHalide` (CPU/GPU) object is used.
+     *
+     * @param[in,out] buffer The `Halide::Buffer<float>` pointing to the image data.
+     * @return true if pipeline executed successfully, false otherwise.
+     */
+    [[nodiscard]] virtual bool executeOnHalideBuffer(Halide::Buffer<float>& buffer) const override;
 
 private:
+    // ============================================================
+    // Members
+    // ============================================================
+
     /**
-     * @brief Stores the list of operation descriptors to be fused into the pipeline.
-     *
-     * This member holds the sequence of operations that will be combined into a single
-     * computational pass. It is captured during construction and used by the compilePipeline
-     * method to build the Halide pipeline. Changes to this list trigger a pipeline rebuild.
+     * @brief Stores the list of operations to be fused.
+     * Used to detect if a rebuild is needed if this executor is reused later.
      */
     std::vector<Operations::OperationDescriptor> m_operations;
 
     /**
-     * @brief Stores the operation factory used to create instances of operations for fusion.
-     *
-     * This member holds a reference to the factory object that can instantiate concrete
-     * operation classes implementing IOperationFusionLogic. It is used during pipeline
-     * compilation to retrieve the necessary fusion fragments from each operation.
+     * @brief Reference to the operation factory for creating logic instances.
      */
-    Operations::OperationFactory m_factory;
+    const Operations::OperationFactory& m_factory;
 
     /**
-     * @brief Stores the compiled Halide pipeline for efficient reuse.
-     * This member holds the compiled Halide::Pipeline object resulting from
-     * the fusion of all operations. It is computed once during the construction
-     * of the OperationPipelineExecutor and reused in the execute method.
-     * This avoids the overhead of rebuilding and recompiling the pipeline
-     * on every execution, significantly improving performance for repeated calls
-     * with the same sequence of operations.
-     * The Halide::Pipeline class represents a compiled Halide function that can
-     * be executed on image data. It encapsulates the optimized computation graph
-     * generated by the Halide compiler.
+     * @brief The compiled Halide pipeline.
+     *
+     * @details
+     * This member stores the result of the "Heavy Lifting" phase.
+     * It is a compiled Halide function `fused(x,y,c)`.
+     * It is computed once in the constructor and reused for every `execute`.
      */
-    mutable std::unique_ptr<Halide::Pipeline> m_saved_pipeline;
+    std::unique_ptr<Halide::Pipeline> m_saved_pipeline;
 
     /**
-     * @brief Stores the processing backend type for optimized execution paths.
-     *
-     * This member caches the backend type (CPU or GPU) from AppConfig to determine
-     * the most efficient execution strategy without repeated configuration queries.
-     * It influences the choice of concrete implementation methods used during execution.
+     * @brief Caches the selected backend type (CPU/GPU) to avoid runtime queries.
      */
-    Common::MemoryType m_backend { Config::AppConfig::instance().getProcessingBackend() };
+    Common::MemoryType m_backend{Common::MemoryType::CPU_RAM};
+
+    // ============================================================
+    // Internal Logic
+    // ============================================================
 
     /**
-     * @brief Builds and compiles the fused Halide pipeline for the stored operations.
+     * @brief Performs the "Heavy Lifting": Building the fused Halide graph.
      *
-     * This private helper method is called once during construction to
-     * build the combined Halide function from all the operations in m_operations,
-     * apply the appropriate scheduling based on the target backend, and compile
-     * it into a Halide::Pipeline object stored in m_saved_pipeline.
-     * This compilation step is computationally expensive and is therefore cached.
+     * @details
+     * This method chains the operations into a single function graph.
+     * It uses the `IOperationFusionLogic` interface of each operation to append its
+     * contribution to the pipeline.
      */
-    void savePipeline() const;
+    void buildPipeline();
 
     /**
-     * @brief Executes the pipeline using a concrete WorkingImageCPU_Halide implementation.
+     * @brief Applies scheduling based on the cached backend type.
      *
-     * This method is called when the configured backend is CPU and the working_image
-     * parameter can be cast to WorkingImageCPU_Halide. It uses the internal conversion
-     * methods of the concrete implementation to avoid intermediate copies.
-     *
-     * @param concrete_image The concrete WorkingImageCPU_Halide instance to process.
-     * @return true if the execution was successful, false otherwise.
+     * @param[in,out] pipeline The Halide Func to schedule.
+     * @param x The Halide Var for the x dimension.
+     * @param y The Halide Var for the y dimension.
+     * @param c The Halide Var for the channel dimension.
      */
-    [[nodiscard]] bool executeWithConcreteCPU(
-        ImageProcessing::WorkingImageCPU_Halide& concrete_image
-        ) const;
+    void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const;
+
+    // ============================================================
+    // Template Implementation
+    // ============================================================
 
     /**
-     * @brief Executes the pipeline using a concrete WorkingImageGPU_Halide implementation.
+     * @brief Executes pipeline on a concrete WorkingImageHalide implementation.
      *
-     * This method is called when the configured backend is GPU and the working_image
-     * parameter can be cast to WorkingImageGPU_Halide. It uses the internal conversion
-     * methods of the concrete implementation to avoid intermediate copies.
+     * @details
+     * This template method expects an object derived from both WorkingImageHalide
+     * and IWorkingImageHardware (e.g., WorkingImageCPU_Halide, WorkingImageGPU_Halide).
+     * It accesses metadata via the IWorkingImageHardware interface and the Halide buffer
+     * via the WorkingImageHalide interface.
      *
-     * @param concrete_image The concrete WorkingImageGPU_Halide instance to process.
-     * @return true if the execution was successful, false otherwise.
+     * @tparam ConcreteImage A type that inherits from both WorkingImageHalide and IWorkingImageHardware.
+     * @param[in] concrete_image The concrete working image object.
+     * @return true on success, false on failure.
      */
-    [[nodiscard]] bool executeWithConcreteGPU(
-        ImageProcessing::WorkingImageGPU_Halide& concrete_image
-        ) const;
+    template<typename ConcreteImage>
+    [[nodiscard]] bool executeWithConcreteHalide(
+        ConcreteImage& concrete_image
+        ) const {
+        // Validate State (using IWorkingImageHardware interface)
+        if (!concrete_image.isValid()) {
+            spdlog::error("[OperationPipelineExecutor] Concrete Halide Image (via HW interface) is invalid. Cannot execute.");
+            return false;
+        }
 
-    /**
-     * @brief Executes the pipeline using a generic IWorkingImageHardware interface.
-     *
-     * This method handles the case where the concrete implementation is unknown
-     * or when the configured backend doesn't match the working image type.
-     * It falls back to using exportToCPUCopy and updateFromCPU methods.
-     * This may involve additional data copying compared to the concrete implementation path.
-     *
-     * @param working_image The generic IWorkingImageHardware instance to process.
-     * @return true if the execution was successful, false otherwise.
-     */
-    [[nodiscard]] bool executeGeneric(
-        ImageProcessing::IWorkingImageHardware& working_image
-        ) const;
+        // Fetch Metadata (using IWorkingImageHardware interface)
+        const auto [width, height] = concrete_image.getSize();
+        size_t channels = concrete_image.getChannels();
 
-    /**
-     * @brief Executes the fused pipeline directly on the provided Halide buffer.
-     *
-     * This private helper method constructs and executes the complete pipeline
-     * from the list of operation descriptors directly onto the given buffer.
-     * The pipeline operates in-place, modifying the buffer's data without creating
-     * intermediate copies. This ensures optimal performance by writing results
-     * directly into the target memory location.
-     *
-     * @param buffer The Halide buffer on which to execute the pipeline. The buffer
-     *               must be properly initialized and contain valid image data.
-     * @param width The width of the image data in the buffer.
-     * @param height The height of the image data in the buffer.
-     * @param channels The number of color channels in the image data.
-     * @return true if the pipeline executed successfully, false if any error occurred.
-     */
-    [[nodiscard]] bool executePipelineOnBuffer(
-        Halide::Buffer<float>& buffer,
-        size_t width,
-        size_t height,
-        size_t channels
-        ) const;
+        if (width <= 0 || height <= 0 || channels == 0) {
+            spdlog::error("[OperationPipelineExecutor] Invalid dimensions ({}x{}, {} ch).", width, height, channels);
+            return false;
+        }
+
+        spdlog::debug("[OperationPipelineExecutor] Executing fused pipeline on {}x{}x{} image...", width, height, channels);
+
+        // Get direct Halide buffer (Zero-Copy view of m_data) - using WorkingImageHalide interface
+        // static_cast to access the WorkingImageHalide part of the ConcreteImage
+        auto& halide_part = static_cast<const ImageProcessing::WorkingImageHalide&>(concrete_image);
+        Halide::Buffer<float> working_buffer = halide_part.getHalideBuffer();
+
+        if (!working_buffer.defined()) {
+            spdlog::error("[OperationPipelineExecutor] Halide buffer is invalid.");
+            return false;
+        }
+
+        // Execute directly on buffer using cached pipeline
+        if (!m_saved_pipeline) {
+            spdlog::error("[OperationPipelineExecutor] executeWithConcreteHalide: Pipeline not built. Cannot execute.");
+            return false;
+        }
+
+        return executeOnHalideBuffer(working_buffer);
+    }
 };
 
 } // namespace Pipeline
 
 } // namespace CaptureMoment::Core
+
