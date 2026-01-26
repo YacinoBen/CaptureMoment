@@ -46,6 +46,7 @@ set(CORE_SOURCES
     # Pipeline
     src/pipeline/operation_pipeline_executor.cpp
     src/pipeline/operation_pipeline_builder.cpp
+    src/pipeline/fallback_pipeline_executor.cpp
 
     src/serializer/file_serializer_manager.cpp
     src/serializer/operation_serialization.cpp
