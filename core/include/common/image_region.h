@@ -34,6 +34,7 @@ namespace Common {
  *
  * @par Memory Layout
  * Row-major order: `data[(y * width + x) * channels + c]`.
+ * Total number of elements: `getDataSize() = width * height * channels`.
  *
  * @par Design Choice (Value Type)
  * ImageRegion is designed as a POD-like struct for efficient copying/moving by value
@@ -103,6 +104,14 @@ struct ImageRegion {
      */
     [[nodiscard]] constexpr std::size_t sizeInBytes() const noexcept {
         return m_data.size() * sizeof(float);
+    }
+
+    /**
+     * @brief Calculates the total number of data elements (pixels * channels) in the pixel data buffer.
+     * @return The total number of float elements (m_width * m_height * m_channels).
+     */
+    [[nodiscard]] constexpr std::size_t getDataSize() const noexcept {
+        return m_data.size();
     }
 
     /**
