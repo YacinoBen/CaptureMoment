@@ -18,7 +18,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <algorithm>  
+#include <algorithm>
+#include <utility>
 
 // ============================================================
 // 2. External Libraries
@@ -33,6 +34,10 @@
 
 // Core Image Processing (This is where image_processing.h goes)
 #include "image_processing/image_processing.h"
+
+
+// Core Common & Error Handling
+#include "common/error_handling/core_error.h"
 
 // ============================================================
 // 4. Internal Core - Common & Config
