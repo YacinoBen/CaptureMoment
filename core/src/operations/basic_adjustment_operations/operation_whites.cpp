@@ -162,4 +162,39 @@ Halide::Func OperationWhites::appendToFusedPipeline(
     return applyWhitesAdjustment(input_func, whites_value, x, y, c);
 }
 
+bool OperationWhites::executeOnImageRegion(Common::ImageRegion& region, const OperationDescriptor& params) const
+{
+    if (!region.isValid()) {
+        spdlog::error("[OperationWhites] executeOnImageRegion: Invalid ImageRegion.");
+        return false;
+    }
+
+    const float whites_value = params.params.whites;
+    const size_t pixel_count = region.getDataSize();
+
+    // Apply white level adjustment to each pixel
+    // Note: This is a simplified linear adjustment. More complex curves might be used in practice.
+    for (size_t i = 0; i < pixel_count; ++i)
+    {
+        // Adjust pixel value based on the white level parameter
+        // Example: Shift the curve so pixels near 1.0 are affected
+        // (Real formula might involve exponential or logarithmic adjustments)
+        region.m_data[i] = std::clamp(region.m_data[i] + whites_value, 0.0f, 1.0f);
+        // Note: Adding directly is a simplification. Real white adjustment is often more subtle.
+        // A more precise formula might involve adjusting the slope towards 1.0.
+    }
+
+    // Optional: Alternative implementation using OpenCV (requires converting ImageRegion to cv::Mat)
+    /*
+    cv::Mat cv_region(region.m_height, region.m_width, CV_32FC(region.m_channels), region.m_data.data());
+    // Apply OpenCV white adjustment (e.g., using cv::LUT or custom calculation)
+    // cv::Mat mask = (cv_region > 0.8); // Example mask for whites
+    // cv_region.setTo(cv_region + whites_value, mask); // Example adjustment (adjust as needed)
+    // Convert back if necessary (data is already modified in-place via cv::Mat view)
+    */
+
+    spdlog::debug("[OperationWhites] Applied whites {} to {} pixels.", whites_value, pixel_count);
+    return true;
+}
+
 } // namespace CaptureMoment::Core::Operations

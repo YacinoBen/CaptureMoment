@@ -146,4 +146,40 @@ Halide::Func OperationContrast::appendToFusedPipeline(
     return applyContrastAdjustment(input_func, contrast_value, x, y, c);
 }
 
+bool OperationContrast::executeOnImageRegion(Common::ImageRegion& region, const OperationDescriptor& params) const
+{
+    if (!region.isValid()) {
+        spdlog::error("[OperationContrast] executeOnImageRegion: Invalid ImageRegion.");
+        return false;
+    }
+
+    const float contrast_value = params.params.contrast;
+    const size_t pixel_count = region.getDataSize();
+
+    // Apply contrast adjustment to each pixel (centered around mid-gray 0.5f)
+    // Formula: pixel = (pixel - 0.5f) * (1 + contrast_value) + 0.5f
+    // Then clamp to [0.0f, 1.0f]
+    const float factor = 1.0f + contrast_value;
+
+    for (size_t i = 0; i < pixel_count; ++i)
+    {
+        float pixel_val = region.m_data[i];
+        pixel_val = (pixel_val - 0.5f) * factor + 0.5f;
+        region.m_data[i] = std::clamp(pixel_val, 0.0f, 1.0f);
+    }
+
+    // Optional: Alternative implementation using OpenCV (requires converting ImageRegion to cv::Mat)
+    /*
+    cv::Mat cv_region(region.m_height, region.m_width, CV_32FC(region.m_channels), region.m_data.data());
+    // Apply OpenCV contrast adjustment (e.g., using cv::convertScaleAbs with alpha and beta)
+    // double alpha = 1.0 + contrast_value; // Contrast control
+    // double beta = 0.5 * (1 - alpha);   // Brightness control to center around 0.5
+    // cv_region.convertTo(cv_region, -1, alpha, beta);
+    // Convert back if necessary (data is already modified in-place via cv::Mat view)
+    */
+
+    spdlog::debug("[OperationContrast] Applied contrast {} to {} pixels.", contrast_value, pixel_count);
+    return true;
+}
+
 } // namespace CaptureMoment::Core::Operations

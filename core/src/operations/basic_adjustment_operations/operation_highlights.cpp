@@ -162,4 +162,36 @@ Halide::Func OperationHighlights::appendToFusedPipeline(
     return applyHighlightsAdjustment(input_func, highlights_value, x, y, c);
 }
 
+bool OperationHighlights::executeOnImageRegion(Common::ImageRegion& region, const OperationDescriptor& params) const
+{
+    if (!region.isValid()) {
+        spdlog::error("[OperationHighlights] executeOnImageRegion: Invalid ImageRegion.");
+        return false;
+    }
+
+    const float highlights_value = params.params.highlights;
+    const size_t pixel_count = region.getDataSize();
+
+    // Apply highlight adjustment to each pixel
+    // Note: This is a simplified linear adjustment affecting mainly pixels near 1.0
+    // (Real formula might involve more complex gamma or tone mapping curves)
+    for (size_t i = 0; i < pixel_count; ++i) {
+        // Adjust pixel value based on the highlight parameter
+        // Example: Interpolation affecting mainly high values
+        const float factor = 1.0f - highlights_value; // Reduction of distance to 1.0
+        region.m_data[i] = std::clamp(1.0f - ((1.0f - region.m_data[i]) * factor), 0.0f, 1.0f);
+    }
+
+    // Optional: Alternative implementation using OpenCV (requires converting ImageRegion to cv::Mat)
+    /*
+    cv::Mat cv_region(region.m_height, region.m_width, CV_32FC(region.m_channels), region.m_data.data());
+    // Apply OpenCV highlight adjustment (e.g., using cv::LUT or custom calculation)
+    // cv::Mat mask = (cv_region > 0.5); // Example mask for highlights
+    // cv_region.setTo(cv_region + highlights_value, mask); // Example adjustment (adjust as needed)
+    // Convert back if necessary (data is already modified in-place via cv::Mat view)
+    */
+
+    spdlog::debug("[OperationHighlights] Applied highlights {} to {} pixels.", highlights_value, pixel_count);
+    return true;
+}
 } // namespace CaptureMoment::Core::Operations

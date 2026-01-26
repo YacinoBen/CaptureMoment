@@ -162,4 +162,41 @@ Halide::Func OperationShadows::appendToFusedPipeline(
     return applyShadowsAdjustment(input_func, shadows_value, x, y, c);
 }
 
+bool OperationShadows::executeOnImageRegion(Common::ImageRegion& region, const OperationDescriptor& params) const
+{
+    if (!region.isValid()) {
+        spdlog::error("[OperationShadows] executeOnImageRegion: Invalid ImageRegion.");
+        return false;
+    }
+
+    const float shadows_value = params.params.shadows;
+    const size_t pixel_count = region.getDataSize();
+
+    // Apply shadow level adjustment to each pixel
+    // Note: This is a simplified linear adjustment. More complex curves might be used in practice.
+    for (size_t i = 0; i < pixel_count; ++i)
+    {
+        // Adjust pixel value based on the shadow level parameter
+        // Example: Boost darker tones more than midtones/highlights
+        // (Real formula might involve gamma correction or similar)
+        // A simple approach: interpolate between shadows_value and original value
+        // emphasizing changes for low pixel values.
+        const float original_val = region.m_data[i];
+        const float adjusted_val = original_val + (shadows_value * (1.0f - original_val)); // Boost dark areas
+        region.m_data[i] = std::clamp(adjusted_val, 0.0f, 1.0f);
+    }
+
+    // Optional: Alternative implementation using OpenCV (requires converting ImageRegion to cv::Mat)
+    /*
+    cv::Mat cv_region(region.m_height, region.m_width, CV_32FC(region.m_channels), region.m_data.data());
+    // Apply OpenCV shadow adjustment (e.g., using LUT or custom calculation based on pixel intensity)
+    // Example: Increase contrast in dark areas using a lookup table or curve
+    // cv::LUT(cv_region, shadow_lut, cv_region); // Assuming shadow_lut is pre-calculated
+    // Convert back if necessary (data is already modified in-place via cv::Mat view)
+    */
+
+    spdlog::debug("[OperationShadows] Applied shadows {} to {} pixels.", shadows_value, pixel_count);
+    return true;
+}
+
 } // namespace CaptureMoment::Core::Operations

@@ -146,4 +146,32 @@ Halide::Func OperationBrightness::appendToFusedPipeline(
     return applyBrightnessAdjustment(input_func, brightness_value, x, y, c);
 }
 
+bool OperationBrightness::executeOnImageRegion(Common::ImageRegion& region, const OperationDescriptor& params) const
+{
+    if (!region.isValid()) {
+        spdlog::error("[OperationBrightness] executeOnImageRegion: Invalid ImageRegion.");
+        return false;
+    }
+
+    const float brightness_value = params.params.brightness;
+    const size_t pixel_count = region.getDataSize();
+
+    // Apply brightness adjustment to each pixel
+    for (size_t i = 0; i < pixel_count; ++i) {
+        region.m_data[i] = std::clamp(region.m_data[i] + brightness_value, 0.0f, 1.0f);
+    }
+
+    // Optional: Alternative implementation using OpenCV (requires converting ImageRegion to cv::Mat)
+    /*
+    cv::Mat cv_region(region.m_height, region.m_width, CV_32FC(region.m_channels), region.m_data.data());
+    // Apply OpenCV brightness adjustment (e.g., using cv::convertScaleAbs or cv::addWeighted)
+    // cv::Mat adjusted_region;
+    // cv::addWeighted(cv_region, 1.0, cv::Mat::zeros(cv_region.size(), cv_region.type()), 0.0, brightness_value, adjusted_region);
+    // cv_region = adjusted_region; // Assign back to original data view
+    */
+
+    spdlog::debug("[OperationBrightness] Applied brightness {} to {} pixels.", brightness_value, pixel_count);
+    return true;
+}
+
 } // namespace CaptureMoment::Core::Operations

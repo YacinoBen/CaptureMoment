@@ -8,6 +8,7 @@
 #pragma once
 #include "operations/interfaces/i_operation.h"
 #include "operations/interfaces/i_operation_fusion_logic.h"
+#include "operations/interfaces/i_operation_default_logic.h"
 #include "operations/operation_ranges.h"
 
 namespace CaptureMoment::Core {
@@ -34,7 +35,7 @@ namespace Operations {
  * - > 0: Brighten whites (make them more bright)
  * - < 0: Darken whites (make them less bright)
  */
-class OperationWhites : public IOperation,  public IOperationFusionLogic
+class OperationWhites : public IOperation,  public IOperationFusionLogic, public IOperationDefaultLogic
 {
 public:
     // --- Metadata ---
@@ -110,6 +111,15 @@ public:
         const Halide::Var& x,
         const Halide::Var& y,
         const Halide::Var& c,
+        const OperationDescriptor& params
+        ) const override;
+
+
+    /**
+     * @brief Executes the adjustment on a raw ImageRegion (CPU fallback).
+     */
+    [[nodiscard]] bool executeOnImageRegion(
+        Common::ImageRegion& region,
         const OperationDescriptor& params
         ) const override;
 };

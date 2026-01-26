@@ -164,4 +164,35 @@ Halide::Func OperationBlacks::appendToFusedPipeline(
     return applyBlacksAdjustment(input_func, blacks_value, x, y, c);
 }
 
+bool OperationBlacks::executeOnImageRegion(Common::ImageRegion& region, const OperationDescriptor& params) const
+{
+    if (!region.isValid()) {
+        spdlog::error("[OperationBlacks] executeOnImageRegion: Invalid ImageRegion.");
+        return false;
+    }
+
+    const float blacks_value = params.params.blacks;
+    const size_t pixel_count = region.getDataSize();
+
+    // Apply black level adjustment to each pixel
+    // Note: This is a simplified linear adjustment. More complex curves might be used in practice.
+    for (size_t i = 0; i < pixel_count; ++i) {
+        // Adjust pixel value based on the black level parameter
+        // Example: Shift the curve so pixels near 0.0 are affected
+        // (Real formula might be more complex, e.g., involving gamma correction)
+        region.m_data[i] = std::clamp(blacks_value + (region.m_data[i] * (1.0f - blacks_value)), 0.0f, 1.0f);
+    }
+
+    // Optional: Alternative implementation using OpenCV (requires converting ImageRegion to cv::Mat)
+    /*
+    cv::Mat cv_region(region.m_height, region.m_width, CV_32FC(region.m_channels), region.m_data.data());
+    // Apply OpenCV adjustment (e.g., using cv::LUT or custom LUT calculation)
+    // cv::convertScaleAbs(cv_region, cv_region, 255.0, -blacks_value * 255.0); // Example (adjust as needed)
+    // Convert back if necessary (data is already modified in-place via cv::Mat view)
+    */
+
+    spdlog::debug("[OperationBlacks] Applied blacks {} to {} pixels.", blacks_value, pixel_count);
+    return true;
+}
+
 } // namespace CaptureMoment::Core::Operations
