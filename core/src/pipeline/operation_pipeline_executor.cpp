@@ -16,7 +16,7 @@
 
 #include "pipeline/operation_pipeline_executor.h"
 #include "operations/operation_factory.h"
-#include "image_processing/halide/working_image_halide.h" // Updated include
+#include "image_processing/halide/working_image_halide.h"
 #include "image_processing/cpu/working_image_cpu_halide.h"
 #include "image_processing/gpu/working_image_gpu_halide.h"
 #include "config/app_config.h"
