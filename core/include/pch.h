@@ -36,6 +36,9 @@
 #include "image_processing/image_processing.h"
 
 
+// Core Pipeline Module
+#include "pipeline/pipeline.h"
+
 // Core Common & Error Handling
 #include "common/error_handling/core_error.h"
 
