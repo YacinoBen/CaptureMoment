@@ -27,13 +27,12 @@ WorkingImageCPU_Default::WorkingImageCPU_Default(std::unique_ptr<Common::ImageRe
     }
 }
 
-std::expected<void, std::error_code>
-WorkingImageCPU_Default::updateFromCPU(const Common::ImageRegion& cpu_image)
+std::expected<void, ErrorHandling::CoreError> WorkingImageCPU_Default::updateFromCPU(const Common::ImageRegion& cpu_image)
 {
     if (!cpu_image.isValid())
     {
         spdlog::warn("[WorkingImageCPU_Default] Input ImageRegion is invalid");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     std::shared_ptr<Common::ImageRegion> new_image_ptr;
@@ -45,13 +44,13 @@ WorkingImageCPU_Default::updateFromCPU(const Common::ImageRegion& cpu_image)
     catch (const std::bad_alloc& e)
     {
         spdlog::critical("[WorkingImageCPU_Default] Failed to allocate memory for new ImageRegion: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
 
     if (!new_image_ptr)
     {
         spdlog::critical("[WorkingImageCPU_Default] std::make_shared returned a null pointer unexpectedly.");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
 
     try
@@ -62,7 +61,7 @@ WorkingImageCPU_Default::updateFromCPU(const Common::ImageRegion& cpu_image)
     catch (...)
     {
         spdlog::critical("[WorkingImageCPU_Default] Exception occurred during assignment of ImageRegion data.");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     // Update internal state
@@ -74,13 +73,13 @@ WorkingImageCPU_Default::updateFromCPU(const Common::ImageRegion& cpu_image)
     return {}; // Success
 }
 
-std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU_Default::exportToCPUCopy()
 {
     if (!isValid())
     {
         spdlog::warn("[WorkingImageCPU_Default] Current image data is invalid, cannot export");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidWorkingImage));
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
     std::unique_ptr<Common::ImageRegion> new_image_copy;
@@ -90,7 +89,7 @@ WorkingImageCPU_Default::exportToCPUCopy()
         if (!new_image_copy)
         {
             spdlog::critical("[WorkingImageCPU_Default] Failed to allocate memory for exported ImageRegion (copy).");
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
 
         // Perform deep copy
@@ -99,18 +98,18 @@ WorkingImageCPU_Default::exportToCPUCopy()
     catch (const std::bad_alloc& e)
     {
         spdlog::critical("[WorkingImageCPU_Default] Failed to allocate memory for exported ImageRegion (copy): {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
     catch (...)
     {
         spdlog::critical("[WorkingImageCPU_Default] Exception occurred during copy of ImageRegion data.");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     if (!new_image_copy->isValid())
     {
         spdlog::error("[WorkingImageCPU_Default] Exported ImageRegion copy is invalid (unexpected).");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     spdlog::debug("[WorkingImageCPU_Default] Successfully exported image data COPY ({}x{}, {} ch)",
@@ -119,13 +118,13 @@ WorkingImageCPU_Default::exportToCPUCopy()
     return new_image_copy;
 }
 
-std::expected<std::shared_ptr<Common::ImageRegion>, std::error_code>
+std::expected<std::shared_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU_Default::exportToCPUShared() const
 {
     if (!isValid())
     {
         spdlog::warn("[WorkingImageCPU_Default] Current image data is invalid, cannot export shared reference");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidWorkingImage));
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
     // No copy, just return the internal shared pointer
