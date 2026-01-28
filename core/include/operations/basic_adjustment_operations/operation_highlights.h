@@ -75,9 +75,9 @@ public:
      * Performs a validation check to ensure the value is within the defined range [MIN_HIGHLIGHTS_VALUE, MAX_HIGHLIGHTS_VALUE].
      * @param working_image The hardware-agnostic image buffer to modify.
      * @param params Must contain a "value" (float) parameter.
-     * @return true if successful.
+     * @return std::expected<void, ErrorHandling::CoreError>.
      */
-    [[maybe_unused]] [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
+    [[maybe_unused]] [[nodiscard]] std::expected<void, ErrorHandling::CoreError> execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 
     /**
      * @brief Appends this operation's logic to a fused Halide pipeline.
@@ -119,7 +119,7 @@ public:
     /**
      * @brief Executes the adjustment on a raw ImageRegion (CPU fallback).
      */
-    [[nodiscard]] bool executeOnImageRegion(
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> executeOnImageRegion(
         Common::ImageRegion& region,
         const OperationDescriptor& params
         ) const override;
