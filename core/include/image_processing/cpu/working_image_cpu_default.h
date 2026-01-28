@@ -74,7 +74,7 @@ public:
      * @param cpu_image The source image data residing in CPU memory.
      * @return std::expected<void, std::error_code> Success or error code.
      */
-    [[nodiscard]] std::expected<void,  ErrorHandling::CoreError>
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU(const Common::ImageRegion& cpu_image) override;
 
     /**
@@ -102,8 +102,7 @@ public:
      * @return std::expected<std::shared_ptr<Common::ImageRegion>, std::error_code>
      *         Shared pointer to internal data on success, or error code if invalid.
      */
-    [[nodiscard]] std::expected<std::shared_ptr<Common::ImageRegion>, std::error_code>
-    exportToCPUShared() const;
+    [[nodiscard]] std::expected<std::shared_ptr<Common::ImageRegion>, ErrorHandling::CoreError> exportToCPUShared() const;
 
     /**
      * @brief Gets dimensions (width, height) of internal image data.
