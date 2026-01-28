@@ -52,7 +52,7 @@ public:
      * @param cpu_image The source image data.
      * @return std::expected<void, std::error_code> Success or error.
      */
-    [[nodiscard]] virtual std::expected<void, std::error_code>
+    [[nodiscard]] virtual std::expected<void, ErrorHandling::CoreError>
     updateFromCPU(const Common::ImageRegion& cpu_image) = 0;
 
     /**
@@ -65,7 +65,7 @@ public:
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
      *         Unique pointer to copied data on success.
      */
-    [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+    [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     exportToCPUCopy() = 0;
 
     /**

@@ -56,7 +56,7 @@ public:
      * @param cpu_image The source image data.
      * @return std::expected<void, std::error_code>.
      */
-    [[nodiscard]] std::expected<void, std::error_code>
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU(const Common::ImageRegion& cpu_image) override;
 
 
@@ -67,7 +67,7 @@ public:
      * @param cpu_image The source image data (rvalue reference).
      * @return std::expected<void, std::error_code>.
      */
-    [[nodiscard]] std::expected<void, std::error_code>
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU(Common::ImageRegion&& cpu_image);
 
     /**
@@ -76,7 +76,7 @@ public:
      *
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
      */
-    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     exportToCPUCopy() override;
 
     /**

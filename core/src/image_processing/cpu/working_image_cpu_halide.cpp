@@ -6,8 +6,9 @@
  */
 
 #include "image_processing/cpu/working_image_cpu_halide.h"
+
 #include <spdlog/spdlog.h>
-#include <utility> // For std::move
+#include <utility>
 #include <cstring>
 
 namespace CaptureMoment::Core::ImageProcessing {
@@ -29,7 +30,7 @@ WorkingImageCPU_Halide::WorkingImageCPU_Halide(std::unique_ptr<Common::ImageRegi
     }
 }
 
-std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU_Halide::convertHalideToImageRegion()
 {
     try {
@@ -45,7 +46,7 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
         cpu_image_copy->m_data = m_data;
 
         if (!cpu_image_copy->isValid()) {
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+            return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
         }
 
         spdlog::debug("WorkingImageCPU_Halide::convertHalideToImageRegion: Exported ImageRegion ({}x{}, {} ch)",
@@ -55,20 +56,20 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
 
     } catch (const std::bad_alloc& e) {
         spdlog::critical("WorkingImageCPU_Halide::convertHalideToImageRegion: Failed to allocate memory: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
-    } catch (const std::exception& e) {
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+        } catch (const std::exception& e) {
         spdlog::critical("WorkingImageCPU_Halide::convertHalideToImageRegion: Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+            return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 }
 
 
-std::expected<void, std::error_code>
+std::expected<void,  ErrorHandling::CoreError>
 WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
 {
     if (!cpu_image.isValid()) {
         spdlog::warn("WorkingImageCPU_Halide::updateFromCPU: Input ImageRegion is invalid");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     try {
@@ -77,7 +78,7 @@ WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
 
         if (m_data.empty()) {
             spdlog::error("WorkingImageCPU_Halide::updateFromCPU: Data vector is empty after copy");
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+            return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
         }
 
         spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Copied {} elements from ImageRegion to internal storage",
@@ -92,19 +93,18 @@ WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
 
     } catch (const std::bad_alloc& e) {
         spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Allocation failed: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     } catch (const std::exception& e) {
         spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 }
 
-std::expected<void, std::error_code>
-WorkingImageCPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
+std::expected<void, ErrorHandling::CoreError> WorkingImageCPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
 {
     if (!cpu_image.isValid()) {
         spdlog::warn("WorkingImageCPU_Halide::updateFromCPU: Input ImageRegion is invalid");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     try {
@@ -113,7 +113,7 @@ WorkingImageCPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
 
         if (m_data.empty()) {
             spdlog::error("WorkingImageCPU_Halide::updateFromCPU: Data vector is empty after move");
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+            return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
         }
 
         spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: MOVED {} elements from ImageRegion to internal storage",
@@ -130,19 +130,19 @@ WorkingImageCPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
     } catch (const std::bad_alloc& e) {
         // Note: Move assignment usually doesn't throw bad_alloc, but initializeHalide or resize might.
         spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Allocation failed during init: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     } catch (const std::exception& e) {
         spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 }
 
-std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU_Halide::exportToCPUCopy()
 {
     if (!isValid()) {
         spdlog::warn("WorkingImageCPU_Halide::exportToCPUCopy: Current Halide buffer is invalid, cannot export");
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidWorkingImage));
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
     return convertHalideToImageRegion();

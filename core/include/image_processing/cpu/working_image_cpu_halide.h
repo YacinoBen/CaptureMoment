@@ -8,7 +8,6 @@
 #pragma once
 #include "image_processing/halide/working_image_halide.h"
 #include "image_processing/cpu/interfaces/i_working_image_cpu.h"
-#include "common/error_handling/core_error.h"
 
 #include <memory>
 #include <expected>
@@ -43,7 +42,7 @@ public:
      * @param cpu_image The source image data (const reference).
      * @return std::expected<void, std::error_code>. Void on success, error code on failure.
      */
-    [[nodiscard]] std::expected<void, std::error_code>
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU(const Common::ImageRegion& cpu_image) override;
 
 
@@ -56,7 +55,7 @@ public:
      * @param cpu_image The source image data (rvalue reference).
      * @return std::expected<void, std::error_code>. Void on success, error code on failure.
      */
-    [[nodiscard]] std::expected<void, std::error_code>
+    [[nodiscard]] std::expected<void,  ErrorHandling::CoreError>
     updateFromCPU(Common::ImageRegion&& cpu_image);
 
     /**
@@ -67,7 +66,7 @@ public:
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
      *         Unique pointer to data on success, error code on failure.
      */
-    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
     exportToCPUCopy() override;
 
     /**
@@ -122,7 +121,7 @@ private:
      *
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
      */
-    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     convertHalideToImageRegion();
 };
 

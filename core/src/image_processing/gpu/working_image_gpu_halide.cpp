@@ -44,12 +44,12 @@ WorkingImageGPU_Halide::WorkingImageGPU_Halide(std::unique_ptr<Common::ImageRegi
 }
 
 
-std::expected<void, std::error_code>
+std::expected<void, ErrorHandling::CoreError>
 WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
 {
     if (!cpu_image.isValid())
     {
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     try
@@ -63,7 +63,7 @@ WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
 
         if (m_data.empty())
         {
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
 
         spdlog::debug("[WorkingImageGPU_Halide] Copied {} elements to internal storage", m_data.size());
@@ -77,7 +77,7 @@ WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
         if (result != 0)
         {
             spdlog::critical("[WorkingImageGPU_Halide] copy_to_device failed with error code: {}", result);
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidWorkingImage));
+            return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
         }
 
         updateCachedMetadata(cpu_image);
@@ -87,21 +87,21 @@ WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
     catch (const std::bad_alloc& e)
     {
         spdlog::critical("[WorkingImageGPU_Halide] Allocation failed: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
     catch (const std::exception& e)
     {
         spdlog::critical("[WorkingImageGPU_Halide] Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 }
 
-std::expected<void, std::error_code>
+std::expected<void, ErrorHandling::CoreError>
 WorkingImageGPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
 {
     if (!cpu_image.isValid())
     {
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     try
@@ -114,7 +114,7 @@ WorkingImageGPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
 
         if (m_data.empty())
         {
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
 
         spdlog::debug("[WorkingImageGPU_Halide] MOVED {} elements to internal storage", m_data.size());
@@ -128,7 +128,7 @@ WorkingImageGPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
         if (result != 0)
         {
             spdlog::critical("[WorkingImageGPU_Halide] copy_to_device failed with error code: {}", result);
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidWorkingImage));
+            return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
         }
 
         updateCachedMetadata(cpu_image);
@@ -138,21 +138,21 @@ WorkingImageGPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
     catch (const std::bad_alloc& e)
     {
         spdlog::critical("[WorkingImageGPU_Halide] Allocation failed: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
     catch (const std::exception& e)
     {
         spdlog::critical("[WorkingImageGPU_Halide] Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 }
 
-std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageGPU_Halide::exportToCPUCopy()
 {
     if (!isValid())
     {
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidWorkingImage));
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
     try
@@ -173,7 +173,7 @@ WorkingImageGPU_Halide::exportToCPUCopy()
         if (result != 0)
         {
             spdlog::critical("[WorkingImageGPU_Halide] copy_to_host failed with error code: {}", result);
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidWorkingImage));
+            return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
         }
 
         // Copy from synced host memory (m_halide_buffer) to new ImageRegion vector
@@ -185,7 +185,7 @@ WorkingImageGPU_Halide::exportToCPUCopy()
 
         if (!cpu_image_copy->isValid())
         {
-            return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+            return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
         }
 
         spdlog::debug("[WorkingImageGPU_Halide] Successfully exported data COPY ({}x{}, {} ch)",
@@ -197,12 +197,12 @@ WorkingImageGPU_Halide::exportToCPUCopy()
     catch (const std::bad_alloc& e)
     {
         spdlog::critical("[WorkingImageGPU_Halide] Failed to allocate memory: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::AllocationFailed));
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
     catch (const std::exception& e)
     {
         spdlog::critical("[WorkingImageGPU_Halide] Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::make_error_code(ErrorHandling::CoreError::InvalidImageRegion));
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 }
 
