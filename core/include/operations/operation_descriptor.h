@@ -6,86 +6,62 @@
  */
 
 #pragma once
+
 #include "operation_type.h"
+#include "common/error_handling/core_error.h"
 #include <string>
 #include <unordered_map>
-#include <any>
+#include <variant>
+#include <expected>
 
 namespace CaptureMoment::Core {
 
 namespace Operations {
 
 /**
+ * @brief Supported types for operation parameters.
+ * Using variant instead of std::any for compile-time type safety and performance.
+ */
+using OperationValue = std::variant<float, int, bool, std::string>;
+
+/**
  * @struct OperationDescriptor
  * @brief A universal container for operation settings.
- * * This structure holds all the information required to execute a specific
- * image processing operation. It uses a generic parameter map to support
- * any type of configuration (simple floats, complex objects, strings, etc.)
- * without changing the data structure.
- * * @par Usage Example
- * @code
- * OperationDescriptor desc;
- * desc.type = OperationType::Brightness;
- * desc.name = "Brightness";
- * desc.params["value"] = 0.2f; // Increase brightness by 0.2
- * * // Passing to execution
- * brightnessOp.execute(region, desc);
- * @endcode
  */
-
 struct OperationDescriptor {
-    /**
-     * @brief The unique identifier of the operation type.
-     */
     OperationType type;
-    
-    /**
-     * @brief A human-readable name for the operation instance.
-     * Useful for UI history stack (e.g., "Brightness (+0.5)").
-     */
     std::string name;
- 
+    bool enabled{true};
+
     /**
-     * @brief Whether this operation is currently active.
-     * If false, the pipeline should skip this operation.
+     * @brief Generic parameter storage using variant (Type Safe).
      */
-    bool enabled {true};
-  
+    std::unordered_map<std::string, OperationValue> params;
+
     /**
-     * @brief Generic parameter storage.
-     * * Stores configuration values mapped by string keys.
-     * - Key: Parameter name (e.g., "value", "radius", "mode").
-     * - Value: std::any containing the data (float, int, string, vector, etc.).
-     * * @note Operations are responsible for validating the presence and type
-     * of their required parameters.
-     */
-    std::unordered_map<std::string, std::any> params;
-    
-    /**
-     * @brief Helper to get a parameter value safely.
-     * @tparam T The expected type of the parameter.
+     * @brief Helper to get a parameter value safely with error handling.
+     * @tparam T The expected type (must be one of OperationValue types).
      * @param key The parameter name.
-     * @param default_value Value to return if key is missing or type mismatch.
-     * @return The parameter value or default_value.
+     * @return std::expected<T, CoreError> The value or an error (NotFound, InvalidType).
      */
     template <typename T>
-    [[nodiscard]] T getParam(const std::string& key, const T& default_value) const {
+    [[nodiscard]] std::expected<T, ErrorHandling::CoreError> getParam(const std::string& key) const
+    {
         auto it = params.find(key);
-        if (it != params.end()) {
-            try {
-                return std::any_cast<T>(it->second);
-            } catch (const std::bad_any_cast&) {
-                // Type mismatch, fallback to default
-            }
+        if (it == params.end()) {
+            return std::unexpected(ErrorHandling::CoreError::Unexpected);
         }
-        return default_value;
+
+        if (std::holds_alternative<T>(it->second)) {
+            return std::get<T>(it->second);
+        } else {
+            return std::unexpected(ErrorHandling::CoreError::Unexpected);
+        }
     }
 
     /**
-     * @brief Helper to set a parameter value easily.
-     * @tparam T The type of the value.
-     * @param key The parameter name.
-     * @param value The value to store.
+     * @brief Helper to set a parameter value.
+     * @tparam T The type of the value (must be one of OperationValue types).
      */
     template <typename T>
     void setParam(const std::string& key, const T& value) {
