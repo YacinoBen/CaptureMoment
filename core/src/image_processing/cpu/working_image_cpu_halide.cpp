@@ -20,7 +20,7 @@ WorkingImageCPU_Halide::WorkingImageCPU_Halide(std::unique_ptr<Common::ImageRegi
         auto result = updateFromCPU(std::move(*initial_image));
 
         if (!result) {
-            spdlog::error("WorkingImageCPU_Halide: Constructor failed to initialize. Reason: {}", result.error().message());
+            spdlog::error("WorkingImageCPU_Halide: Constructor failed to initialize. Reason: {}", ErrorHandling::to_string(result.error()));
         } else {
             spdlog::debug("WorkingImageCPU_Halide: Constructed and initialized with valid initial image ({}x{}, {} ch)",
                           m_halide_buffer.width(), m_halide_buffer.height(), m_halide_buffer.channels());

@@ -29,7 +29,7 @@ WorkingImageGPU_Halide::WorkingImageGPU_Halide(std::unique_ptr<Common::ImageRegi
         auto result = updateFromCPU(std::move(*initial_image));
         if (!result)
         {
-            spdlog::error("[WorkingImageGPU_Halide] Failed to initialize GPU buffer. Reason: {}", result.error().message());
+            spdlog::error("[WorkingImageGPU_Halide] Failed to initialize GPU buffer. Reason: {}", ErrorHandling::to_string(result.error()));
         }
         else
         {
