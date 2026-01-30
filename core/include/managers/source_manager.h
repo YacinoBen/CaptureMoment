@@ -28,6 +28,18 @@ namespace Managers {
  * * @note The SourceManager manages the lifetime of the OIIO image buffer via 
  * a std::unique_ptr, ensuring proper resource release (RAII).
  * * @see ISourceManager
+ *
+ * **Optimization Strategy:**
+ * To ensure maximum performance for the processing pipeline (which expects RGBA_F32),
+ * the source image is converted to a standard internal format (RGBA Float32)
+ * immediately during `loadFile`. This eliminates the need for expensive channel
+ * conversion and temporary allocations in the hot paths `getTile` and `setTile`.
+ *
+ * **Compilation Fix:**
+ * We construct ImageSpec explicitly using dimensions and type to avoid potential
+ * ambiguities with copy constructors in specific OIIO configurations. We also use
+ * explicit std::vector containers for channel mapping to ensure const reference binding.
+ *
  */
 class SourceManager : public ISourceManager {
 public:
