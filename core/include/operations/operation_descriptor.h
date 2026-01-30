@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "operation_type.h"
+#include "operations/operation_type.h"
 #include "common/error_handling/core_error.h"
 #include <string>
 #include <unordered_map>
