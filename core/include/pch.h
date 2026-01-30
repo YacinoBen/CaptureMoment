@@ -27,7 +27,6 @@
 #include <Halide.h>
 #include <spdlog/spdlog.h>
 
-
 // ============================================================
 // 3. Internal Core Modules (Umbrella Headers Only)
 // ============================================================
@@ -42,24 +41,13 @@
 // Core Common & Error Handling
 #include "common/error_handling/core_error.h"
 
+// Core Operations Module
+#include "operations/operations.h"
+
 // ============================================================
 // 4. Internal Core - Common & Config
 // ============================================================
 #include "common/types/memory_type.h"
 #include "config/app_config.h"
 #include "common/image_region.h"
-
-// ============================================================
-// 5. Internal Core - Interfaces
-// ============================================================
-#include "operations/operation_type.h"
-#include "operations/interfaces/i_operation.h"
-#include "operations/interfaces/i_operation_fusion_logic.h"
-
-// ============================================================
-// 5. Internal Core - Implementation & Logic
-// ============================================================
-#include "operations/operation_descriptor.h"
-#include "operations/operation_factory.h"
-#include "operations/operation_ranges.h"
 
