@@ -33,11 +33,15 @@ public:
      * @brief Virtual destructor.
     */
     virtual ~ISourceManager() = default;
-    
+
     /**
-     * @brief Loads an image from the specified path.
-     * @param path Path to the image file (e.g., .exr, .tif, .jpg, etc.).
-     * @return true if loading is successful and the file is valid, false otherwise.
+     * @brief Loads an image file from the specified path.
+     *
+     * This method loads the image and converts it internally to RGBA_F32 (4 channels, 32-bit float).
+     * This pre-conversion optimizes subsequent `getTile()` calls.
+     *
+     * @param path The file system path to the image.
+     * @return true if the file was loaded and converted successfully, false otherwise.
      */
     [[nodiscard]] virtual bool loadFile(std::string_view path) = 0;
 
@@ -60,8 +64,6 @@ public:
      */
     [[nodiscard]] virtual int width() const noexcept = 0;
 
-        
-
     /**
      * @brief Retrieves the height (in pixels) of the source image.
      * @pre isLoaded() must be true.
@@ -69,40 +71,39 @@ public:
      */
     [[nodiscard]] virtual int height() const noexcept = 0;
 
-        
     /**
-     * @brief Retrieves the number of channels in the source image (e.g., 3 for RGB, 4 for RGBA).
-     * @pre isLoaded() must be true.
-     * @return The number of channels.
+     * @brief Gets the number of channels of the internal buffer.
+     * @note Always returns 4 because `loadFile` forces RGBA conversion.
+     * @return Number of channels (4), or 0 if not loaded.
      */
    [[nodiscard]] virtual int channels() const noexcept = 0;
     
-        
     /**
-     * @brief Extracts a specific tile (region) from the source image.
-     * * This method is critical for tile-based processing. It copies the 
-     * data of the specified region into a new ImageRegion object.
-     * * @param x Starting X-coordinate of the tile.
-     * @param y Starting Y-coordinate of the tile.
-     * @param width Width of the tile to extract.
-     * @param height Height of the tile to extract.
-     * @return A unique pointer to a new ImageRegion containing the data, 
-     * or nullptr on failure (e.g., tile out of bounds).
+     * @brief Extracts a rectangular region (tile) of pixels from the image.
+     *
+     * This method is thread-safe. It performs the following logic:
+     * 1. Clamps the requested coordinates to the valid image boundaries.
+     * 2. Allocates a new buffer for the tile data.
+     * 3. Copies pixel data in RGBA_F32 format into the buffer.
+     *
+     * @param x X-coordinate of the top-left corner of the requested region.
+     * @param y Y-coordinate of the top-left corner of the requested region.
+     * @param width Width of the requested region.
+     * @param height Height of the requested region.
+     * @return A unique pointer to an ImageRegion containing the pixel data, or nullptr on error.
      */
     [[nodiscard]] virtual std::unique_ptr<Common::ImageRegion> getTile(
         int x, int y, int width, int height
     ) = 0;
 
-   /**
-     * @brief Writes the processed pixels back into the in-memory source buffer.
+    /**
+     * @brief Writes pixel data from a tile back into the image buffer.
      *
-     * This is the counterpart to getTile() and is used by the PipelineEngine
-     * to apply changes in-place.
+     * This method is thread-safe. It validates the tile format and bounds
+     * before updating the internal image buffer.
      *
-     * @param tile The processed ImageRegion containing new pixel data.
-     *             Must be valid (isValid() == true), in RGBA_F32 format, and have 4 channels.
-     * @return true on success.
-     * @note The coordinates (m_x, m_y) in the ImageRegion determine where the data is written.
+     * @param tile The ImageRegion containing the pixel data to write.
+     * @return true if the tile was written successfully, false on error (bounds/format mismatch).
      */
     [[nodiscard]] virtual bool setTile(const Common::ImageRegion& tile) = 0;
 
