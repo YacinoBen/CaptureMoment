@@ -13,6 +13,7 @@
 #include <memory>
 #include <string_view>
 #include <optional>
+#include <mutex>
 
 namespace CaptureMoment::Core {
 
@@ -64,7 +65,7 @@ public:
     [[nodiscard]] int width() const noexcept override;
     [[nodiscard]] int height() const noexcept override;
     [[nodiscard]] int channels() const noexcept override;
-    
+
     std::unique_ptr<Common::ImageRegion> getTile(
         int x, int y, int width, int height
     ) override;
@@ -79,6 +80,12 @@ private:
      * * Managed by a std::unique_ptr for RAII compliance.
      */
     std::unique_ptr<OIIO::ImageBuf> m_image_buf;
+
+    /**
+     * @brief Mutex protecting access to m_image_buf, m_current_path, and state changes.
+     * Mutable to allow locking in const methods (e.g., width, isLoaded).
+     */
+    mutable std::mutex m_mutex;
 
     /**
      * @brief Pointer to OIIO's global image cache.
@@ -97,6 +104,16 @@ private:
      * @return Pointer to the global ImageCache.
      */
     static OIIO::ImageCache* getGlobalCache();
+
+    /**
+     * @brief Internal helper to unload the image without locking (assumes caller holds lock).
+     */
+    void unloadInternal();
+
+    /**
+     * @brief Internal helper to check load status without locking (assumes caller holds lock).
+     */
+    [[nodiscard]] bool isLoaded_unsafe() const;
 };
 
 } // namespace Managers
