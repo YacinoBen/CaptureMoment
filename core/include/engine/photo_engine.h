@@ -9,12 +9,11 @@
 
 #include "managers/source_manager.h"
 #include "managers/state_image_manager.h"
+#include "operations/operation_descriptor.h"
 
 #include <memory>
 #include <string_view>
 #include <vector>
-
-#include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core {
 
@@ -26,7 +25,7 @@ namespace Engine {
  * The PhotoEngine acts as the main interface between the UI layer (Qt) and the core
  * image processing logic. It delegates the management of the cumulative image processing state
  * (the sequence of applied operations and the resulting image) to StateImageManager.
- *  It also manages the persistence of operations via FileSerializerManager.
+ * It also manages the persistence of operations via FileSerializerManager.
  */
 class PhotoEngine
 {
@@ -47,7 +46,6 @@ public:
      * @brief Constructs a PhotoEngine instance.
      *
      * Initializes the engine with the necessary managers and factories.
-     *
      */
     PhotoEngine();
 

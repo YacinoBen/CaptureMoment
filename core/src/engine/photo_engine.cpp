@@ -9,17 +9,16 @@
 #include "managers/state_image_manager.h"
 
 #include <string_view>
+#include <memory>
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Engine {
 
 // Constructs a PhotoEngine instance with required dependencies.
 PhotoEngine::PhotoEngine()
+    : m_source_manager(std::make_shared<Managers::SourceManager>())
+    , m_state_manager(std::make_unique<Managers::StateImageManager>(m_source_manager))
 {
-    m_source_manager = std::make_shared<Managers::SourceManager>();
-
-    m_state_manager = std::make_unique<Managers::StateImageManager>(m_source_manager);
-
     spdlog::debug("PhotoEngine: Constructed with StateImageManager using fused pipeline.");
 }
 
@@ -61,19 +60,21 @@ bool PhotoEngine::commitWorkingImageToSource()
         return false;
     }
 
-    auto* current_working_image_hw = m_state_manager->getWorkingImage();
+    // FIX : Retrait de '*' car getWorkingImage retourne un shared_ptr
+    auto current_working_image_hw = m_state_manager->getWorkingImage();
     if (!current_working_image_hw) {
         spdlog::error("PhotoEngine::commitWorkingImageToSource: No valid working image to commit.");
         return false;
     }
 
     auto cpu_copy = current_working_image_hw->exportToCPUCopy();
-    if (!cpu_copy) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: Failed to export working image to CPU copy.");
+    if (!cpu_copy.has_value()) {
+        spdlog::error("PhotoEngine::commitWorkingImageToSource: Failed to export working image to CPU copy: {}", ErrorHandling::to_string(cpu_copy.error()));
         return false;
     }
 
-    return m_source_manager->setTile(*cpu_copy);
+    // setTile attend une référence sur ImageRegion, shared_ptr s'y réfère implicitement ou on fait *
+    return m_source_manager->setTile(*cpu_copy.value());
 }
 
 // Resets the working image state via StateImageManager.
@@ -162,19 +163,19 @@ std::shared_ptr<Common::ImageRegion> PhotoEngine::getWorkingImageAsRegion() cons
         return nullptr;
     }
 
-    auto* working_image_hw = m_state_manager->getWorkingImage();
+    auto working_image_hw = m_state_manager->getWorkingImage();
     if (!working_image_hw) {
         spdlog::warn("PhotoEngine::getWorkingImageAsRegion: No valid working image hardware available.");
         return nullptr;
     }
 
     auto cpu_copy = working_image_hw->exportToCPUCopy();
-    if (!cpu_copy) {
-        spdlog::error("PhotoEngine::getWorkingImageAsRegion: Failed to export working image to CPU copy.");
+    if (!cpu_copy.has_value()) {
+        spdlog::error("PhotoEngine::getWorkingImageAsRegion: Failed to export working image to CPU copy: {}", ErrorHandling::to_string(cpu_copy.error()));
         return nullptr;
     }
 
-    return cpu_copy;
+    return std::shared_ptr<Common::ImageRegion>(cpu_copy.value().release());
 }
 
 } // namespace CaptureMoment::Core::Engine
