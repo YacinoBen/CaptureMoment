@@ -59,7 +59,7 @@ public:
     // -----------------------------------------------------------------
     // ISourceManager Implementation
     // -----------------------------------------------------------------
-    [[nodiscard]] bool loadFile(std::string_view path) override;
+    [[nodiscard]] std::expected<bool, ErrorHandling::CoreError> loadFile(std::string_view path) override;
     void unload() override;
     [[nodiscard]] bool isLoaded() const override;
     [[nodiscard]] int width() const noexcept override;

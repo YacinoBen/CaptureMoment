@@ -13,6 +13,7 @@
 #include <string_view>
 #include <memory>
 #include <optional>
+#include "common/error_handling/core_error.h"
 
 namespace CaptureMoment::Core {
 
@@ -43,7 +44,7 @@ public:
      * @param path The file system path to the image.
      * @return true if the file was loaded and converted successfully, false otherwise.
      */
-    [[nodiscard]] virtual bool loadFile(std::string_view path) = 0;
+    [[nodiscard]] virtual std::expected<bool, ErrorHandling::CoreError> loadFile(std::string_view path) = 0;
 
     /**
     * @brief Unloads the currently loaded image and frees resources.

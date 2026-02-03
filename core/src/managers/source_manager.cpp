@@ -55,7 +55,7 @@ SourceManager::~SourceManager()
 }
 
 
-bool SourceManager::loadFile(std::string_view path)
+std::expected<bool, ErrorHandling::CoreError> SourceManager::loadFile(std::string_view path)
 {
     if (path.empty()) {
         spdlog::warn("SourceManager::loadFile: Empty file path provided.");
@@ -85,7 +85,7 @@ bool SourceManager::loadFile(std::string_view path)
             spdlog::warn("SourceManager: Failed to read file '{}'. OIIO Message: {}",
                          path, m_image_buf->geterror());
             m_image_buf.reset();
-            return false;
+            return std::unexpected(ErrorHandling::CoreError::DecodingError);
         }
 
         // ============================================================
@@ -121,7 +121,7 @@ bool SourceManager::loadFile(std::string_view path)
             if (!OIIO::ImageBufAlgo::channels(*m_image_buf, converted, 4, channel_map, channel_values)) {
                 spdlog::error("SourceManager: Failed to convert channels to RGBA.");
                 m_image_buf.reset();
-                return false;
+                return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
             }
 
             // Replace the original buffer with the optimized RGBA version
@@ -142,7 +142,7 @@ bool SourceManager::loadFile(std::string_view path)
                 {
                     spdlog::error("SourceManager: Failed to convert pixel format to FLOAT.");
                     m_image_buf.reset();
-                    return false;
+                    return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
                 }
 
                 *m_image_buf = converted;
@@ -155,11 +155,17 @@ bool SourceManager::loadFile(std::string_view path)
                      m_current_path, width(), height());
         return true;
 
-    } catch (const std::exception& e) {
+    } catch (const std::bad_alloc&) {
+        // Capture spécifique du manque de mémoire
+        spdlog::critical("SourceManager::loadFile: Memory allocation failed for '{}'.", path);
+        m_image_buf.reset();
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+    }
+    catch (const std::exception& e) {
         spdlog::critical("SourceManager::loadFile: C++ Exception during file loading of '{}': {}",
                          path, e.what());
         m_image_buf.reset();
-        return false;
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 }
 
