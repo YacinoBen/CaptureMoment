@@ -146,8 +146,7 @@ void PhotoEngine::applyOperations(const std::vector<Operations::OperationDescrip
     }
 }
 
-// Gets the current working image from StateImageManager.
-ImageProcessing::IWorkingImageHardware* PhotoEngine::getWorkingImage() const
+std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const
 {
     if (!m_state_manager) {
         spdlog::warn("PhotoEngine::getWorkingImage: StateImageManager is null, returning nullptr.");

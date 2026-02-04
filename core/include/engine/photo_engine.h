@@ -117,14 +117,11 @@ public:
     void applyOperations(const std::vector<Operations::OperationDescriptor>& ops);
 
     /**
-     * @brief Gets the current working image hardware abstraction.
-     *
-     * Delegates the call to the internal StateImageManager to get the image
-     * reflecting the currently applied operations.
-     *
-     * @return Pointer to the current IWorkingImageHardware managed by StateImageManager.
+     * @brief Gets the current working image.
+     * Returns a shared pointer to ensure the image remains valid for the caller,
+     * even if the internal state is updated.
      */
-    [[nodiscard]] ImageProcessing::IWorkingImageHardware* getWorkingImage() const;
+    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
 
     /**
      * @brief Gets the current working image as an ImageRegion for display purposes.
