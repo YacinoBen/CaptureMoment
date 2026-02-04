@@ -138,7 +138,7 @@ void OperationPipelineExecutor::buildPipeline()
         }
 
         // Check if operation supports fusion
-        auto fusion_logic = dynamic_cast<const Operations::IOperationFusionLogic*>(op_impl.get());
+        auto fusion_logic = dynamic_cast<const Operations::IOperationFusionLogic*>(op_impl->get());
         if (!fusion_logic) {
             spdlog::warn("[OperationPipelineExecutor] buildPipeline: Operation '{}' does not support fusion logic. Skipping.", desc.name);
             continue;

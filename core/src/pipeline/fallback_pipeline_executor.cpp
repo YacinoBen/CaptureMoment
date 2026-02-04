@@ -74,7 +74,7 @@ bool FallbackPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& w
 
         // 3b. Check if the operation supports generic execution via IOperationDefaultLogic
         // Cast the base IOperation pointer to the specific IOperationDefaultLogic interface
-        const auto* op_with_default_logic = dynamic_cast<const Operations::IOperationDefaultLogic*>(op_instance.get());
+        const auto* op_with_default_logic = dynamic_cast<const Operations::IOperationDefaultLogic*>(op_instance->get());
         if (!op_with_default_logic) {
             spdlog::warn("[FallbackPipelineExecutor] Operation '{}' does not support default execution (IOperationDefaultLogic). Skipping.", desc.name);
             continue;
