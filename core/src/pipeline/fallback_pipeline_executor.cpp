@@ -43,7 +43,7 @@ bool FallbackPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& w
     auto cpu_region_expected = working_image.exportToCPUCopy();
     if (!cpu_region_expected.has_value()) {
         spdlog::error("[FallbackPipelineExecutor] Failed to export image to CPU copy: {}",
-                      cpu_region_expected.error().message()); // Assuming std::error_code has .message()
+                      ErrorHandling::to_string(cpu_region_expected.error()));
         return false;
     }
     auto cpu_region = std::move(cpu_region_expected.value()); // Extract the unique_ptr
