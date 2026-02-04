@@ -1,6 +1,6 @@
 /**
  * @file state_image_manager.h
- * @brief Declaration of StateImageManager class
+ * @brief Declaration of StateImageManager class (C++23 Modernized)
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -18,10 +18,11 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include <atomic>
 #include <functional>
 #include <future>
-#include <atomic>
 #include <optional>
+#include <string>
 
 #include <spdlog/spdlog.h>
 
@@ -37,15 +38,20 @@ namespace Managers {
  * It acts as a central point for operation state management, decoupled from UI and history logic.
  * It orchestrates the update of the working image using the OperationPipelineBuilder and OperationPipelineExecutor.
  * The update process is performed asynchronously on a separate thread to avoid blocking the caller.
+ *
+ * **Thread Safety Model:**
+ * - `m_working_image` uses `std::atomic<std::shared_ptr>` for lock-free reads.
+ * - `m_active_operations` and `m_original_image_path` are protected by `m_mutex`.
  */
 class StateImageManager {
 public:
     /**
      * @brief Callback type for reporting update progress or completion.
+     * Uses C++23 std::move_only_function to allow efficient transfer of move-only callables.
      * Invoked on the worker thread after the update attempt.
      * @param success True if the update was successful, false otherwise.
      */
-    using UpdateCallback = std::function<void(bool success)>;
+    using UpdateCallback = std::move_only_function<void(bool success)>;
 
     /**
      * @brief Constructs a StateImageManager.
@@ -53,8 +59,7 @@ public:
      * Initializes the manager with required dependencies for image processing using fused pipeline execution.
      *
      * @param source_manager Shared pointer to the SourceManager for original image access.
-     * @param pipeline_builder Shared pointer to the OperationPipelineBuilder for creating fused pipelines.
-     * @throws std::invalid_argument if any dependency is null.
+     * @throws std::invalid_argument if the dependency is null.
      */
     explicit StateImageManager(
         std::shared_ptr<Managers::SourceManager> source_manager);
@@ -135,10 +140,11 @@ public:
 
     /**
      * @brief Gets the current working image hardware abstraction.
-     * This method is thread-safe and provides access to the working image.
-     * @return Pointer to the current IWorkingImageHardware, or nullptr if not loaded.
+     * This method is lock-free (uses atomic_load) and provides safe access to the working image.
+     * The returned shared_ptr ensures the image remains valid for the caller even if the manager updates its internal state.
+     * @return Shared pointer to the current IWorkingImageHardware, or nullptr if not loaded.
      */
-    [[nodiscard]] ImageProcessing::IWorkingImageHardware* getWorkingImage() const;
+    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
 
     /**
      * @brief Checks if an update of the working image is currently in progress.
@@ -168,8 +174,8 @@ public:
 
 private:
     /**
-     * @brief Mutex protecting concurrent access to m_active_operations, m_working_image, and m_original_image_path.
-     * This mutex ensures thread-safe modification of the internal state variables.
+     * @brief Mutex protecting concurrent access to m_active_operations and m_original_image_path.
+     * m_working_image is protected by its own atomic nature and does not require this mutex.
      */
     mutable std::mutex m_mutex;
     /**
@@ -185,9 +191,12 @@ private:
 
     /**
      * @brief The current state of the processed image.
-     * This image is updated asynchronously based on the operations defined in m_active_operations using fused pipeline execution.
+     * Uses std::atomic<std::shared_ptr> for lock-free thread-safe reads.
+     * This allows the UI thread to access the image without blocking on a mutex,
+     * even while a background update is preparing the next image.
      */
-    std::unique_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
+    std::atomic<std::shared_ptr<ImageProcessing::IWorkingImageHardware>> m_working_image;
+
     /**
      * @brief The file path of the original image loaded into the system.
      * This path is used as the base for all operations and to retrieve the original image data.
@@ -225,7 +234,7 @@ private:
     [[nodiscard]] bool performUpdate(
         const std::vector<Operations::OperationDescriptor>& ops_to_apply,
         const std::string& original_path,
-        const std::optional<UpdateCallback>& callback
+        const std::optional<UpdateCallback> callback
         );
 };
 
