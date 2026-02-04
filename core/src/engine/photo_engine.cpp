@@ -156,7 +156,7 @@ ImageProcessing::IWorkingImageHardware* PhotoEngine::getWorkingImage() const
     return m_state_manager->getWorkingImage();
 }
 
-std::shared_ptr<Common::ImageRegion> PhotoEngine::getWorkingImageAsRegion() const
+std::unique_ptr<Common::ImageRegion> PhotoEngine::getWorkingImageAsRegion() const
 {
     if (!m_state_manager) {
         spdlog::warn("PhotoEngine::getWorkingImageAsRegion: StateImageManager is null, returning nullptr.");
@@ -175,7 +175,7 @@ std::shared_ptr<Common::ImageRegion> PhotoEngine::getWorkingImageAsRegion() cons
         return nullptr;
     }
 
-    return std::shared_ptr<Common::ImageRegion>(cpu_copy.value().release());
+    return std::move(cpu_copy.value());
 }
 
 } // namespace CaptureMoment::Core::Engine
