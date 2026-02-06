@@ -25,12 +25,12 @@
 /**
  * @brief Interface for XMP metadata providers (e.g., Exiv2).
  */
-#include "serializer/i_xmp_provider.h"
+#include "serializer/provider/i_xmp_provider.h"
 
 /**
  * @brief Interface for determining XMP file paths (e.g., sidecar, appdata).
  */
-#include "serializer/i_xmp_path_strategy.h"
+#include "serializer/strategy/i_xmp_path_strategy.h"
 
 /**
  * @brief Interface for reading serialized data from files.
