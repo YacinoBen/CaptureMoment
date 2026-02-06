@@ -99,7 +99,7 @@ std::string FileSerializerWriter::serializeOperationsToXmp(std::span<const Opera
             for (const auto& [param_name, param_value] : op.params)
             {
                 // Use the dedicated OperationSerialization service
-                std::string serialized_param_value { OperationSerialization::serializeParameter(param_value) };
+                std::string serialized_param_value {serializeParameter(param_value) };
                 if (!serialized_param_value.empty()) { // Only add if serialization was successful
                     std::string xmp_param_key { "Xmp.cm.operation[" + index_str + "].param." + param_name };
                     xmp_data[xmp_param_key] = serialized_param_value.c_str(); // .c_str() for Exiv2

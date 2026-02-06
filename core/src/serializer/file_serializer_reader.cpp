@@ -1,6 +1,7 @@
 /**
  * @file file_serializer_reader.cpp
  * @brief Implementation of FileSerializerReader
+ * @details Reads and parses XMP metadata files to reconstruct operation descriptors.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -11,7 +12,7 @@
 #include <spdlog/spdlog.h>
 #include <exiv2/exiv2.hpp>
 #include <stdexcept>
-#include <any>
+#include <variant>
 #include <magic_enum/magic_enum.hpp>
 #include <unordered_map>
 
@@ -55,7 +56,6 @@ std::vector<Operations::OperationDescriptor> FileSerializerReader::loadFromFile(
 
     if (operations.empty()) {
         spdlog::warn("FileSerializerReader::loadFromFile: Parsing XMP packet from file: {} (associated with image: {}) resulted in an empty list of operations.", xmp_file_path, source_image_path);
-        // We can decide to return the empty vector or log more info about the parsing failure
     } else {
         spdlog::info("FileSerializerReader::loadFromFile: Successfully loaded {} operations from XMP file: {} for image: {}", operations.size(), xmp_file_path, source_image_path);
     }
@@ -160,13 +160,12 @@ std::vector<Operations::OperationDescriptor> FileSerializerReader::parseXmpPacke
                     std::string param_value_str { kv.toString() };
 
                     // Deserialize the value using the robust typed approach via OperationSerialization
-                    std::any parsed_value { OperationSerialization::deserializeParameter(param_value_str) };
-                    if (parsed_value.has_value()) {
-                         op_desc.params[param_name] = parsed_value;
-                         spdlog::debug("FileSerializerReader::parseXmpPacket: Parsed parameter '{}' with value (type {}) for operation {}: '{}'", param_name, parsed_value.type().name(), op_desc.name, param_value_str);
-                    } else {
-                         spdlog::warn("FileSerializerReader::parseXmpPacket: Could not parse parameter '{}' with value '{}' for operation {}. Skipping.", param_name, param_value_str, op_desc.name);
-                    }
+                    auto parsed_value = serializeParameter(param_value_str);
+
+                    // Store the value directly. No need to check has_value() as variant always holds a value.
+                    op_desc.params[param_name] = parsed_value;
+
+                    spdlog::debug("FileSerializerReader::parseXmpPacket: Parsed parameter '{}' for operation '{}'.", param_name, op_desc.name);
                 }
             }
 
@@ -185,7 +184,6 @@ std::vector<Operations::OperationDescriptor> FileSerializerReader::parseXmpPacke
         spdlog::error("FileSerializerReader::parseXmpPacket: General error during parsing: {}", e.what());
         return {}; // Return an empty vector in case of general error
     }
-    // No explicit return outside catches needed, as all paths return above.
 }
 
 } // namespace CaptureMoment::Core::Serializer
