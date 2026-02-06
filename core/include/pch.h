@@ -34,6 +34,11 @@
 // Core Image Processing (This is where image_processing.h goes)
 #include "image_processing/image_processing.h"
 
+// Managers
+#include "managers/manager.h"
+
+// Core Engine Module
+#include "engine/engine.h"
 
 // Core Pipeline Module
 #include "pipeline/pipeline.h"
@@ -43,6 +48,13 @@
 
 // Core Operations Module
 #include "operations/operations.h"
+
+
+// Core Domain Module
+#include "domain/domain.h"
+
+// Serializer Module
+#include "serializer/serializer.h"
 
 // ============================================================
 // 4. Internal Core - Common & Config
