@@ -9,6 +9,7 @@
 #include "serializer/file_serializer_reader.h"
 #include "serializer/provider/exiv2_initializer.h"
 #include "serializer/operation_serialization.h"
+
 #include <spdlog/spdlog.h>
 #include <exiv2/exiv2.hpp>
 #include <stdexcept>
@@ -18,8 +19,11 @@
 
 namespace CaptureMoment::Core::Serializer {
 
-FileSerializerReader::FileSerializerReader(std::unique_ptr<IXmpProvider> xmp_provider, std::unique_ptr<IXmpPathStrategy> xmp_path_strategy)
-    : m_xmp_provider(std::move(xmp_provider)), m_xmp_path_strategy(std::move(xmp_path_strategy))
+FileSerializerReader::FileSerializerReader(
+    std::unique_ptr<IXmpProvider> xmp_provider,
+    std::unique_ptr<IXmpPathStrategy> xmp_path_strategy)
+    : m_xmp_provider(std::move(xmp_provider))
+    , m_xmp_path_strategy(std::move(xmp_path_strategy))
 {
     if (!m_xmp_provider || !m_xmp_path_strategy) {
         spdlog::error("FileSerializerReader: Constructor received a null IXmpProvider or IXmpPathStrategy.");
@@ -31,8 +35,8 @@ FileSerializerReader::FileSerializerReader(std::unique_ptr<IXmpProvider> xmp_pro
 std::vector<Operations::OperationDescriptor> FileSerializerReader::loadFromFile(std::string_view source_image_path) const
 {
     if (source_image_path.empty()) {
-         spdlog::error("FileSerializerReader::loadFromFile: Source image path is empty.");
-         return {}; // Return an empty vector
+        spdlog::error("FileSerializerReader::loadFromFile: Source image path is empty.");
+        return {}; // Return an empty vector
     }
     spdlog::debug("FileSerializerReader::loadFromFile: Attempting to load operations for image: {}", source_image_path);
 
@@ -79,8 +83,8 @@ std::vector<Operations::OperationDescriptor> FileSerializerReader::parseXmpPacke
         // Check if it's our format
         std::string serialized_by { xmp_data["Xmp.cm.serializedBy"].toString() };
         if (serialized_by != "CaptureMoment") {
-             spdlog::warn("FileSerializerReader::parseXmpPacket: XMP packet is not marked as serialized by CaptureMoment (found '{}'). Skipping.", serialized_by);
-             return {};
+            spdlog::warn("FileSerializerReader::parseXmpPacket: XMP packet is not marked as serialized by CaptureMoment (found '{}'). Skipping.", serialized_by);
+            return {};
         }
 
         // Optionally, read the source image path stored in the XMP
@@ -160,7 +164,8 @@ std::vector<Operations::OperationDescriptor> FileSerializerReader::parseXmpPacke
                     std::string param_value_str { kv.toString() };
 
                     // Deserialize the value using the robust typed approach via OperationSerialization
-                    auto parsed_value = serializeParameter(param_value_str);
+                    // CORRECTION ICI : Utiliser deserializeParameter au lieu de serializeParameter
+                    auto parsed_value = deserializeParameter(param_value_str);
 
                     // Store the value directly. No need to check has_value() as variant always holds a value.
                     op_desc.params[param_name] = parsed_value;
