@@ -1,6 +1,7 @@
 /**
  * @file i_xmp_path_strategy.h
  * @brief Declaration of IXmpPathStrategy interface
+ * @details Defines the contract for determining XMP file locations.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -15,7 +16,10 @@ namespace Serializer {
 
 /**
  * @brief Interface defining the strategy for determining XMP file paths based on image paths.
- * This allows flexible storage locations for XMP sidecar files (e.g., alongside image, in app data, configurable).
+ *
+ * This interface allows flexible storage locations for XMP sidecar files (e.g., alongside image,
+ * in app data, configurable). This isolates the logic of "Where is the .xmp file for image X?" from the
+ * rest of the serializer logic.
  */
 class IXmpPathStrategy {
 public:
@@ -23,6 +27,7 @@ public:
 
     /**
      * @brief Calculates the XMP file path associated with a given source image path.
+     *
      * @param source_image_path The path to the source image file.
      * @return The calculated path where the corresponding XMP file should be located.
      */
@@ -30,7 +35,10 @@ public:
 
     /**
      * @brief Calculates the source image path associated with a given XMP file path.
-     * This is the inverse of getXmpPathForImage.
+     *
+     * This is the inverse of `getXmpPathForImage`. It is useful for mapping a found XMP file
+     * back to the image it belongs to.
+     *
      * @param xmp_path The path to the XMP file.
      * @return The calculated path of the source image file, or an empty string if it cannot be determined.
      */

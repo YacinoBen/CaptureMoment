@@ -7,13 +7,13 @@
 
 #include "serializer/strategy/appdata_xmp_path_strategy.h"
 #include <spdlog/spdlog.h>
-#include <filesystem>
 #include <exiv2/exiv2.hpp>
+#include <filesystem>
 
 namespace CaptureMoment::Core::Serializer {
 
 AppDataXmpPathStrategy::AppDataXmpPathStrategy(const std::string& app_data_dir)
-    : m_app_data_dir {app_data_dir}
+    : m_app_data_dir(app_data_dir)
 {
     // Ensure the base directory exists
     if (!std::filesystem::exists(m_app_data_dir)) {
@@ -27,22 +27,24 @@ AppDataXmpPathStrategy::AppDataXmpPathStrategy(const std::string& app_data_dir)
     spdlog::debug("AppDataXmpPathStrategy: Initialized with AppData directory: {}", m_app_data_dir);
 }
 
-std::string AppDataXmpPathStrategy::getXmpPathForImage(std::string_view source_image_path) const {
+std::string AppDataXmpPathStrategy::getXmpPathForImage(std::string_view source_image_path) const
+{
     if (source_image_path.empty()) {
         spdlog::error("AppDataXmpPathStrategy::getXmpPathForImage: Source image path is empty.");
-        return {}; // Return an empty string
+        return {};
     }
 
-    std::filesystem::path image_path_obj {source_image_path};
+    std::filesystem::path image_path_obj(source_image_path);
+
+    // Calculate the relative path from the root of the filesystem
+    // NOTE: This logic assumes 'source_image_path' is an absolute path.
+    // If it's relative, root_path() might be empty or misleading.
     std::filesystem::path relative_path = image_path_obj.lexically_relative(image_path_obj.root_path());
 
-    // Replace folder separators with a safe character (e.g., '_')
-    // or keep the structure in the AppData folder.
-    // Example keeping the relative structure:
-    std::filesystem::path xmp_relative_dir = relative_path.parent_path();
-    std::string xmp_filename = relative_path.stem().string() + relative_path.extension().string() + ".xmp";
-
-    std::filesystem::path xmp_final_path = std::filesystem::path {m_app_data_dir} / xmp_relative_dir / xmp_filename;
+    // Construct the target path in AppData
+    // Preserves folder structure: /home/user/pics/img.jpg -> <appdata>/home/user/pics/img.jpg.xmp
+    std::filesystem::path xmp_final_path = m_app_data_dir / relative_path;
+    xmp_final_path += ".xmp";
 
     spdlog::debug("AppDataXmpPathStrategy::getXmpPathForImage: Mapped '{}' to XMP path: '{}'", source_image_path, xmp_final_path.string());
     return xmp_final_path.string();
@@ -50,9 +52,9 @@ std::string AppDataXmpPathStrategy::getXmpPathForImage(std::string_view source_i
 
 std::string AppDataXmpPathStrategy::getImagePathFromXmp(std::string_view xmp_path) const
 {
- if (xmp_path.empty()) {
+    if (xmp_path.empty()) {
         spdlog::error("AppDataXmpPathStrategy::getImagePathFromXmp: XMP path is empty.");
-        return {}; // Return an empty string
+        return {};
     }
 
     spdlog::debug("AppDataXmpPathStrategy::getImagePathFromXmp: Attempting to read original image path from XMP: {}", xmp_path);
@@ -85,13 +87,12 @@ std::string AppDataXmpPathStrategy::getImagePathFromXmp(std::string_view xmp_pat
         return source_image_path_from_xmp;
 
     } catch (const Exiv2::Error& e) {
-        spdlog::error("AppDataXmpPathStrategy::getImagePathFromXmp: Exiv2 error during parsing XMP file '{}': {}", xmp_path, e.what());
-        return {}; // Return an empty string in case of Exiv2 error
+        spdlog::error("Context::AppDataXmpPathStrategy::getImagePathFromXmp: Exiv2 error during parsing XMP file '{}': {}", xmp_path, e.what());
+        return {};
     } catch (const std::exception& e) {
-        spdlog::error("AppDataXmpPathStrategy::getImagePathFromXmp: General error during parsing XMP file '{}': {}", xmp_path, e.what());
-        return {}; // Return an empty string in case of general error
+        spdlog::error("Context::AppDataXmpPathStrategy::getImagePathFromXmp: General error during parsing XMP file '{}': {}", xmp_path, e.what());
+        return {};
     }
-    // No explicit return outside catches needed, as all paths return above.
 }
 
 } // namespace CaptureMoment::Core::Serializer
