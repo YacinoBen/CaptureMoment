@@ -35,7 +35,7 @@
 #include "image_processing/image_processing.h"
 
 // Managers
-#include "managers/manager.h"
+#include "managers/managers.h"
 
 // Core Engine Module
 #include "engine/engine.h"
