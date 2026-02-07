@@ -74,6 +74,12 @@ public:
         const Operations::OperationFactory& factory
         );
 
+    OperationPipelineExecutor(
+        const std::vector<Operations::OperationDescriptor>& operations,
+        const Operations::OperationFactory& factory
+        );
+
+
     /**
      * @brief Executes the fused pipeline on a generic working image.
      *

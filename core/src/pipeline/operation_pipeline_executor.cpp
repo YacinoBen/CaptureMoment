@@ -29,6 +29,15 @@ namespace CaptureMoment::Core::Pipeline {
 // Constructor
 // ============================================================
 OperationPipelineExecutor::OperationPipelineExecutor(
+    const std::vector<Operations::OperationDescriptor>& operations,
+    const Operations::OperationFactory& factory
+    ) : m_operations(operations), m_factory(factory),
+    m_backend(Config::AppConfig::instance().getProcessingBackend())
+{
+    // ...
+}
+
+OperationPipelineExecutor::OperationPipelineExecutor(
     std::vector<Operations::OperationDescriptor>&& operations,
     const Operations::OperationFactory& factory
     ) : m_operations(std::move(operations)), m_factory(factory),
