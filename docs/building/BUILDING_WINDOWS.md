@@ -8,6 +8,8 @@ This guide is optimized to handle the challenges of building **Halide** and **LL
 
 ## 🛠️ Environment Setup with vcpkg
 
+**VCPKG_ROOT :** Ensure this environment variable points to your Vcpkg installation.
+
 ### 1. Install Vcpkg
 ```powershell
 git clone [https://github.com/Microsoft/vcpkg.git](https://github.com/Microsoft/vcpkg.git) C:\vcpkg
@@ -18,6 +20,8 @@ cd C:\vcpkg
 
 ### 2. Enable Binary Caching (Crucial!)
 To avoid recompiling LLVM every time you clean your project, enable local binary caching. Check if it's ON by default.
+
+
 
 ```PowerShell
 # Create a permanent cache folder
