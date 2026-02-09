@@ -5,7 +5,7 @@
 # ============================================================
 # Format: COMPILER_ID|MIN_VERSION|NAME
 set(SUPPORTED_COMPILERS
-    "MSVC|19.30|MSVC (Visual Studio 2022 17.0+)"
+    "MSVC|19.50|MSVC (Visual Studio 2026 18.0+)"
     "GNU|13.0|GCC"
     "Clang|16.0|Clang"
     "AppleClang|15.0|Apple Clang (Xcode 15+)"
