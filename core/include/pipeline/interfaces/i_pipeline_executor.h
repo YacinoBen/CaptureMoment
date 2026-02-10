@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include "image_processing/interfaces/i_working_image_hardware.h"
+
 namespace CaptureMoment::Core {
 
 namespace Pipeline {
