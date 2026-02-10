@@ -17,6 +17,7 @@
 #include <concepts>
 #include <span>
 #include <cassert>
+#include <limits>
 #include <cstdint>
 
 namespace CaptureMoment::Core {
@@ -89,13 +90,58 @@ struct ImageRegion {
     // ============================================================
 
     /**
-     * @brief Validates the integrity of the ImageRegion.
+     * @brief Validates the integrity of the ImageRegion (Overflow-Safe Version).
+     *
+     * Improvements over basic version:
+     * 1. Detects unsigned integer overflow during size calculation.
+     * 2. Validates that the expected size matches the actual data vector size.
+     * 3. Rejects absurd channel counts or zero dimensions.
+     *
+     * @return true if dimensions are valid and data matches the expected size, false otherwise.
      */
-    [[nodiscard]] constexpr bool isValid() const noexcept {
+    [[nodiscard]] constexpr bool isValid() const noexcept
+    {
+        // 1. Basic sanity checks
         if (m_width <= 0 || m_height <= 0 || m_channels <= 0) {
             return false;
         }
-        const std::size_t expected_size = static_cast<std::size_t>(m_width) * m_height * m_channels;
+
+        // Optional: Reject unreasonable channel counts (e.g. > 8 for typical RGB/CMYK)
+        // Prevents logic errors where dimensions are small but channels are huge causing overflow.
+        if (m_channels > 8) {
+            return false;
+        }
+
+        // 2. Safe Calculation Helper (Prevents Overflow)
+        // Using a lambda to keep the logic local and constexpr-friendly.
+        auto safe_multiply = [](std::size_t a, std::size_t b, std::size_t& out_result) constexpr -> bool {
+            if (a != 0 && b > std::numeric_limits<std::size_t>::max() / a) {
+                // b > MAX / a  implies  a * b > MAX  (Integer Overflow)
+                return false;
+            }
+            out_result = a * b;
+            return true;
+        };
+
+        // Cast to std::size_t to work with unsigned arithmetic
+        const std::size_t w = static_cast<std::size_t>(m_width);
+        const std::size_t h = static_cast<std::size_t>(m_height);
+        const std::size_t c = static_cast<std::size_t>(m_channels);
+
+        // 3. Calculate pixel count safely (width * height)
+        std::size_t pixel_count = 0;
+        if (!safe_multiply(w, h, pixel_count)) {
+            return false; // Overflow detected in width * height
+        }
+
+        // 4. Calculate total elements safely (pixel_count * channels)
+        std::size_t expected_size = 0;
+        if (!safe_multiply(pixel_count, c, expected_size)) {
+            return false; // Overflow detected in total elements
+        }
+
+        // 5. Consistency Check
+        // Ensure the vector holds exactly the amount of data expected.
         return m_data.size() == expected_size;
     }
 
