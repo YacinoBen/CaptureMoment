@@ -1,15 +1,6 @@
 /**
  * @file operation_pipeline_executor.cpp
- * @brief Implementation of OperationPipelineExecutor (Optimized).
- *
- * @details
- * This class implements a "Fused Adjustment Pipeline" strategy.
- * Instead of executing operations sequentially (e.g., Brightness -> Contrast -> Black),
- * this class builds a single Halide graph: `output = black(contrast(brightness(input)))`.
- *
- * This "Fusion" eliminates intermediate buffer reads/writes, providing
- * significant performance improvements for interactive workflows.
- *
+ * @brief Implementation of OperationPipelineExecutor
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -25,31 +16,40 @@
 
 namespace CaptureMoment::Core::Pipeline {
 
-// ============================================================
-// Constructor
-// ============================================================
 OperationPipelineExecutor::OperationPipelineExecutor(
     const std::vector<Operations::OperationDescriptor>& operations,
     const Operations::OperationFactory& factory
     ) : m_operations(operations), m_factory(factory),
-    m_backend(Config::AppConfig::instance().getProcessingBackend())
+    m_backend(Config::AppConfig::instance().getProcessingBackend()),
+    m_pipeline_built(!operations.empty())
 {
-    // ...
+    if (!operations.empty()) {
+        buildPipeline();
+    }
+    // If operations is empty, m_pipeline_built is false, and m_saved_pipeline remains nullptr
 }
 
 OperationPipelineExecutor::OperationPipelineExecutor(
     std::vector<Operations::OperationDescriptor>&& operations,
     const Operations::OperationFactory& factory
     ) : m_operations(std::move(operations)), m_factory(factory),
-    m_backend(Config::AppConfig::instance().getProcessingBackend())
+    m_backend(Config::AppConfig::instance().getProcessingBackend()),
+    m_pipeline_built(!m_operations.empty())
 {
-    // Pipeline is compiled at execution time, not construction time.
-    // However, we store the configuration (operations) to detect if a rebuild is needed later.
-    // Alternatively, you could build the pipeline here if it's fast enough.
+    if (!m_operations.empty()) {
+        buildPipeline();
+    }
+    // If operations is empty, m_pipeline_built is false, and m_saved_pipeline remains nullptr
 }
 
 bool OperationPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& working_image)
 {
+    // If no operations to execute, just return success without doing anything
+    if (!m_pipeline_built) {
+        spdlog::debug("[OperationPipelineExecutor] No operations to execute, returning success without processing.");
+        return true;
+    }
+
     // Decide which cast to attempt based on the configured backend
     if (m_backend == Common::MemoryType::CPU_RAM) {
         // If CPU is configured, try casting to CPU implementation
@@ -82,6 +82,11 @@ bool OperationPipelineExecutor::executeOnHalideBuffer(Halide::Buffer<float>& buf
 {
     // This is the most direct path, intended for internal use or when the caller has a raw buffer.
     // It relies on m_saved_pipeline being already built.
+    if (!m_pipeline_built) {
+        spdlog::error("[OperationPipelineExecutor] executeOnHalideBuffer: Pipeline not built yet or failed to build.");
+        return false;
+    }
+
     if (!m_saved_pipeline) {
         spdlog::error("[OperationPipelineExecutor] executeOnHalideBuffer: Pipeline not built yet or failed to build.");
         return false;
@@ -163,6 +168,7 @@ void OperationPipelineExecutor::buildPipeline()
     if (enabled_count == 0) {
         spdlog::warn("[OperationExecutor] buildPipeline: No valid operations to fuse.");
         m_saved_pipeline.reset();
+        m_pipeline_built = false;
         return;
     }
 
@@ -177,14 +183,17 @@ void OperationPipelineExecutor::buildPipeline()
         // We compile the graph defined above.
         // Note: `Halide::Pipeline` is a Halide::Func object. It wraps the compiled Halide function.
         m_saved_pipeline = std::make_unique<Halide::Pipeline>(current_func);
+        m_pipeline_built = true;
         spdlog::info("[OperationPipelineExecutor] Pipeline compiled successfully.");
     }
     catch (const Halide::CompileError& e) {
         spdlog::critical("[OperationPipelineExecutor] buildPipeline: Halide Compile Error: {}", e.what());
         m_saved_pipeline.reset();
+        m_pipeline_built = false;
     } catch (const Halide::RuntimeError& e) {
         spdlog::critical("[OperationPipelineExecutor] buildPipeline: Halide Runtime Error: {}", e.what());
         m_saved_pipeline.reset();
+        m_pipeline_built = false;
     }
 }
 

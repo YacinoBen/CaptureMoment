@@ -141,6 +141,11 @@ private:
      */
     Common::MemoryType m_backend{Common::MemoryType::CPU_RAM};
 
+    /**
+     * @brief Flag indicating whether the pipeline has been successfully built.
+     * This is false when no operations are present or if the build failed.
+     */
+    bool m_pipeline_built{false};
     // ============================================================
     // Internal Logic
     // ============================================================
