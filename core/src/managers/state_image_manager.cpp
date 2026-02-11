@@ -236,6 +236,7 @@ bool StateImageManager::performUpdate(
 
                     // 5. Atomic Swap (Wrapper Method)
                     std::shared_ptr<ImageProcessing::IWorkingImageHardware> shared_new_image(std::move(unique_new_image));
+                    m_working_image.store(shared_new_image, std::memory_order_release);
 
                     spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id);
                 }
