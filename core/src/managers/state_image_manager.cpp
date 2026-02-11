@@ -20,6 +20,7 @@
 #include <future>
 #include <format>
 #include <utility>
+#include <atomic>
 
 namespace CaptureMoment::Core::Managers {
 
@@ -121,8 +122,7 @@ bool StateImageManager::resetToOriginal()
 
 std::shared_ptr<ImageProcessing::IWorkingImageHardware> StateImageManager::getWorkingImage() const
 {
-    // C++23 Compliant Lock-Free Read
-    return std::atomic_load(&m_working_image, std::memory_order_acquire);
+    return m_working_image.load(std::memory_order_acquire);
 }
 
 bool StateImageManager::isUpdatePending() const
@@ -188,7 +188,7 @@ bool StateImageManager::performUpdate(
     std::string original_path,
     std::optional<UpdateCallback> callback)
 {
-    std::string thread_id = std::format("0x{:x}", std::this_thread::get_id());
+    std::string thread_id = std::format("0x{:x}", std::hash<std::thread::id>{}(std::this_thread::get_id()));
     spdlog::debug("StateImageManager::performUpdate: Started on thread {}.", thread_id);
 
     bool success = false;
@@ -210,7 +210,8 @@ bool StateImageManager::performUpdate(
         spdlog::debug("StateImageManager::performUpdate: Using backend: {}",
                       (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
 
-        auto unique_new_image = ImageProcessing::WorkingImageFactory::create(backend, *original_tile);
+        // Dereference unique_ptr before passing
+        auto unique_new_image = ImageProcessing::WorkingImageFactory::create(backend, *original_tile.value());
 
         if (!unique_new_image) {
             spdlog::error("StateImageManager::performUpdate (thread {}): WorkingImageFactory::create failed.", thread_id);
@@ -233,9 +234,8 @@ bool StateImageManager::performUpdate(
                                   thread_id, ops_to_apply.size());
                     success = true;
 
-                    // 5. Atomic Swap (Lock-Free Store)
+                    // 5. Atomic Swap (Wrapper Method)
                     std::shared_ptr<ImageProcessing::IWorkingImageHardware> shared_new_image(std::move(unique_new_image));
-                    std::atomic_store(&m_working_image, shared_new_image, std::memory_order_release);
 
                     spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id);
                 }

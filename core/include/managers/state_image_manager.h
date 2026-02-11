@@ -174,13 +174,9 @@ private:
     std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
 
     /**
-     * @brief The current processed image buffer.
-     *
-     * **C++23 Atomic Implementation:**
-     * Uses a raw `std::shared_ptr` member. Atomic access is guaranteed via
-     * `std::atomic_load` (reads) and `std::atomic_store` (writes).
+     * @brief Atomic Shared Pointer.
      */
-    std::shared_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
+    std::atomic<std::shared_ptr<ImageProcessing::IWorkingImageHardware>> m_working_image;
 
     /**
      * @brief File path of the original source image.
