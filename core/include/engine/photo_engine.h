@@ -11,7 +11,7 @@
  * source to applying cumulative operations and exporting the result.
  *
  * @author CaptureMoment Team
- * @date 2026
+ * @date 2025
  */
 
 #pragma once
@@ -20,7 +20,7 @@
 #include "managers/state_image_manager.h"
 #include "operations/operation_descriptor.h"
 #include "common/image_region.h"
-#include "core_error.h"
+#include "common/error_handling/core_error.h"
 
 #include <memory>
 #include <string_view>
