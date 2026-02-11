@@ -93,7 +93,7 @@ void PhotoEngine::resetWorkingImage()
     if (!m_state_manager) return;
 
     spdlog::debug("PhotoEngine: Resetting working image.");
-    m_state_manager->resetToOriginal();
+    (void) m_state_manager->resetToOriginal();
 }
 
 int PhotoEngine::width() const noexcept
@@ -122,13 +122,13 @@ void PhotoEngine::applyOperations(const std::vector<Operations::OperationDescrip
 
     // Replace current state with the new list
     // Note: resetToOriginal clears the list, then we add new ops.
-    m_state_manager->resetToOriginal();
+    (void) m_state_manager->resetToOriginal();
     for (const auto& op : ops) {
-        m_state_manager->addOperation(op);
+        (void) m_state_manager->addOperation(op);
     }
 
     // Trigger asynchronous processing
-    m_state_manager->requestUpdate();
+     (void) m_state_manager->requestUpdate();
 }
 
 std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const
