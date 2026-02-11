@@ -58,46 +58,45 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
         return std::unexpected(ErrorHandling::CoreError::FileNotFound);
     }
 
-
-    if (isLoaded_unsafe()) {
-        unload();
-    }
-
+    // Lock before checking and unloading
     std::lock_guard<std::mutex> lock(m_mutex);
 
+    if (isLoaded_unsafe()) {
+        unloadInternal(); // Call internal function to avoid double-locking
+    }
 
     spdlog::info("SourceManager::loadFile Loading file: '{}'", path);
 
     try {
         // 1. Load the image using OIIO
-        m_image_buf = std::make_unique<OIIO::ImageBuf>(
+        auto temp_buf = std::make_unique<OIIO::ImageBuf>(
             std::string(path),
             0, 0,
             s_globalCachePtr
             );
 
-        if (!m_image_buf->read())
+        if (!temp_buf->read())
         {
             spdlog::warn("SourceManager::loadFile Failed to read file '{}'. OIIO Message: {}",
-                         path, m_image_buf->geterror());
-            m_image_buf.reset();
+                         path, temp_buf->geterror());
             return std::unexpected(ErrorHandling::CoreError::DecodingError);
         }
 
         // ============================================================
         // OPTIMIZATION: Pre-convert to RGBA_F32
         // ============================================================
-        const int w = m_image_buf->spec().width;
-        const int h = m_image_buf->spec().height;
-        const int current_ch = m_image_buf->spec().nchannels;
+        const int w = temp_buf->spec().width;
+        const int h = temp_buf->spec().height;
+        const int current_ch = temp_buf->spec().nchannels;
+
+        OIIO::ImageBuf final_buf;
 
         if (current_ch != 4)
         {
             spdlog::info("SourceManager::loadFile Converting image from {} channels to RGBA (4 channels).", current_ch);
 
-            OIIO::ImageBuf converted;
             OIIO::ImageSpec target_spec(w, h, 4, OIIO::TypeDesc::FLOAT);
-            converted.reset(target_spec);
+            final_buf.reset(target_spec);
 
             std::vector<int> channel_map = {0, 1, 2, 3};
             std::vector<float> channel_values = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -106,37 +105,35 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
                 channel_map = {0, 0, 0, 0}; // Grayscale to RGB
             }
 
-            if (!OIIO::ImageBufAlgo::channels(*m_image_buf, converted, 4, channel_map, channel_values)) {
+            if (!OIIO::ImageBufAlgo::channels(final_buf, *temp_buf, 4, channel_map, channel_values)) {
                 spdlog::error("SourceManager: Failed to convert channels to RGBA.");
-                m_image_buf.reset();
                 return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
             }
-
-            *m_image_buf = converted;
-            spdlog::info("SourceManager::loadFile Converting to 4 channels done");
         }
         else
         {
             // Ensure format is FLOAT if it wasn't (e.g. UINT8)
-            if (m_image_buf->spec().format != OIIO::TypeDesc::FLOAT)
+            if (temp_buf->spec().format != OIIO::TypeDesc::FLOAT)
             {
                 spdlog::info("SourceManager: Converting pixel format to FLOAT.");
 
                 OIIO::ImageSpec target_spec(w, h, 4, OIIO::TypeDesc::FLOAT);
-                OIIO::ImageBuf converted(target_spec);
+                final_buf.reset(target_spec);
 
-                if (!OIIO::ImageBufAlgo::copy(converted, *m_image_buf, OIIO::TypeDesc::FLOAT))
+                if (!OIIO::ImageBufAlgo::copy(final_buf, *temp_buf, OIIO::TypeDesc::FLOAT))
                 {
                     spdlog::error("SourceManager: Failed to convert pixel format to FLOAT.");
-                    m_image_buf.reset();
                     return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
                 }
-
-                *m_image_buf = converted;
             }
-            spdlog::info("SourceManager::loadFile Converting Done");
+            else {
+                // Already correct format, just move the buffer
+                final_buf = std::move(*temp_buf);
+            }
         }
 
+        // Now assign the final buffer to m_image_buf
+        m_image_buf = std::make_unique<OIIO::ImageBuf>(std::move(final_buf));
         m_current_path = path;
 
         spdlog::info("SourceManager::loadFile  Successfully loaded '{}'. Internal Resolution: {}x{} (4 channels RGBA_F32 value: {}).",
@@ -179,17 +176,14 @@ bool SourceManager::isLoaded_unsafe() const {
 }
 
 int SourceManager::width() const noexcept {
-    std::lock_guard<std::mutex> lock(m_mutex);
     return (m_image_buf && m_image_buf->initialized()) ? m_image_buf->spec().width : 0;
 }
 
 int SourceManager::height() const noexcept {
-    std::lock_guard<std::mutex> lock(m_mutex);
     return (m_image_buf && m_image_buf->initialized()) ? m_image_buf->spec().height : 0;
 }
 
 int SourceManager::channels() const noexcept {
-    std::lock_guard<std::mutex> lock(m_mutex);
     return (m_image_buf && m_image_buf->initialized()) ? m_image_buf->spec().nchannels : 0;
 }
 
