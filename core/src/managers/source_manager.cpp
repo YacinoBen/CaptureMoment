@@ -1,7 +1,6 @@
 /**
  * @file source_manager.cpp
- * @brief Implementation of SourceManager using OpenImageIO (OIIO).
- * @details Implements thread-safe image loading, RGBA conversion, and tile access.
+ * @brief Implementation of SourceManager
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -59,11 +58,13 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
         return std::unexpected(ErrorHandling::CoreError::FileNotFound);
     }
 
-    std::lock_guard<std::mutex> lock(m_mutex);
 
     if (isLoaded_unsafe()) {
         unload();
     }
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+
 
     spdlog::info("SourceManager::loadFile Loading file: '{}'", path);
 
