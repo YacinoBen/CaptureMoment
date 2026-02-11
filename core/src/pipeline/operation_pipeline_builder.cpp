@@ -36,7 +36,7 @@ std::unique_ptr<IPipelineExecutor> OperationPipelineBuilder::build(
     if (operations.empty())
     {
         spdlog::info("[OperationPipelineBuilder::build] No operations provided. Returning null executor.");
-        return nullptr;
+        return std::make_unique<OperationPipelineExecutor>(operations, factory);
     }
 
     try {
