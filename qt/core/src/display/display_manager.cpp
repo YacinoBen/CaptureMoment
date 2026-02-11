@@ -85,25 +85,25 @@ void DisplayManager::createDisplayImage(const std::shared_ptr<Core::Common::Imag
                  m_source_image_size.width(), m_source_image_size.height(),
                  m_display_image_size.width(), m_display_image_size.height());
 
-    std::shared_ptr<Core::Common::ImageRegion> displayImage;
+    std::shared_ptr<Core::Common::ImageRegion> display_image;
 
     // Optimization: If the source image already matches the display size, use it directly
     // to avoid unnecessary downsampling and copying of pixel data.
     if (source_image->m_width == m_display_image_size.width() && source_image->m_height == m_display_image_size.height()) {
-        displayImage = source_image; // Reuse the same image data, incrementing the reference count
+        display_image = source_image; // Reuse the same image data, incrementing the reference count
         spdlog::debug("DisplayManager::createDisplayImage: Source matches display size, using direct reference");
     } else {
         // Perform downsampling using OIIO for optimal performance and quality
-        displayImage = downsampleImage(*source_image, m_display_image_size.width(), m_display_image_size.height());
-        if (!displayImage) {
+        display_image = downsampleImage(*source_image, m_display_image_size.width(), m_display_image_size.height());
+        if (!display_image) {
             spdlog::error("DisplayManager::createDisplayImage: Downsampling failed");
             return;
         }
     }
 
-    if (displayImage && m_rendering_item) {
+    if (display_image && m_rendering_item) {
         spdlog::debug("DisplayManager::createDisplayImage: Updating rendering item with display image");
-        m_rendering_item->setImage(displayImage);
+        m_rendering_item->setImage(display_image);
     } else {
         spdlog::warn("DisplayManager::createDisplayImage: Display image or rendering item is null");
     }
@@ -139,27 +139,28 @@ void DisplayManager::updateDisplayTile(const std::shared_ptr<Core::Common::Image
         return;
     }
 
-    std::shared_ptr<Core::Common::ImageRegion> displayTile;
+    std::shared_ptr<Core::Common::ImageRegion> display_tile;
 
     // Optimization: If the source tile already matches the display size, use it directly
     // to avoid unnecessary downsampling and copying of pixel data.
     if (source_tile->m_width == display_width && source_tile->m_height == display_height) {
-        displayTile = source_tile; // Reuse the same image data, incrementing the reference count
+        display_tile = source_tile; // Reuse the same image data, incrementing the reference count
         spdlog::debug("DisplayManager::updateDisplayTile: Source tile matches display size, using direct reference");
     } else {
         // Perform downsampling using OIIO for optimal performance and quality
-        displayTile = downsampleImage(*source_tile, display_width, display_height);
-        if (!displayTile) {
+        display_tile = downsampleImage(*source_tile, display_width, display_height);
+        if (!display_tile) {
             spdlog::error("DisplayManager::updateDisplayTile: Downsampling failed");
             return;
         }
     }
 
-    if (displayTile) {
-        displayTile->m_x = 0;
-        displayTile->m_y = 0;
+    if (display_tile)
+    {
+        display_tile->m_x = 0;
+        display_tile->m_y = 0;
         spdlog::debug("DisplayManager::updateDisplayTile: Updating rendering item with tile");
-        m_rendering_item->updateTile(displayTile);
+        m_rendering_item->updateTile(display_tile);
     } else {
         spdlog::error("DisplayManager::updateDisplayTile: Generated display tile is null");
     }
