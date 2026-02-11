@@ -76,7 +76,7 @@ public:
      *
      * @return A const reference to the configured Halide::Target object.
      */
-    [[nodiscard]] const Halide::Target& getWinningTarget() const;
+    [[nodiscard]] const Halide::Target& getWinningTarget() const { return m_winning_target; };
 
 private:
     // ============================================================
