@@ -26,7 +26,7 @@ namespace CaptureMoment::Core::Pipeline {
  *         Returns nullptr if `operations` is empty or an exception occurs.
  */
 
-std::unique_ptr<IPipelineExecutor> build(
+std::unique_ptr<IPipelineExecutor> OperationPipelineBuilder::build(
     const std::vector<Operations::OperationDescriptor>& operations,
     const Operations::OperationFactory& factory
     )
