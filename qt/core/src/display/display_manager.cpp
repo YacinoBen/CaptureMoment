@@ -1,6 +1,8 @@
 /**
  * @file display_manager.cpp
  * @brief Implementation of DisplayManager
+ * @author CaptureMoment Team
+ * @date 2025
  */
 
 #include "display/display_manager.h"
