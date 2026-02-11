@@ -65,7 +65,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
         unload();
     }
 
-    spdlog::info("SourceManager: Loading file: '{}'", path);
+    spdlog::info("SourceManager::loadFile Loading file: '{}'", path);
 
     try {
         // 1. Load the image using OIIO
@@ -77,7 +77,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
 
         if (!m_image_buf->read())
         {
-            spdlog::warn("SourceManager: Failed to read file '{}'. OIIO Message: {}",
+            spdlog::warn("SourceManager::loadFile Failed to read file '{}'. OIIO Message: {}",
                          path, m_image_buf->geterror());
             m_image_buf.reset();
             return std::unexpected(ErrorHandling::CoreError::DecodingError);
@@ -92,7 +92,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
 
         if (current_ch != 4)
         {
-            spdlog::info("SourceManager: Converting image from {} channels to RGBA (4 channels).", current_ch);
+            spdlog::info("SourceManager::loadFile Converting image from {} channels to RGBA (4 channels).", current_ch);
 
             OIIO::ImageBuf converted;
             OIIO::ImageSpec target_spec(w, h, 4, OIIO::TypeDesc::FLOAT);
@@ -112,8 +112,10 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
             }
 
             *m_image_buf = converted;
+            spdlog::info("SourceManager::loadFile Converting to 4 channels done");
         }
-        else {
+        else
+        {
             // Ensure format is FLOAT if it wasn't (e.g. UINT8)
             if (m_image_buf->spec().format != OIIO::TypeDesc::FLOAT)
             {
@@ -131,12 +133,13 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
 
                 *m_image_buf = converted;
             }
+            spdlog::info("SourceManager::loadFile Converting Done");
         }
 
         m_current_path = path;
 
-        spdlog::info("SourceManager: Successfully loaded '{}'. Internal Resolution: {}x{} (4 channels RGBA_F32).",
-                     m_current_path, width(), height());
+        spdlog::info("SourceManager::loadFile  Successfully loaded '{}'. Internal Resolution: {}x{} (4 channels RGBA_F32 value: {}).",
+                     m_current_path, m_image_buf->spec().width, m_image_buf->spec().height, m_image_buf->spec().nchannels);
         return {};
 
     } catch (const std::bad_alloc&) {
