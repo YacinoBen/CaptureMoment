@@ -34,7 +34,7 @@ public:
     /**
      * @brief Virtual destructor.
      */
-    ~WorkingImageCPU_Halide() override;
+    ~WorkingImageCPU_Halide() override = default;
 
     /**
      * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.

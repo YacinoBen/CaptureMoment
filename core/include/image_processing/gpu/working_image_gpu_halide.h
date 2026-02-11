@@ -43,7 +43,7 @@ public:
     /**
      * @brief Virtual destructor.
      */
-    ~WorkingImageGPU_Halide() override;
+    ~WorkingImageGPU_Halide() override = default;
 
     // ============================================================
     // IWorkingImageHardware Interface Implementation
