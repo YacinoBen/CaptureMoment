@@ -29,7 +29,7 @@ Capture Moment is built on three pillars:
     * **Optimization:** Automatic vectorization, parallelism, and loop fusion.
 
 ### 3. User Interface & Display
-* **Framework:** [Qt 6 (Quick/QML)](https://doc.qt.io/)
+* **Framework:** [Qt6 (Quick/QML)](https://doc.qt.io/)
 * **Role:**
     * **UI:** Modern, fluid, declarative interface.
     * **Rendering:** Uses **QRhi** (Qt Rendering Hardware Interface) to display Halide buffers directly on the GPU (Vulkan/Metal/D3D12).
