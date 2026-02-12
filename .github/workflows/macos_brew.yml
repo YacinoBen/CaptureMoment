@@ -65,25 +65,6 @@
            # ============================================================
            export CC=/opt/homebrew/opt/llvm/bin/clang
            export CXX=/opt/homebrew/opt/llvm/bin/clang++
-           
-           # Note : if M1/M2/M3, use the following path:
-           # export CC=/usr/local/opt/llvm/bin/clang
-           # export CXX=/usr/local/opt/llvm/bin/clang++
-
-           TESTS_FLAG="-Dtests=OFF"
-          
-           if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
-             TESTS_FLAG="-Dtests=ON"
-             echo "::notice file=tests::Tests enabled."
-           else
-             echo "::warning file=tests::Tests disabled."
-           fi
-
-           cmake \
-           --preset ${{ matrix.preset }} \
-           -Ddesktop_ui=ON \
-           ${TESTS_FLAG} \
-           -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
           shell: bash
 
       # ====================================================================
