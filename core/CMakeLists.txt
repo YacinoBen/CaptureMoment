@@ -1,9 +1,3 @@
-# Core library for CaptureMoment
-# The root CMakeLists.txt already found and verified all dependencies
-# via PackageHelpers.cmake - we just link them here
-
-cmake_minimum_required(VERSION 3.25)
-
 # Debug: Show current directory
 message(STATUS "Starting configuration of capturemoment_core...")
 message(STATUS "[core] CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
@@ -42,16 +36,16 @@ set(CORE_SOURCES
     src/serializer/strategy/appdata_xmp_path_strategy.cpp
     src/serializer/strategy/configurable_xmp_path_strategy.cpp
     src/serializer/strategy/sidecar_xmp_path_strategy.cpp
+    src/serializer/file_serializer_manager.cpp
+    src/serializer/file_serializer_writer.cpp
+    src/serializer/file_serializer_reader.cpp
+    src/serializer/operation_serialization.cpp
+
 
     # Pipeline
     src/pipeline/operation_pipeline_executor.cpp
     src/pipeline/operation_pipeline_builder.cpp
     src/pipeline/fallback_pipeline_executor.cpp
-
-    src/serializer/file_serializer_manager.cpp
-    src/serializer/operation_serialization.cpp
-    src/serializer/file_serializer_writer.cpp
-    src/serializer/file_serializer_reader.cpp
 
     # List Operations base adjustment
     src/operations/basic_adjustment_operations/operation_brightness.cpp
