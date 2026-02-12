@@ -35,6 +35,7 @@ void PaintedImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>
     {
         QMutexLocker lock(&m_image_mutex);
         // Convert ImageRegion to QImage
+        m_full_image = image;
         m_current_qimage = convertImageRegionToQImage(*image);
         m_image_width = image->m_width;
         m_image_height = image->m_height;
