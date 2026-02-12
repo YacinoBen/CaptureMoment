@@ -1,10 +1,5 @@
 # 🟦 Windows Build Guide
-This guide is optimized to handle the challenges of building **Halide** and **LLVM** on Windows.
-
-
-
-## Halide build (mandatory)
-* [**Halide build**](BUILDING_HALIDE.md).
+This guide is optimized to handle the challenges of building on Windows.
 
 ## 🛠️ Environment Setup with vcpkg
 
@@ -94,5 +89,5 @@ Not configured at yet
 | release-vcpkg-msvc  | Auto-detected         | Release    | x64-windows-release       | Optimized for Space/Time Savings (Recommended). |
 | debug-vcpkg-mingw   | MinGW Makefiles       | Debug      | x64-mingw-dynamic         | For the MinGW toolchain.                        |
 | release-vcpkg-mingw | MinGW Makefiles       | Release    | x64-mingw-dynamic-release | Optimized for MinGW (Time/Space Savings).       |
-| debug-vs            | Visual Studio 17 2022 | Debug      | N/A                       | Without Vcpkg toolchain, uses default VS build. |
-| release-vs          | Visual Studio 17 2022 | Release    | N/A                       | Without Vcpkg toolchain.                        |
+| debug-vs            | Visual Studio 18 2026 | Debug      | N/A                       | Without Vcpkg toolchain, uses default VS build. |
+| release-vs          | Visual Studio 18 2026 | Release    | N/A                       | Without Vcpkg toolchain.                        |

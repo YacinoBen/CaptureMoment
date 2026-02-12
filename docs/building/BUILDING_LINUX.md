@@ -1,12 +1,6 @@
 # 🐧 Linux Building Guide
 This guide covers building CaptureMoment on Linux. You can choose between using system packages (faster) or building dependencies from source (more control, potentially newer versions).
 
-## Qt-UI (not mandatory)
-If you want to develop the UI with Qt, you can directly download the actual version (e.g., 6.9.3) from the official website.
-
-## Halide build (mandatory)
-* [**Halide build**](BUILDING_HALIDE.md).
-
 ## 📦 Building with System Packages (Recommended)
 
 This is the fastest method as it uses pre-compiled binaries via your distribution's package manager.
