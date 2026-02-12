@@ -94,6 +94,7 @@
         - name: Configure CMake
           run: |
            export LLVM_PREFIX=$(brew --prefix llvm)
+           export SDKROOT=$(xcrun --show-sdk-path)
            
            TESTS_FLAG="-Dtests=OFF"
           
