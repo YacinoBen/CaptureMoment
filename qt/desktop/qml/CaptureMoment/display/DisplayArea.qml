@@ -8,90 +8,109 @@ import CaptureMoment.UI.Rendering.RHI 1.0
 
 Rectangle {
     id: displayArea
-    
+
     color: "#1a1a1a"
-    
+
     signal openImageClicked()
 
-    QMLSGSImageItem {
-        id: imageDisplay
+    ColumnLayout {
         anchors.fill: parent
+        spacing: 0
 
-        onImageSizeChanged: {
-            console.log("DisplayArea.qml::onHeightChanged: width: ", imageDisplay.imageWidth)
-            console.log("DisplayArea.qml::onWidthChanged: height: ", imageDisplay.imageHeight)
+        Item {
+            id: imageContainer
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            QMLSGSImageItem {
+                id: imageDisplay
+                anchors.fill: parent
+
+                onImageSizeChanged: {
+                    console.log("DisplayArea.qml::onHeightChanged: width: ", imageDisplay.imageWidth)
+                    console.log("DisplayArea.qml::onWidthChanged: height: ", imageDisplay.imageHeight)
+                }
+            }
+
+            ColumnLayout {
+                anchors.centerIn: parent
+                spacing: 20
+                visible: controller.imageWidth === 0
+                z: 1
+
+                Text {
+                    text: "📷"
+                    font.pixelSize: 64
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Text {
+                    text: "No Image Loaded"
+                    color: "white"
+                    font.pixelSize: 20
+                    font.bold: true
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Text {
+                    text: "Click 'Open Image' to start editing"
+                    color: "#AAAAAA"
+                    font.pixelSize: 14
+                    Layout.alignment: Qt.AlignHCenter
+                }
+            }
+        }
+
+        Rectangle {
+            id: infoFooter
+            color: "#252525"
+            Layout.fillWidth: true
+            Layout.preferredHeight: infoText.implicitHeight + 20
+            Layout.alignment: Qt.AlignBottom
+            visible: infoText.visible
+
+            Text {
+                id: infoText
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: 10
+
+                text: "Source: " + controller.imageWidth + "x" + controller.imageHeight +
+                      " | Display: " + (controller.displayManager ? controller.displayManager.displayImageSize.width : 0) +
+                      "x" + (controller.displayManager ? controller.displayManager.displayImageSize.height : 0)
+
+                color: "#CCCCCC"
+                font.pixelSize: 12
+                visible: controller.imageWidth > 0
+            }
         }
     }
 
-    // Setup image display when loaded
     Component.onCompleted: {
-        //controller.setPaintedImageItemFromQml(imageDisplay)
+       // controller.setPaintedImageItemFromQml(imageDisplay)
         controller.setSGSImageItemFromQml(imageDisplay)
-        //controller.setRHIImageItemFromQml(imageDisplay)
-
-        if (controller.displayManager) {
-            controller.displayManager.setViewportSize(Qt.size(width, height))
-        }
+       // controller.setRHIImageItemFromQml(imageDisplay)
     }
 
-    // Update viewport on resize
-    onWidthChanged: {
-        console.log("DisplayArea.qml::onWidthChanged: ", imageDisplay.imageWidth)
-        if (controller.displayManager) {
-            controller.displayManager.setViewportSize(Qt.size(width, height))
+    function updateViewport() {
+        if (!controller || !controller.displayManager) {
+            console.log("!controller || !controller.displayManager")
+            return;
         }
+
+        var availableHeight = height - (infoFooter.visible ? infoFooter.height : 0);
+
+        controller.displayManager.setViewportSize(Qt.size(width, availableHeight));
+    }
+
+    onWidthChanged: {
+        updateViewport();
     }
 
     onHeightChanged: {
-        console.log("DisplayArea.qml::onWidthChanged: ", imageDisplay.imageHeight)
-
-        if (controller.displayManager) {
-            controller.displayManager.setViewportSize(Qt.size(width, height))
-        }
+        updateViewport();
     }
 
-    // Empty state
-    ColumnLayout {
-        anchors.centerIn: parent
-        spacing: 20
-        visible: controller.imageWidth === 0
-
-        Text {
-            text: "📷"
-            font.pixelSize: 64
-            Layout.alignment: Qt.AlignHCenter
-        }
-
-        Text {
-            text: "No Image Loaded"
-            color: "white"
-            font.pixelSize: 20
-            font.bold: true
-            Layout.alignment: Qt.AlignHCenter
-        }
-
-        Text {
-            text: "Click 'Open Image' to start editing"
-            color: "#AAAAAA"
-            font.pixelSize: 14
-            Layout.alignment: Qt.AlignHCenter
-        }
-    }
-
-    // Info overlay (bottom-left)
-    Text {
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.margins: 20
-        text: "Source: " + controller.imageWidth + "x" + controller.imageHeight +
-              " | Display: " + (controller.displayManager ? controller.displayManager.displayImageSize.width : 0) +
-              "x" + (controller.displayManager ? controller.displayManager.displayImageSize.height : 0)
-        color: "#CCCCCC"
-        font.pixelSize: 12
-        visible: controller.imageWidth > 0
-    }
-
-    // File Dialog
     FileDialog {
         id: fileDialog
         title: "Open Image"
@@ -102,17 +121,15 @@ Rectangle {
         }
     }
 
-
-    // Monitor signals from the controller
     Connections {
         target: controller
 
-        function onImageLoaded(width, height) {
-            console.log("DisplayArea::onImageLoaded, Image loaded:", width, "x", height)
+        function onImageLoaded(loadedWidth, loadedHeight) {
+            console.log("DisplayArea::onImageLoaded, Image loaded:", loadedWidth, "x", loadedHeight)
 
             if (controller.displayManager) {
-                controller.displayManager.setViewportSize(Qt.size(window.width * 0.65, window.height * 0.85))
-                controller.displayManager.fitToView()
+                updateViewport();
+                controller.displayManager.fitToView();
             }
         }
 

@@ -12,6 +12,7 @@ Rectangle {
     signal bibliothequeClicked()
     signal collectionsClicked()
     signal parametresClicked()
+    signal btnLoadImageClicked()
 
     RowLayout {
         anchors.fill: parent
@@ -62,6 +63,12 @@ Rectangle {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: topPanel.parametresClicked()
             }
+        }
+
+
+        Button {
+            text: "Open Image"
+            onClicked: topPanel.btnLoadImageClicked()
         }
 
         Item {

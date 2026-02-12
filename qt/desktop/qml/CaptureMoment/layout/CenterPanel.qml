@@ -6,41 +6,30 @@ import CaptureMoment.desktop
 Rectangle {
     id: centerPanel
 
+    property alias idDisplayArea: displayArea
     color: "#2a2a2a"
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Toolbar
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 50
+            Layout.preferredHeight: 24
             color: "#1E1E1E"
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 12
+            Text {
+                anchors.left: parent.left
+                anchors.leftMargin: 40
+                anchors.verticalCenter: parent.verticalCenter
 
-                Button {
-                    text: "Open Image"
-                    onClicked: displayArea.openFile()
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: controller.imageWidth > 0 ? "Loaded" : "No image"
-                    color: controller.imageWidth > 0 ? "#4CAF50" : "#999999"
-                    font.pixelSize: 12
-                }
+                text: controller.imageWidth > 0 ? "● "+qsTr("Loaded") : "○ "+ qsTr("No image")
+                color: controller.imageWidth > 0 ? "#4CAF50" : "#888888"
+                font.pixelSize: 11
+                font.bold: true
             }
         }
 
-        // Display Area
         DisplayArea {
             id: displayArea
             Layout.fillWidth: true
