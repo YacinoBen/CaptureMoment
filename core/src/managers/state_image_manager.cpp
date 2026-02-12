@@ -207,7 +207,7 @@ bool StateImageManager::performUpdate(
     {
         // 2. Create Working Image (CPU or GPU)
         auto backend = CaptureMoment::Core::Config::AppConfig::instance().getProcessingBackend();
-        spdlog::debug("StateImageManager::performUpdate: Using backend: {}",
+        spdlog::info("StateImageManager::performUpdate: Using backend: {}",
                       (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
 
         // Dereference unique_ptr before passing
@@ -219,7 +219,7 @@ bool StateImageManager::performUpdate(
         } else
         {
             // 3. Build Fused Pipeline
-            auto pipeline_executor = m_pipeline_builder->build(ops_to_apply, *m_operation_factory);
+            auto pipeline_executor = m_pipeline_builder->build(std::move(ops_to_apply), *m_operation_factory);
 
             if (!pipeline_executor) {
                 spdlog::error("StateImageManager::performUpdate (thread {}): OperationPipelineBuilder::build failed.", thread_id);
@@ -230,7 +230,7 @@ bool StateImageManager::performUpdate(
                     spdlog::error("StateImageManager::performUpdate (thread {}): IPipelineExecutor::execute failed.", thread_id);
                     success = false;
                 } else {
-                    spdlog::debug("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.",
+                    spdlog::info("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.",
                                   thread_id, ops_to_apply.size());
                     success = true;
 

@@ -12,7 +12,6 @@
  * - **Asynchronous Updates:** Heavy processing occurs on a worker thread via `std::async(std::launch::async)`.
  * - **Lock-Free Double Buffering (C++23):** Implements a lock-free read mechanism for the
  *   `m_working_image` using `std::atomic_load/store`.
- * - **String Handling:** Public API uses `std::string_view` for zero-copy string arguments.
  *
  * @author CaptureMoment Team
  * @date 2026
