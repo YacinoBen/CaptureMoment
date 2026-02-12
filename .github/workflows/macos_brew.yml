@@ -53,12 +53,12 @@
       
 
       # ====================================================================
-      # Installation of Qt 6.9.3 with the dedicated action
+      # Setup Qt
       # ====================================================================
-        - name: Setup Qt 6.9.3 Environment
+        - name: Setup Qt 6.10.2 Environment
           uses: jurplel/install-qt-action@v4 
           with:
-           version: '6.9.3'
+           version: '6.10.2'
            target: 'desktop'
            host: 'mac'
            modules: 'qtshadertools'
