@@ -16,8 +16,8 @@
  * This eliminates intermediate buffer allocations/deallocations (Zero-Copy).
  *
  * **Architecture:**
- * - **Caching**: The compiled Halide pipeline (`m_saved_pipeline`) is constructed once
- *   and reused for all subsequent executions unless the operation list changes.
+ * - **Caching**: The logic to chain operations is built once.
+ *   The final Pipeline compilation happens in executeOnHalideBuffer.
  * - **Backend Support**: Works with both `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide`.
  *   It retrieves the appropriate `Halide::Target` from `AppConfig`.
  * - **Fast Path**: Uses `executeOnHalideBuffer()` when the underlying image
@@ -31,13 +31,13 @@
 
 #include "pipeline/interfaces/i_pipeline_executor.h"
 #include "pipeline/interfaces/i_halide_pipeline_executor.h"
-#include "image_processing/halide/working_image_halide.h"
 #include "operations/operation_descriptor.h"
 #include "operations/operation_factory.h"
 #include "common/types/memory_type.h"
 
+#include <Halide.h>
 #include <vector>
-#include <memory>
+#include <functional>
 
 namespace CaptureMoment::Core {
 
@@ -61,10 +61,8 @@ public:
      * @brief Constructs a fused pipeline executor for a specific list of operations.
      *
      * @details
-     * The constructor performs the expensive "Just-In-Time" (JIT) compilation
-     * of the pipeline. It iterates through the operations, retrieves their
-     * `IOperationFusionLogic` via the factory, and constructs a fused
-     * `Halide::Pipeline` object.
+     * The constructor builds the logic to chain operations.
+     * The actual Pipeline compilation and scheduling happen in executeOnHalideBuffer.
      *
      * @param[in] operations The list of operation descriptors defining the adjustments.
      * @param[in] factory The factory used to instantiate operation instances.
@@ -127,14 +125,20 @@ private:
     const Operations::OperationFactory& m_factory;
 
     /**
-     * @brief The compiled Halide pipeline.
+     * @brief A function that encapsulates the chain of operations.
      *
      * @details
-     * This member stores the result of the "Heavy Lifting" phase.
-     * It is a compiled Halide function `fused(x,y,c)`.
-     * It is computed once in the constructor and reused for every `execute`.
+     * This member stores the logic of how operations are chained together.
+     * It is a std::function that takes an input Halide::Func and the coordinate Vars (x, y, c)
+     * and returns the final Halide::Func representing the fused pipeline.
+     * It is computed once in the constructor and reused for every `executeOnHalideBuffer`.
      */
-    std::unique_ptr<Halide::Pipeline> m_saved_pipeline;
+    mutable std::function<Halide::Func(Halide::Func, Halide::Var, Halide::Var, Halide::Var)> m_operation_chain;
+
+    /**
+     * @brief Variables for the pipeline.
+     */
+    mutable Halide::Var m_x, m_y, m_c;
 
     /**
      * @brief Caches the selected backend type (CPU/GPU) to avoid runtime queries.
@@ -142,23 +146,22 @@ private:
     Common::MemoryType m_backend{Common::MemoryType::CPU_RAM};
 
     /**
-     * @brief Flag indicating whether the pipeline has been successfully built.
+     * @brief Flag indicating whether the operation chain has been successfully built.
      * This is false when no operations are present or if the build failed.
      */
-    bool m_pipeline_built{false};
+    bool m_chain_built{false};
     // ============================================================
     // Internal Logic
     // ============================================================
 
     /**
-     * @brief Performs the "Heavy Lifting": Building the fused Halide graph.
+     * @brief Builds the operation chain logic.
      *
      * @details
      * This method chains the operations into a single function graph.
-     * It uses the `IOperationFusionLogic` interface of each operation to append its
-     * contribution to the pipeline.
+     * It stores the resulting logic in m_operation_chain.
      */
-    void buildPipeline();
+    void buildOperationChain();
 
     /**
      * @brief Applies scheduling based on the cached backend type.
@@ -190,45 +193,9 @@ private:
     template<typename ConcreteImage>
     [[nodiscard]] bool executeWithConcreteHalide(
         ConcreteImage& concrete_image
-        ) const {
-        // Validate State (using IWorkingImageHardware interface)
-        if (!concrete_image.isValid()) {
-            spdlog::error("[OperationPipelineExecutor] Concrete Halide Image (via HW interface) is invalid. Cannot execute.");
-            return false;
-        }
-
-        // Fetch Metadata (using IWorkingImageHardware interface)
-        const auto [width, height] = concrete_image.getSize();
-        size_t channels = concrete_image.getChannels();
-
-        if (width <= 0 || height <= 0 || channels == 0) {
-            spdlog::error("[OperationPipelineExecutor] Invalid dimensions ({}x{}, {} ch).", width, height, channels);
-            return false;
-        }
-
-        spdlog::debug("[OperationPipelineExecutor] Executing fused pipeline on {}x{}x{} image...", width, height, channels);
-
-        // Get direct Halide buffer (Zero-Copy view of m_data) - using WorkingImageHalide interface
-        // static_cast to access the WorkingImageHalide part of the ConcreteImage
-        auto& halide_part = static_cast<const ImageProcessing::WorkingImageHalide&>(concrete_image);
-        Halide::Buffer<float> working_buffer = halide_part.getHalideBuffer();
-
-        if (!working_buffer.defined()) {
-            spdlog::error("[OperationPipelineExecutor] Halide buffer is invalid.");
-            return false;
-        }
-
-        // Execute directly on buffer using cached pipeline
-        if (!m_saved_pipeline) {
-            spdlog::error("[OperationPipelineExecutor] executeWithConcreteHalide: Pipeline not built. Cannot execute.");
-            return false;
-        }
-
-        return executeOnHalideBuffer(working_buffer);
-    }
+        ) const;
 };
 
 } // namespace Pipeline
 
 } // namespace CaptureMoment::Core
-
