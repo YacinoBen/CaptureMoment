@@ -1,7 +1,6 @@
 /**
  * @file file_serializer_reader.cpp
  * @brief Implementation of FileSerializerReader
- * @details Reads and parses XMP metadata files to reconstruct operation descriptors.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -87,7 +86,7 @@ std::vector<Operations::OperationDescriptor> FileSerializerReader::parseXmpPacke
             return {};
         }
 
-        // Optionally, read the source image path stored in the XMP
+        // Read the source image path stored in the XMP
         source_image_path_from_xmp = xmp_data["Xmp.cm.sourceImagePath"].toString(); // Returns an empty string if the key does not exist
         spdlog::debug("FileSerializerReader::parseXmpPacket: Found source image path in XMP: '{}'", source_image_path_from_xmp);
 
@@ -164,8 +163,7 @@ std::vector<Operations::OperationDescriptor> FileSerializerReader::parseXmpPacke
                     std::string param_value_str { kv.toString() };
 
                     // Deserialize the value using the robust typed approach via OperationSerialization
-                    // CORRECTION ICI : Utiliser deserializeParameter au lieu de serializeParameter
-                    auto parsed_value = deserializeParameter(param_value_str);
+                    auto parsed_value = Serializer::deserializeParameter(param_value_str);
 
                     // Store the value directly. No need to check has_value() as variant always holds a value.
                     op_desc.params[param_name] = parsed_value;

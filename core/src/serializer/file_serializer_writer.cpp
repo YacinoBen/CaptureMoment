@@ -1,7 +1,6 @@
 /**
  * @file file_serializer_writer.cpp
  * @brief Implementation of FileSerializerWriter
- * @details Handles the conversion of operation descriptors to XMP and writing to files.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -103,7 +102,7 @@ std::string FileSerializerWriter::serializeOperationsToXmp(
             {
                 // Serialize the value (variant) to string using the service
                 // No need to check .has_value() as variant always holds a value
-                std::string serialized_param_value { serializeParameter(param_value) };
+                std::string serialized_param_value { Serializer::serializeParameter(param_value) };
 
                 std::string xmp_param_key { "Xmp.cm.operation[" + index_str + "].param." + param_name };
                 xmp_data[xmp_param_key] = serialized_param_value;
