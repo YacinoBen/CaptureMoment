@@ -13,7 +13,7 @@
 #include <cstdlib>
 #include <spdlog/spdlog.h>
 
-namespace CaptureMoment::Core::Serialization {
+namespace CaptureMoment::Core::Serializer {
 
 std::string serializeParameter(const Operations::OperationValue& value)
 {
