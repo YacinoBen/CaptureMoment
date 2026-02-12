@@ -10,8 +10,7 @@
  * - **Fused Pipeline Execution:** Uses `OperationPipelineBuilder` to construct a single
  *   optimized computation graph for all active operations.
  * - **Asynchronous Updates:** Heavy processing occurs on a worker thread via `std::async(std::launch::async)`.
- * - **Lock-Free Double Buffering (C++23):** Implements a lock-free read mechanism for the
- *   `m_working_image` using `std::atomic_load/store`.
+ * - **Thread-Safe State Access:** Uses `std::mutex` to protect access to `m_working_image` and other shared state.
  *
  * @author CaptureMoment Team
  * @date 2026
@@ -28,7 +27,6 @@
 #include <vector>
 #include <memory>
 #include <mutex>
-#include <atomic>
 #include <functional>
 #include <future>
 #include <optional>
@@ -52,11 +50,11 @@ class StateImageManager {
 public:
     /**
      * @brief Callback type for reporting update completion.
-     * @details Uses C++23 `std::move_only_function` for efficient move-only captures.
+     * @details Uses standard `std::function` for portability across compilers.
      *
      * @param success True if the update and processing were successful, false otherwise.
      */
-    using UpdateCallback = std::move_only_function<void(bool success)>;
+    using UpdateCallback = std::function<void(bool success)>;
 
     /**
      * @brief Constructs a StateImageManager.
@@ -128,7 +126,7 @@ public:
     [[nodiscard]] std::future<bool> requestUpdate(std::optional<UpdateCallback> callback = std::nullopt);
 
     /**
-     * @brief Gets the current working image (Lock-Free).
+     * @brief Gets the current working image (Thread-Safe).
      *
      * @return Shared pointer to the current `IWorkingImageHardware`. Returns nullptr if no image exists.
      */
@@ -157,10 +155,9 @@ public:
 
 private:
     /**
-     * @brief Mutex protecting access to `m_active_operations` and `m_original_image_path`.
-     * Note: `m_working_image` is protected by atomic operations.
+     * @brief Mutex protecting access to `m_active_operations`, `m_original_image_path`, and `m_working_image`.
      */
-    mutable std::mutex m_mutex;
+    mutable std::mutex m_state_mutex;
 
     /**
      * @brief The ordered list of operations to apply.
@@ -173,13 +170,10 @@ private:
     std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
 
     /**
-     * @brief The current processed image buffer. Atomic Implementation
-     * Uses `std::atomic<std::shared_ptr<IWorkingImageHardware>>` to provide
-     * lock-free atomic access (load/store) for thread-safe reading/writing
-     * of the working image pointer from multiple threads (e.g., UI thread calling
-     * `getWorkingImage()` while the worker thread updates `m_working_image`).
+     * @brief The current processed image buffer.
+     * Protected by `m_state_mutex` for thread-safe access.
      */
-    std::atomic<std::shared_ptr<ImageProcessing::IWorkingImageHardware>> m_working_image;
+    std::shared_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
 
     /**
      * @brief File path of the original source image.
@@ -188,9 +182,15 @@ private:
     std::string m_original_image_path;
 
     /**
-     * @brief Atomic flag preventing multiple concurrent update requests.
+     * @brief Mutex protecting the atomic flag `m_is_updating`.
      */
-    std::atomic<bool> m_is_updating{false};
+    mutable std::mutex m_flag_mutex;
+
+    /**
+     * @brief Flag preventing multiple concurrent update requests.
+     * Protected by `m_flag_mutex` for thread-safe access.
+     */
+    bool m_is_updating{false};
 
     /**
      * @brief Factory for creating concrete operation instances.

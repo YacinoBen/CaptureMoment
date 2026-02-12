@@ -20,7 +20,6 @@
 #include <future>
 #include <format>
 #include <utility>
-#include <atomic>
 
 namespace CaptureMoment::Core::Managers {
 
@@ -55,7 +54,7 @@ StateImageManager::~StateImageManager()
 
 bool StateImageManager::setOriginalImageSource(std::string_view path)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
 
     if (!m_source_manager || !m_source_manager->isLoaded() || m_source_manager->width() <= 0) {
         spdlog::error("StateImageManager::setOriginalImageSource: SourceManager has no valid image loaded.");
@@ -68,14 +67,15 @@ bool StateImageManager::setOriginalImageSource(std::string_view path)
     spdlog::info("StateImageManager::setOriginalImageSource: Original image source set for '{}'.", m_original_image_path);
 
     // Reset image pointer to null until first update is requested
-    std::atomic_store(&m_working_image, std::shared_ptr<ImageProcessing::IWorkingImageHardware>(nullptr));
+    // Using m_state_mutex to protect m_working_image now
+    m_working_image = nullptr;
 
     return true;
 }
 
 bool StateImageManager::addOperation(const Operations::OperationDescriptor& descriptor)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     m_active_operations.push_back(descriptor);
     spdlog::debug("StateImageManager::addOperation: Added operation '{}'. Total active: {}.",
                   descriptor.name, m_active_operations.size());
@@ -84,7 +84,7 @@ bool StateImageManager::addOperation(const Operations::OperationDescriptor& desc
 
 bool StateImageManager::modifyOperation(size_t index, const Operations::OperationDescriptor& new_descriptor)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     if (index >= m_active_operations.size()) {
         spdlog::error("StateImageManager::modifyOperation: Index {} out of bounds (size: {}).",
                       index, m_active_operations.size());
@@ -97,7 +97,7 @@ bool StateImageManager::modifyOperation(size_t index, const Operations::Operatio
 
 bool StateImageManager::removeOperation(size_t index)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     if (index >= m_active_operations.size()) {
         spdlog::error("StateImageManager::removeOperation: Index {} out of bounds (size: {}).",
                       index, m_active_operations.size());
@@ -110,62 +110,61 @@ bool StateImageManager::removeOperation(size_t index)
 
 bool StateImageManager::resetToOriginal()
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     m_active_operations.clear();
     spdlog::debug("StateImageManager::resetToOriginal: Cleared all operations.");
     return true;
 }
 
-// ============================================================
-// Accessors
-// ============================================================
-
 std::shared_ptr<ImageProcessing::IWorkingImageHardware> StateImageManager::getWorkingImage() const
 {
-    return m_working_image.load(std::memory_order_acquire);
+    std::lock_guard lock(m_state_mutex); // Protect access to m_working_image
+    return m_working_image;
 }
 
 bool StateImageManager::isUpdatePending() const
 {
-    return m_is_updating.load(std::memory_order_relaxed);
+    std::lock_guard lock(m_flag_mutex); // Protect access to m_is_updating
+    return m_is_updating;
 }
 
 std::string StateImageManager::getOriginalImageSourcePath() const
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     return m_original_image_path;
 }
 
 std::vector<Operations::OperationDescriptor> StateImageManager::getActiveOperations() const
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     return m_active_operations;
 }
 
-// ============================================================
-// Async Processing Logic
-// ============================================================
-
 std::future<bool> StateImageManager::requestUpdate(std::optional<UpdateCallback> callback)
 {
-    // Atomic exchange: sets to true, returns previous value.
-    if (m_is_updating.exchange(true, std::memory_order_acquire))
+    // Atomic exchange equivalent using mutex
     {
-        spdlog::warn("StateImageManager::requestUpdate: Update already in progress, request ignored.");
+        std::lock_guard lock(m_flag_mutex);
+        if (m_is_updating)
+        {
+            spdlog::warn("StateImageManager::requestUpdate: Update already in progress, request ignored.");
 
-        if (callback) {
-            callback.value()(false);
+            if (callback) {
+                callback.value()(false);
+            }
+            return std::async(std::launch::deferred, []() { return false; });
         }
-        return std::async(std::launch::deferred, []() { return false; });
-    }
+        m_is_updating = true; // Set the flag
+    } // Unlock m_flag_mutex immediately after checking/modifying the flag
+
 
     spdlog::debug("StateImageManager::requestUpdate: Initiating async update.");
 
-    // Snapshot the state. We move them out for the lambda.
+    // Snapshot the state. We copy them out for the lambda.
     std::vector<Operations::OperationDescriptor> ops_to_apply;
     std::string original_path;
     {
-        std::lock_guard lock(m_mutex);
+        std::lock_guard lock(m_state_mutex);
         ops_to_apply = m_active_operations; // Copy vector
         original_path = m_original_image_path;  // Copy string
     }
@@ -173,11 +172,19 @@ std::future<bool> StateImageManager::requestUpdate(std::optional<UpdateCallback>
     // Launch async task
     auto future = std::async(std::launch::async,
                              [this,
-                              ops_to_apply = std::move(ops_to_apply),
+                              ops_to_apply = std::move(ops_to_apply), // Move the copied data
                               original_path = std::move(original_path),
                               callback = std::move(callback)]() mutable
                              {
-                                 return this->performUpdate(std::move(ops_to_apply), std::move(original_path), std::move(callback));
+                                 bool result = this->performUpdate(std::move(ops_to_apply), std::move(original_path), std::move(callback));
+
+                                 // Reset the flag allowing new updates *after* processing is done
+                                 {
+                                     std::lock_guard lock(this->m_flag_mutex);
+                                     this->m_is_updating = false;
+                                 }
+
+                                 return result;
                              });
 
     return future;
@@ -208,7 +215,7 @@ bool StateImageManager::performUpdate(
         // 2. Create Working Image (CPU or GPU)
         auto backend = CaptureMoment::Core::Config::AppConfig::instance().getProcessingBackend();
         spdlog::info("StateImageManager::performUpdate: Using backend: {}",
-                      (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
+                     (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
 
         // Dereference unique_ptr before passing
         auto unique_new_image = ImageProcessing::WorkingImageFactory::create(backend, *original_tile.value());
@@ -219,6 +226,7 @@ bool StateImageManager::performUpdate(
         } else
         {
             // 3. Build Fused Pipeline
+            // Pass the operations vector by move to the builder
             auto pipeline_executor = m_pipeline_builder->build(std::move(ops_to_apply), *m_operation_factory);
 
             if (!pipeline_executor) {
@@ -231,12 +239,14 @@ bool StateImageManager::performUpdate(
                     success = false;
                 } else {
                     spdlog::info("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.",
-                                  thread_id, ops_to_apply.size());
+                                 thread_id, ops_to_apply.size());
                     success = true;
 
-                    // 5. Atomic Swap (Wrapper Method)
-                    std::shared_ptr<ImageProcessing::IWorkingImageHardware> shared_new_image(std::move(unique_new_image));
-                    m_working_image.store(shared_new_image, std::memory_order_release);
+                    // 5. Update Working Image (Thread-Safe)
+                    {
+                        std::lock_guard lock(m_state_mutex); // Protect access to m_working_image
+                        m_working_image = std::move(unique_new_image); // Store the new image
+                    }
 
                     spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id);
                 }
@@ -244,8 +254,6 @@ bool StateImageManager::performUpdate(
         }
     }
 
-    // Reset the flag allowing new updates
-    m_is_updating.store(false, std::memory_order_release);
 
     if (callback) {
         callback.value()(success);
