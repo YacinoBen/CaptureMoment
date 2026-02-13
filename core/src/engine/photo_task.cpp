@@ -51,13 +51,6 @@ void PhotoTask::execute() {
         return;
     }
 
-    if (!m_result->updateFromCPU(*m_input_tile)) {
-        spdlog::error("PhotoTask::execute: Failed to initialize working image from input tile.");
-        m_result = nullptr;
-        m_progress = 1.0f;
-        return;
-    }
-
     spdlog::info("PhotoTask::execute: Starting OperationPipeline::applyOperations");
 
     // Apply the sequence of operations to the working image.
