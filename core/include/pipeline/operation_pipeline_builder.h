@@ -1,6 +1,14 @@
 /**
  * @file operation_pipeline_builder.h
- * @brief Declaration of OperationPipelineBuilder for pipeline fusion of adjustment operations.
+ * @brief Declaration of `OperationPipelineBuilder` (Optimized).
+ *
+ * @details
+ * This class is responsible for building a fused Halide pipeline for adjustment operations.
+ * @details
+ * It acts as a Factory/Builder. It takes a list of operation descriptors (e.g., Brightness, Contrast)
+ * and constructs a single, optimized Halide pipeline. The result is an `IPipelineExecutor`
+ * object, which can then be used to execute the pipeline.
+ *
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -19,39 +27,39 @@ namespace CaptureMoment::Core {
 namespace Pipeline {
 
 /**
- * @brief Class responsible for building a fused Halide pipeline for adjustment operations.
+ * @class OperationPipelineBuilder
+ * @brief Factory for constructing fused adjustment pipelines.
  *
- * OperationPipelineBuilder analyzes a sequence of OperationDescriptors related to
- * image adjustments (e.g., Brightness, Contrast) and constructs a single, optimized
- * Halide pipeline that combines all the specified operations. The result is an
- * OperationPipelineExecutor object, which can then be used to execute the pipeline
- * on an IWorkingImageHardware.
+ * @details
+ * This class acts as a Factory/Builder for fused adjustment pipelines.
+ * It isolates the "Construction Phase" (building/executing the pipeline) from the
+ * "Execution Phase" (running it on an image).
  *
- * This class embodies the core of the adjustment pipeline fusion strategy, centralizing
- * the logic for combining multiple adjustment operations into a single computational pass.
+ * The heavy lifting (constructing the JIT code) happens in `OperationPipelineExecutor`.
+ * The result is cached for reuse.
+ *
+ * @note
+ * This builder is specifically for "Adjustments". If you add support for "Filters" or "Effects",
+ * you would create a new `FilterPipelineBuilder`.
  */
 class OperationPipelineBuilder {
 public:
     /**
-     * @brief Builds a fused Halide pipeline for the given adjustment operations.
+     * @brief Builds a fused pipeline for a given list of operations.
      *
-     * This static method takes a list of adjustment operations, analyzes them, and constructs
-     * a combined Halide pipeline. It schedules it for the appropriate backend
-     * (CPU/GPU based on IWorkingImageHardware's type or AppConfig).
+     * @details
+     * This static method creates an `OperationPipelineExecutor` instance.
+     * The executor will compile the fused pipeline once and cache it.
      *
-     * @param[in] operations A vector of OperationDescriptor objects defining
-     *                       the sequence of adjustment operations to apply and fuse.
-     * @param[in] factory The OperationFactory instance used to potentially
-     *                    retrieve operation-specific pipeline fragments or metadata
-     *                    required for fusion (though fusion logic is internal).
-     * @return A unique pointer to an IPipelineExecutor object, which encapsulates
-     *         the compiled pipeline and provides an execute method.
-     *         Returns nullptr if the pipeline construction fails.
+     * @param[in] operations A vector of `OperationDescriptor` objects defining the sequence.
+     * @param[in] factory The `OperationFactory` instance.
+     * @return A unique pointer to an `IPipelineExecutor`. Returns nullptr if empty list or build failure.
      */
     [[nodiscard]] static std::unique_ptr<IPipelineExecutor> build(
         const std::vector<Operations::OperationDescriptor>& operations,
         const Operations::OperationFactory& factory
-    );
+        );
+
 };
 
 } // namespace Pipeline

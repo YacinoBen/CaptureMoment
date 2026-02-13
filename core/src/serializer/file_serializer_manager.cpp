@@ -1,6 +1,7 @@
 /**
  * @file file_serializer_manager.cpp
  * @brief Implementation of FileSerializerManager
+ * @details Implements the delegation to the specific Writer and Reader implementations.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -10,8 +11,11 @@
 
 namespace CaptureMoment::Core::Serializer {
 
-FileSerializerManager::FileSerializerManager(std::unique_ptr<IFileSerializerWriter> writer, std::unique_ptr<IFileSerializerReader> reader)
-    : m_writer(std::move(writer)), m_reader(std::move(reader))
+FileSerializerManager::FileSerializerManager(
+    std::unique_ptr<IFileSerializerWriter> writer,
+    std::unique_ptr<IFileSerializerReader> reader)
+    : m_writer(std::move(writer))
+    , m_reader(std::move(reader))
 {
     if (!m_writer || !m_reader) {
         spdlog::error("FileSerializerManager: Constructor received a null IFileSerializerWriter or IFileSerializerReader.");
@@ -20,20 +24,22 @@ FileSerializerManager::FileSerializerManager(std::unique_ptr<IFileSerializerWrit
     spdlog::debug("FileSerializerManager: Constructed with IFileSerializerWriter and IFileSerializerReader.");
 }
 
-bool FileSerializerManager::saveToFile(std::string_view source_image_path, const std::vector<Operations::OperationDescriptor>& operations) const
+bool FileSerializerManager::saveToFile(std::string_view source_image_path, std::span<const Operations::OperationDescriptor> operations) const
 {
     if (source_image_path.empty()) {
         spdlog::error("FileSerializerManager::saveToFile: Source image path is empty.");
         return false;
     }
+
     if (operations.empty()) {
-        spdlog::warn("FileSerializerManager::saveToFile: Operations list is empty. Saving empty list.");
-        // Saving an empty list might still involve writing an XMP packet with minimal metadata.
+        spdlog::info("FileSerializerManager::saveToFile: Operations list is empty. Saving empty list to XMP.");
+        // Saving an empty list is allowed (clearing XMP).
     }
 
     spdlog::debug("FileSerializerManager::saveToFile: Attempting to save {} operations for image: {}", operations.size(), source_image_path);
 
     // Delegate the actual saving to the injected writer
+    // The Writer handles the conversion to XMP and the file I/O.
     bool success = m_writer->saveToFile(source_image_path, operations);
 
     if (success) {
@@ -55,6 +61,7 @@ std::vector<Operations::OperationDescriptor> FileSerializerManager::loadFromFile
     spdlog::debug("FileSerializerManager::loadFromFile: Attempting to load operations for image: {}", source_image_path);
 
     // Delegate the actual loading to the injected reader
+    // The Reader handles the file I/O, XMP parsing, and conversion to OperationDescriptors.
     std::vector<Operations::OperationDescriptor> operations = m_reader->loadFromFile(source_image_path);
 
     if (operations.empty()) {

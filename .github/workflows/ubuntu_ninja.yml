@@ -36,6 +36,22 @@ jobs:
          fetch-depth: 0
 
       # ====================================================================
+      # Setup Python and install Halide and CMake via pip
+      # ====================================================================
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Update CMake via pip
+        run: |
+          sudo apt remove cmake -y
+          pip install cmake --upgrade
+          cmake --version
+      - name: pip halide
+        run: |
+         pip install halide
+
+      # ====================================================================
       # Install dependencies via APT (standard Linux package manager)
       # ====================================================================
       - name: Install APT dependencies
@@ -49,24 +65,12 @@ jobs:
           sudo apt install -y libxkbcommon-dev
 
       # ====================================================================
-      # Setup Python and install Halide via pip
+      # Setup Qt
       # ====================================================================
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-
-      - name: pip halide
-        run: |
-         pip install halide
-
-      # ====================================================================
-      # Installation of Qt 6.9.3 with the dedicated action
-      # ====================================================================
-      - name: Setup Qt 6.9.3 Environment
+      - name: Setup Qt 6.10.2 Environment
         uses: jurplel/install-qt-action@v4 
         with:
-          version: '6.9.3'
+          version: '6.10.2'
           target: 'desktop'
           host: 'linux'
           modules: 'qtshadertools'

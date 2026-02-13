@@ -1,6 +1,8 @@
 /**
  * @file i_processing_task.h
- * @brief Interface IProcessingTask for image processing
+ * @brief Interface IProcessingTask for image processing tasks.
+ * @details Defines the contract for a unit of image processing work, supporting
+ *          asynchronous execution, progress tracking, and result retrieval.
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -10,19 +12,13 @@
 #include <string>
 #include <atomic>
 #include <format>
+#include <cstdint>
 
 #include "image_processing/interfaces/i_working_image_hardware.h"
 
 namespace CaptureMoment::Core {
 
 namespace Domain {
-
-/**
- * @brief Global atomic counter for generating unique task identifiers.
- * * This static variable serves as a monotonic generator for task IDs.
- * @note Uses `std::uint64_t` to prevent overflow even with heavy usage..
- */
-static std::atomic<std::uint64_t> s_task_id_generator{0};
 
 /**
  * @brief Abstract base class defining the interface for an image processing task.
@@ -32,9 +28,13 @@ static std::atomic<std::uint64_t> s_task_id_generator{0};
  * and retrieval of the processed result. This abstraction is key for managing
  * tasks like applying filters, adjustments, or AI models to image regions
  * in a potentially concurrent or sequential manner.
+ *
+ * **Thread Safety:**
+ * The `id()` method is thread-safe. The `execute()` method must be thread-safe
+ * if called concurrently on the same instance (though typically a task instance is
+ * meant to be executed once). `progress()` should be thread-safe for polling.
  */
-class IProcessingTask
-{
+class IProcessingTask {
 public:
     /**
      * @brief Virtual destructor for safe inheritance.
@@ -46,6 +46,8 @@ public:
      *
      * This pure virtual function must be implemented by derived classes
      * to perform the actual image processing logic.
+     *
+     * @note This function may block depending on the backend implementation.
      */
     virtual void execute() = 0;
 
@@ -61,13 +63,16 @@ public:
      * @brief Gets the result of the processed task.
      *
      * This function should return the processed image data encapsulated
-     * in an IWorkingImageHardware object. The behavior if called before `execute()`
-     * has completed is implementation-defined (e.g., it may return nullptr).
+     * in an IWorkingImageHardware object.
      *
-     * @return A pointer to the resulting IWorkingImageHardware. Can be nullptr
-     *         if the task failed or has not yet produced a result.
+     * @warning Ownership semantics depend on the implementation.
+     *          If the IProcessingTask instance owns the result, this pointer
+     *          will become invalid if the task is destroyed.
+     *
+     * @return A pointer to the resulting IWorkingImageHardware.
+     *         Can be nullptr if the task failed or has not yet produced a result.
      */
-    [[nodiscard]] virtual ImageProcessing::IWorkingImageHardware* result() const = 0; // <-- Changé ici
+    [[nodiscard]] virtual ImageProcessing::IWorkingImageHardware* result() const = 0;
 
     /**
      * @brief Gets a unique identifier for this task instance.
@@ -78,10 +83,12 @@ public:
     [[nodiscard]] virtual std::string id() const = 0;
 
 protected:
-
     /**
      * @brief Generates a unique identifier string for a task instance.
+     *
      * This method is defined inline within the class declaration.
+     * It uses an atomic counter to ensure thread-safe ID generation across tasks.
+     *
      * @return A string in the format "task_<number>".
      */
     [[nodiscard]] static inline std::string generateId() {
@@ -90,12 +97,25 @@ protected:
 
     /**
      * @brief Current progress of the task, from 0.0f to 1.0f.
+     * Protected member to allow derived classes to update it.
      */
     float m_progress{0.0f};
+
     /**
      * @brief Unique identifier for this task instance.
+     * Derived classes should assign this in their constructor using `generateId()`.
      */
     std::string m_id;
+
+private:
+    /**
+     * @brief Global atomic counter for generating unique task identifiers.
+     *
+     * This static variable serves as a monotonic generator for task IDs.
+     *
+     * @note Uses `std::uint64_t` to prevent overflow even with heavy usage.
+     */
+    inline static std::atomic<std::uint64_t> s_task_id_generator{0};
 };
 
 } // namespace Domain

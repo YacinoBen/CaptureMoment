@@ -1,6 +1,6 @@
 /**
  * @file working_image_cpu_default.cpp
- * @brief Implementation of WorkingImageCPU_Default
+ * @brief Implementation of WorkingImageCPU_Default.
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -10,94 +10,127 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-WorkingImageCPU_Default::WorkingImageCPU_Default(std::shared_ptr<Common::ImageRegion> initial_image)
-    : m_image_data(std::move(initial_image))
+WorkingImageCPU_Default::WorkingImageCPU_Default(std::unique_ptr<Common::ImageRegion> initial_image)
 {
-    if (m_image_data && m_image_data->isValid()) {
-        spdlog::debug("WorkingImageCPU_Default: Constructed with valid initial image ({}x{}, {} ch)",
+    // Transfer ownership of the input unique_ptr to our internal shared_ptr member.
+    // This effectively converts unique ownership to shared ownership within the class.
+    m_image_data = std::move(initial_image);
+
+    if (m_image_data && m_image_data->isValid())
+    {
+        spdlog::debug("[WorkingImageCPU_Default] Constructed with valid initial image ({}x{}, {} ch)",
                       m_image_data->m_width, m_image_data->m_height, m_image_data->m_channels);
-    } else {
-        spdlog::debug("WorkingImageCPU_Default: Constructed with no initial image or invalid image data");
+    }
+    else
+    {
+        spdlog::debug("[WorkingImageCPU_Default] Constructed with no initial image or invalid image data");
     }
 }
 
-bool WorkingImageCPU_Default::updateFromCPU(const Common::ImageRegion& cpu_image)
+std::expected<void, ErrorHandling::CoreError> WorkingImageCPU_Default::updateFromCPU(const Common::ImageRegion& cpu_image)
 {
-    if (!cpu_image.isValid()) {
-        spdlog::warn("WorkingImageCPU_Default::updateFromCPU: Input ImageRegion is invalid");
-        return false;
+    if (!cpu_image.isValid())
+    {
+        spdlog::warn("[WorkingImageCPU_Default] Input ImageRegion is invalid");
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     std::shared_ptr<Common::ImageRegion> new_image_ptr;
-    try {
+    try
+    {
+        // Create a new ImageRegion to hold the copy
         new_image_ptr = std::make_shared<Common::ImageRegion>();
-    } catch (const std::bad_alloc& e) {
-        spdlog::critical("WorkingImageCPU_Default::updateFromCPU: Failed to allocate memory for new ImageRegion: {}", e.what());
-        return false;
+    }
+    catch (const std::bad_alloc& e)
+    {
+        spdlog::critical("[WorkingImageCPU_Default] Failed to allocate memory for new ImageRegion: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
 
-    if (!new_image_ptr) {
-        spdlog::critical("WorkingImageCPU_Default::updateFromCPU: std::make_shared returned a null pointer unexpectedly.");
-        return false;
+    if (!new_image_ptr)
+    {
+        spdlog::critical("[WorkingImageCPU_Default] std::make_shared returned a null pointer unexpectedly.");
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
 
-    try {
+    try
+    {
+        // Perform deep copy of data
         *new_image_ptr = cpu_image;
-    } catch (...) {
-        spdlog::critical("WorkingImageCPU_Default::updateFromCPU: Exception occurred during assignment of ImageRegion data.");
-        return false;
+    }
+    catch (...)
+    {
+        spdlog::critical("[WorkingImageCPU_Default] Exception occurred during assignment of ImageRegion data.");
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
+    // Update internal state
     m_image_data = std::move(new_image_ptr);
-    spdlog::debug("WorkingImageCPU_Default::updateFromCPU: Successfully updated image data ({}x{}, {} ch)",
+
+    spdlog::debug("[WorkingImageCPU_Default] Successfully updated image data ({}x{}, {} ch)",
                   m_image_data->m_width, m_image_data->m_height, m_image_data->m_channels);
 
-    return true;
+    return {}; // Success
 }
 
-std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Default::exportToCPUCopy()
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+WorkingImageCPU_Default::exportToCPUCopy()
 {
-    if (!isValid()) {
-        spdlog::warn("WorkingImageCPU_Default::exportToCPUCopy: Current image data is invalid, cannot export");
-        return nullptr;
+    if (!isValid())
+    {
+        spdlog::warn("[WorkingImageCPU_Default] Current image data is invalid, cannot export");
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
-    std::shared_ptr<Common::ImageRegion> new_image_copy;
-    try {
-        new_image_copy = std::make_shared<Common::ImageRegion>();
-        if (!new_image_copy) {
-            spdlog::critical("WorkingImageCPU_Default::exportToCPUCopy: Failed to allocate memory for exported ImageRegion (copy).");
-            return nullptr;
+    std::unique_ptr<Common::ImageRegion> new_image_copy;
+    try
+    {
+        new_image_copy = std::make_unique<Common::ImageRegion>();
+        if (!new_image_copy)
+        {
+            spdlog::critical("[WorkingImageCPU_Default] Failed to allocate memory for exported ImageRegion (copy).");
+            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
+
+        // Perform deep copy
         *new_image_copy = *m_image_data;
-    } catch (const std::bad_alloc& e) {
-        spdlog::critical("WorkingImageCPU_Default::exportToCPUCopy: Failed to allocate memory for exported ImageRegion (copy): {}", e.what());
-        return nullptr;
-    } catch (...) {
-        spdlog::critical("WorkingImageCPU_Default::exportToCPUCopy: Exception occurred during copy of ImageRegion data.");
-        return nullptr;
+    }
+    catch (const std::bad_alloc& e)
+    {
+        spdlog::critical("[WorkingImageCPU_Default] Failed to allocate memory for exported ImageRegion (copy): {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+    }
+    catch (...)
+    {
+        spdlog::critical("[WorkingImageCPU_Default] Exception occurred during copy of ImageRegion data.");
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
-    if (!new_image_copy->isValid()) {
-        spdlog::error("WorkingImageCPU_Default::exportToCPUCopy: Exported ImageRegion copy is invalid (unexpected).");
-        return nullptr;
+    if (!new_image_copy->isValid())
+    {
+        spdlog::error("[WorkingImageCPU_Default] Exported ImageRegion copy is invalid (unexpected).");
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
-    spdlog::debug("WorkingImageCPU_Default::exportToCPUCopy: Successfully exported image data COPY ({}x{}, {} ch)",
+    spdlog::debug("[WorkingImageCPU_Default] Successfully exported image data COPY ({}x{}, {} ch)",
                   new_image_copy->m_width, new_image_copy->m_height, new_image_copy->m_channels);
 
     return new_image_copy;
 }
 
-std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Default::exportToCPUShared() const
+std::expected<std::shared_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+WorkingImageCPU_Default::exportToCPUShared() const
 {
-    if (!isValid()) {
-        spdlog::warn("WorkingImageCPU_Default::exportToCPUShared: Current image data is invalid, cannot export shared reference");
-        return nullptr;
+    if (!isValid())
+    {
+        spdlog::warn("[WorkingImageCPU_Default] Current image data is invalid, cannot export shared reference");
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
+    // No copy, just return the internal shared pointer
     std::shared_ptr<Common::ImageRegion> shared_ref = m_image_data;
-    spdlog::debug("WorkingImageCPU_Default::exportToCPUShared: Successfully exported shared reference to image data ({}x{}, {} ch)",
+
+    spdlog::debug("[WorkingImageCPU_Default] Successfully exported shared reference to image data ({}x{}, {} ch)",
                   shared_ref->m_width, shared_ref->m_height, shared_ref->m_channels);
 
     return shared_ref;
@@ -105,8 +138,8 @@ std::shared_ptr<Common::ImageRegion> WorkingImageCPU_Default::exportToCPUShared(
 
 std::pair<size_t, size_t> WorkingImageCPU_Default::getSize() const
 {
-    if (!isValid()) {
-        spdlog::warn("WorkingImageCPU_Default::getSize: Image data is invalid, returning {0, 0}");
+    if (!isValid())
+    {
         return {0, 0};
     }
     return {static_cast<size_t>(m_image_data->m_width), static_cast<size_t>(m_image_data->m_height)};
@@ -114,8 +147,8 @@ std::pair<size_t, size_t> WorkingImageCPU_Default::getSize() const
 
 size_t WorkingImageCPU_Default::getChannels() const
 {
-    if (!isValid()) {
-        spdlog::warn("WorkingImageCPU_Default::getChannels: Image data is invalid, returning 0");
+    if (!isValid())
+    {
         return 0;
     }
     return static_cast<size_t>(m_image_data->m_channels);
@@ -123,8 +156,8 @@ size_t WorkingImageCPU_Default::getChannels() const
 
 size_t WorkingImageCPU_Default::getPixelCount() const
 {
-    if (!isValid()) {
-        spdlog::warn("WorkingImageCPU_Default::getPixelCount: Image data is invalid, returning 0");
+    if (!isValid())
+    {
         return 0;
     }
     return static_cast<size_t>(m_image_data->m_width) * m_image_data->m_height;
@@ -132,8 +165,8 @@ size_t WorkingImageCPU_Default::getPixelCount() const
 
 size_t WorkingImageCPU_Default::getDataSize() const
 {
-    if (!isValid()) {
-        spdlog::warn("WorkingImageCPU_Default::getDataSize: Image data is invalid, returning 0");
+    if (!isValid())
+    {
         return 0;
     }
     return static_cast<size_t>(m_image_data->m_width) * m_image_data->m_height * m_image_data->m_channels;

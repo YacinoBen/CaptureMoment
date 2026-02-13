@@ -8,6 +8,7 @@
 #pragma once
 
 #include "operations/operation_type.h"
+#include "common/error_handling/core_error.h"
 #include <memory>
 #include <unordered_map>
 #include <functional>
@@ -52,10 +53,9 @@ public:
 
     /**
      * @brief Create an operation instance from descriptor
-     * @param descriptor Operation descriptor with type information
-     * @return Unique pointer to operation, or nullptr if type not registered
+     * @return std::expected with the unique ptr, or an error if type not registered.
      */
-    [[nodiscard]] std::unique_ptr<IOperation> create(const OperationDescriptor& descriptor) const;
+    [[nodiscard]] std::expected<std::unique_ptr<IOperation>, ErrorHandling::CoreError> create(const OperationDescriptor& descriptor) const;
 
 private:
     using OperationCreator = std::function<std::unique_ptr<IOperation>()>;

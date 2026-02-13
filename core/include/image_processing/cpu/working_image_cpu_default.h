@@ -1,6 +1,11 @@
 /**
  * @file working_image_cpu_default.h
  * @brief Default concrete implementation of IWorkingImageCPU using standard CPU memory (std::vector<float>).
+ *
+ * This class holds image data within standard CPU memory (RAM) using a
+ * Common::ImageRegion structure. It implements IWorkingImageCPU interface
+ * specifically for standard CPU-based storage and operations.
+ *
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -8,121 +13,152 @@
 #pragma once
 
 #include "image_processing/cpu/interfaces/i_working_image_cpu.h"
-
+#include "common/error_handling/core_error.h"
 #include <memory>
-#include <vector>
+#include <expected>
+#include <utility>
 
 namespace CaptureMoment::Core {
-    
+
 namespace ImageProcessing {
 
 /**
+ * @class WorkingImageCPU_Default
  * @brief Default concrete implementation of IWorkingImageCPU for image data stored in standard CPU RAM.
  *
- * This class holds the image data within standard CPU memory (RAM) using a
- * Common::ImageRegion structure. It implements the IWorkingImageCPU interface
- * specifically for standard CPU-based storage and operations.
+ * @details
+ * This class serves as simplest implementation of `IWorkingImageHardware`.
+ * It stores data directly in a `Common::ImageRegion` (which wraps a `std::vector<float>`).
+ * It does not utilize specific acceleration hardware (like Halide or SIMD) directly,
+ * relying on standard C++ operations.
+ *
+ * **Memory Management:**
+ * The class holds the image data internally using `std::shared_ptr<Common::ImageRegion>`.
+ * This allows the `exportToCPUShared()` method to provide a non-owning, efficient reference
+ * to the internal data for read-only operations elsewhere in the pipeline.
+ *
+ * **Usage:**
+ * This backend is typically used as a fallback, for simple operations,
+ * or when specific hardware optimizations are not required or available.
  */
 class WorkingImageCPU_Default final : public IWorkingImageCPU {
 public:
     /**
-     * @brief Constructs a WorkingImageCPU_Default object, optionally initializing it with an ImageRegion.
-     * @param initial_image Optional initial image data. If not provided, the object starts invalid.
+     * @brief Constructs a WorkingImageCPU_Default object.
+     *
+     * @details
+     * Accepts a `std::unique_ptr` to transfer ownership of the initial image data.
+     * This enables Move Semantics, avoiding a deep copy of the pixel data during initialization.
+     *
+     * @param initial_image Optional initial image data (unique_ptr).
+     *                       If not provided or invalid, the object starts in an invalid state.
      */
-    explicit WorkingImageCPU_Default(std::shared_ptr<Common::ImageRegion> initial_image = nullptr);
+    explicit WorkingImageCPU_Default(std::unique_ptr<Common::ImageRegion> initial_image = nullptr);
 
     /**
      * @brief Virtual destructor.
      */
-    ~WorkingImageCPU_Default() override;
+    ~WorkingImageCPU_Default() override = default;
 
-    // --- IWorkingImageHardware Interface Implementation ---
-    // (Must implement all methods from IWorkingImageHardware)
+    // ============================================================
+    // IWorkingImageHardware Interface Implementation
+    // ============================================================
 
     /**
-     * @brief Updates the internal image data from a CPU-based ImageRegion.
+     * @brief Updates internal image data from a CPU-based ImageRegion.
      *
-     * This method copies the data from the provided CPU image region directly
-     * into the internal CPU memory buffer managed by this object.
+     * @details
+     * This method creates a new internal copy of the provided image.
+     * Since both source and destination are CPU-based, this is a standard memory copy.
      *
-     * @param[in] cpu_image The source image data residing in CPU memory.
-     * @return true if the update operation was successful (data copied), false otherwise.
+     * @param cpu_image The source image data residing in CPU memory.
+     * @return std::expected<void, std::error_code> Success or error code.
      */
-    [[nodiscard]] bool updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
+    updateFromCPU(const Common::ImageRegion& cpu_image) override;
 
     /**
-     * @brief Exports the current internal image data to a new CPU-based ImageRegion owned by the caller.
+     * @brief Exports current internal image data to a new CPU-based ImageRegion.
      *
+     * @details
      * This method creates a **new** ImageRegion instance on the heap and copies
-     * the internal image data into it. The caller receives ownership of the returned
-     * shared pointer and is responsible for its lifetime.
-     * This involves a **deep copy** of the image data.
+     * the internal image data into it. The caller receives unique ownership of the result.
      *
-     * @return A shared pointer to a **newly allocated** ImageRegion containing the copied image data.
-     *         Returns nullptr on failure (allocation or copy error).
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+     *         Unique pointer to copied data on success, or error code on failure.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUCopy() override;
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    exportToCPUCopy() override;
 
     /**
-     * @brief Exports a shared reference to the current internal image data.
+     * @brief Exports a shared reference to current internal image data.
      *
+     * @details
      * This method provides a shared pointer to the internal ImageRegion object.
-     * This is a **shallow copy** operation (increases the reference count).
+     * This is a **shallow copy** operation (increases reference count).
      * The returned shared pointer points to the same underlying data managed by
      * this WorkingImageCPU_Default object.
      *
-     * @return A shared pointer to the **internal** ImageRegion object (shallow copy).
-     *         Returns nullptr if the internal data is invalid.
+     * @return std::expected<std::shared_ptr<Common::ImageRegion>, std::error_code>
+     *         Shared pointer to internal data on success, or error code if invalid.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUShared() const;
+    [[nodiscard]] std::expected<std::shared_ptr<Common::ImageRegion>, ErrorHandling::CoreError> exportToCPUShared() const;
 
     /**
-     * @brief Gets the dimensions (width, height) of the internal image data.
+     * @brief Gets dimensions (width, height) of internal image data.
      *
-     * @return A pair containing the width (first) and height (second) of the image.
-     *         Returns {0, 0} if the internal image data is invalid or not loaded.
+     * @return std::pair<size_t, size_t> Width and height. Returns {0, 0} if invalid.
      */
     [[nodiscard]] std::pair<size_t, size_t> getSize() const override;
 
     /**
-     * @brief Gets the number of color channels of the internal image data.
+     * @brief Gets number of color channels.
      *
-     * @return The number of channels (e.g., 3 for RGB, 4 for RGBA). Returns 0
-     *         if the internal image data is invalid or not loaded.
+     * @return size_t Number of channels. Returns 0 if invalid.
      */
     [[nodiscard]] size_t getChannels() const override;
 
     /**
-     * @brief Gets the total number of pixels in the internal image data.
+     * @brief Gets total number of pixels.
      *
-     * @return The product of width and height. Returns 0 if the internal image data is invalid or not loaded.
+     * @return size_t width * height. Returns 0 if invalid.
      */
     [[nodiscard]] size_t getPixelCount() const override;
 
     /**
-     * @brief Gets the total number of data elements (pixels * channels) in the internal image data.
+     * @brief Gets total number of data elements (pixels * channels).
      *
-     * @return The product of pixel count and channel count. Returns 0 if the internal image data is invalid or not loaded.
+     * @return size_t Total size. Returns 0 if invalid.
      */
     [[nodiscard]] size_t getDataSize() const override;
 
     /**
-     * @brief Checks if the internal image data is in a valid state.
+     * @brief Checks if internal image data is valid.
      *
-     * @return true if the internal ImageRegion is loaded and contains valid data, false otherwise.
+     * @return true if internal ImageRegion is loaded and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override { return m_image_data && m_image_data->isValid(); };
+    [[nodiscard]] bool isValid() const override
+    {
+        return m_image_data && m_image_data->isValid();
+    };
 
     /**
-     * @brief Gets the memory type where the image data resides.
+     * @brief Gets memory type where image data resides.
      *
-     * @return MemoryType::CPU_RAM, indicating the data is stored in main CPU RAM.
+     * @return MemoryType::CPU_RAM.
      */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override  { return Common::MemoryType::CPU_RAM; };
+    [[nodiscard]] Common::MemoryType getMemoryType() const override
+    {
+        return Common::MemoryType::CPU_RAM;
+    };
 
 private:
     /**
-     * @brief Shared pointer to the internal ImageRegion holding the CPU image data.
+     * @brief Shared pointer to internal ImageRegion holding CPU image data.
+     *
+     * @details
+     * Stored as shared to allow efficient `exportToCPUShared()` functionality
+     * without forcing deep copies or complex ownership transfers.
      */
     std::shared_ptr<Common::ImageRegion> m_image_data;
 };

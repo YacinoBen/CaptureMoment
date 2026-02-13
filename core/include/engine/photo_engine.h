@@ -1,6 +1,15 @@
 /**
  * @file photo_engine.h
- * @brief Declaration of PhotoEngine class
+ * @brief Declaration of PhotoEngine class.
+ *
+ * @details
+ * Central orchestrator for image loading, processing, and state management.
+ * This class acts as the main entry point for the Core library. It bridges
+ * the gap between I/O (SourceManager) and processing (StateImageManager).
+ *
+ * The engine handles the lifecycle of the image data, from loading the original
+ * source to applying cumulative operations and exporting the result.
+ *
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -9,133 +18,134 @@
 
 #include "managers/source_manager.h"
 #include "managers/state_image_manager.h"
+#include "operations/operation_descriptor.h"
+#include "common/image_region.h"
+#include "common/error_handling/core_error.h"
 
 #include <memory>
 #include <string_view>
 #include <vector>
-
-#include <spdlog/spdlog.h>
+#include <expected>
 
 namespace CaptureMoment::Core {
 
 namespace Engine {
 
 /**
- * @brief Central engine orchestrating image loading and cumulative operation management.
+ * @class PhotoEngine
+ * @brief Core engine orchestrating image loading and cumulative operation management.
  *
- * The PhotoEngine acts as the main interface between the UI layer (Qt) and the core
- * image processing logic. It delegates the management of the cumulative image processing state
- * (the sequence of applied operations and the resulting image) to StateImageManager.
- *  It also manages the persistence of operations via FileSerializerManager.
+ * This class manages the dependencies between the SourceManager (file I/O) and
+ * the StateImageManager (processing pipeline). It provides a simplified interface
+ * for loading images, applying adjustments, and retrieving the processed result.
  */
 class PhotoEngine
 {
 private:
-    /**
-     * @brief Shared pointer to the manager responsible for loading and providing image data.
-     */
     std::shared_ptr<Managers::SourceManager> m_source_manager;
-
-    /**
-     * @brief Unique pointer to the manager responsible for the cumulative image processing state.
-     * This manager handles the sequence of active operations and updates the working image accordingly.
-     */
     std::unique_ptr<Managers::StateImageManager> m_state_manager;
 
 public:
     /**
      * @brief Constructs a PhotoEngine instance.
      *
-     * Initializes the engine with the necessary managers and factories.
-     *
+     * Initializes internal managers and the operation factory.
      */
     PhotoEngine();
 
     /**
-     * @brief Loads an image file into the engine.
+     * @brief Loads an image file and initializes the processing pipeline.
      *
-     * Delegates the loading process to the internal SourceManager.
-     * Initializes the StateImageManager with the loaded image path.
+     * This method performs the following steps:
+     * 1. Loads the file from disk via SourceManager.
+     * 2. Initializes the StateImageManager with the source image.
+     * 3. Triggers the first processing update to prepare the working image.
      *
-     * @param[in] path The path to the image file to be loaded.
-     * @return true if the image was loaded successfully, false otherwise.
+     * The call blocks until the initial processing is complete to ensure a valid
+     * image is available immediately after the function returns.
+     *
+     * @param path Path to the image file.
+     * @return `std::expected<void, CoreError>` indicating success or the specific error type.
      */
-    [[nodiscard]] bool loadImage(std::string_view path);
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> loadImage(std::string_view path);
 
     /**
-     * @brief Commits the current working image back to the source image.
+     * @brief Commits the processed working image back to the source manager.
      *
-     * This method should be called when the user wants to save the changes permanently.
-     * It replaces the original image in m_source_manager with the current working image
-     * managed by StateImageManager.
+     * Exports the current working image (potentially in GPU memory) to a CPU buffer
+     * and writes it to the underlying SourceManager. This overwrites the original
+     * image data in memory.
      *
-     * @return true if the working image was successfully committed to the source manager, false otherwise.
+     * @return `std::expected<void, CoreError>` indicating success or failure.
      */
-    [[nodiscard]] bool commitWorkingImageToSource();
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> commitWorkingImageToSource();
 
     /**
-     * @brief Resets the working image to the original image loaded from the source manager.
+     * @brief Resets the working image to the original state.
      *
-     * This method delegates the reset to the internal StateImageManager,
-     * effectively undoing all applied operations.
+     * Clears all applied operations and reverts the working image to match the
+     * original source image.
      */
     void resetWorkingImage();
 
     /**
-     * @brief Gets the width of the currently loaded image.
+     * @brief Gets the width of the loaded image.
      *
-     * Delegates the call to the internal SourceManager.
-     *
-     * @return The width in pixels, or 0 if no image is loaded.
+     * @return Image width in pixels, or 0 if no image is loaded.
      */
     [[nodiscard]] int width() const noexcept;
 
     /**
-     * @brief Gets the height of the currently loaded image.
+     * @brief Gets the height of the loaded image.
      *
-     * Delegates the call to the internal SourceManager.
-     *
-     * @return The height in pixels, or 0 if no image is loaded.
+     * @return Image height in pixels, or 0 if no image is loaded.
      */
     [[nodiscard]] int height() const noexcept;
 
     /**
-     * @brief Gets the number of channels of the currently loaded image.
+     * @brief Gets the number of color channels.
      *
-     * Delegates the call to the internal SourceManager.
-     *
-     * @return The number of channels (e.g., 3 for RGB, 4 for RGBA), or 0 if no image is loaded.
+     * @return Number of channels (e.g., 4 for RGBA), or 0 if no image is loaded.
      */
     [[nodiscard]] int channels() const noexcept;
 
     /**
-     * @brief Applies a sequence of operations cumulatively to the working image.
+     * @brief Applies a cumulative list of operations.
      *
-     * This method delegates the application of the operations to the internal StateImageManager.
-     * The StateImageManager handles the update asynchronously.
+     * Replaces the current active operation list with the provided vector
+     * and triggers an asynchronous pipeline update.
      *
-     * @param ops The vector of OperationDescriptors to apply.
+     * This method is non-blocking. The processing happens in the background.
+     * The caller can use `getWorkingImage` or `getWorkingImageAsRegion` to retrieve
+     * the result when ready.
+     *
+     * @param ops Vector of OperationDescriptors defining the adjustments.
      */
     void applyOperations(const std::vector<Operations::OperationDescriptor>& ops);
 
     /**
-     * @brief Gets the current working image hardware abstraction.
+     * @brief Gets the raw working image (Hardware Abstraction).
      *
-     * Delegates the call to the internal StateImageManager to get the image
-     * reflecting the currently applied operations.
+     * Returns a shared pointer to the internal hardware-agnostic image.
+     * This is useful if the caller needs to interface directly with the processing
+     * backend.
      *
-     * @return Pointer to the current IWorkingImageHardware managed by StateImageManager.
+     * @return Shared pointer to the working image, or nullptr.
      */
-    [[nodiscard]] ImageProcessing::IWorkingImageHardware* getWorkingImage() const;
+    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
 
     /**
-     * @brief Gets the current working image as an ImageRegion for display purposes.
-     * This method is intended for the UI layer (Qt) to obtain a CPU-based copy
-     * of the current working image for rendering. It handles the conversion from
-     * the internal hardware-agnostic representation to a standard ImageRegion.
-     * @return A shared pointer to a CPU-based ImageRegion, or nullptr if not available.
+     * @brief Gets the working image as a CPU-based copy.
+     *
+     * This method exports the working image (which might reside in GPU memory)
+     * into a standard CPU buffer (ImageRegion).
+     *
+     * This is the preferred method for external display or serialization logic,
+     * as it ensures the data is available in CPU RAM.
+     *
+     * @return `std::expected` containing a unique pointer to the ImageRegion, or an error code.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> getWorkingImageAsRegion() const;
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> getWorkingImageAsRegion() const;
 };
 
 } // namespace Engine

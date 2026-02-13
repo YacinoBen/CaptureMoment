@@ -7,8 +7,7 @@
 #include "rendering/qml_sgs_image_item.h"
 #include "rendering/qml_rhi_image_item.h"
 
-#include "image_processing/deciders/benchmarking_backend_decider.h"
-#include "config/app_config.h"
+#include "core_initialization.h"
 
 #include <spdlog/spdlog.h>
 
@@ -17,10 +16,8 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     QQmlApplicationEngine engine;
 
-    spdlog::info("Starting backend benchmark...");
-    CaptureMoment::Core::ImageProcessing::BenchmarkingBackendDecider benchmark_decider;
-    auto backend =  benchmark_decider.decide();
-    CaptureMoment::Core::Config::AppConfig::instance().setProcessingBackend(backend);
+    spdlog::info("Initialization");
+    CaptureMoment::Core::initialize();
 
 
     // Register QML types Rendering

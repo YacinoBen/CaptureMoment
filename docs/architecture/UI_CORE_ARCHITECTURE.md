@@ -99,14 +99,14 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 
 ## 🧩 Flow Diagrams
 
-### A. Image Processing Flow (updated for hardware abstraction)
+### A. Image Processing Flow (updated for hardware abstraction and fused pipelines)
 1.  **Initialization:** `QmlContextSetup` creates `ImageControllerBase`, which creates its dependencies (`OperationStateManager`, `OperationModelManager`, etc.). `OperationModelManager` creates the models, and `ImageControllerBase` connects them to `OperationStateManager`. Then, `QmlContextSetup` registers the models to QML via `OperationModelManager`.
 2.  **QML Interaction:** A user moves a slider (e.g., Brightness). This calls `brightnessControl.setValue(newValue)` in QML.
 3.  **Model Update:** `BaseAdjustmentModel::setValue` updates `m_params.value` and emits `valueChanged(newValue)`.
 4.  **Connection and State Update:** The lambda in `ImageControllerBase::connectModelsToStateManager` connected to `valueChanged` is executed. It calls `OperationStateManager::addOrUpdateOperation(brightness_descriptor)`.
 5.  **Operation Application:** The lambda retrieves the full list of active operations via `OperationStateManager::getActiveOperations()` and calls `QMetaObject::invokeMethod(ImageControllerBase::doApplyOperations, ...)` on the worker thread.
 6.  **Core Call:** `ImageControllerBase::doApplyOperations` calls `PhotoEngine::applyOperations(full_list_of_operations)`.
-7.  **Processing in Core:** `PhotoEngine` delegates to `StateImageManager` (Core) which applies the list of operations via `OperationPipeline` and updates the working image using the hardware-agnostic `IWorkingImageHardware` abstraction.
+7.  **Processing in Core:** `PhotoEngine` delegates to `StateImageManager` (Core) which uses `OperationPipelineBuilder` to create an `OperationPipelineExecutor`. This executor applies the list of operations via **fused Halide pipeline execution** using the hardware-agnostic `IWorkingImageHardware` abstraction (`WorkingImageCPU_Halide` or `WorkingImageGPU_Halide`). The dynamic input buffer binding ensures the correct image data is processed by the fused pipeline.
 8.  **Display Update:** `ImageControllerBase` retrieves the new working image from `PhotoEngine` via `getWorkingImageAsRegion()` (which exports the hardware buffer to CPU), passes it to `DisplayManager`, which downsamples it and sends it to the Qt Quick rendering item for display.
 
 ### B. Serialization Flow (unchanged)
@@ -123,7 +123,7 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 ### Adding a New Operation (e.g., Vignette)
 
 1.  **Define Operation Type:** Add `Vignette` to the `OperationType` enum in the Core.
-2.  **Create Operation Implementation:** Define `OperationVignette` class in the Core that implements the new `execute(IWorkingImageHardware&, const OperationDescriptor&)` method.
+2.  **Create Operation Implementation:** Define `OperationVignette` class in the Core that implements the new `execute(IWorkingImageHardware&, const OperationDescriptor&)` method and `appendToFusedPipeline` for pipeline fusion.
 3.  **Register Operation:** Add `OperationVignette` to the `OperationRegistry::registerAll` function in the Core.
 4.  **UI Integration:** Create a corresponding operation model in `ui_core` (`VignetteModel`) and expose it to QML via `OperationModelManager`.
 

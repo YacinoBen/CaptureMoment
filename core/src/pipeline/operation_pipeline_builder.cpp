@@ -1,50 +1,50 @@
 /**
  * @file operation_pipeline_builder.cpp
- * @brief Implementation of OperationPipelineBuilder
+ * @brief Implementation of OperationPipelineBuilder.
  * @author CaptureMoment Team
  * @date 2026
  */
 
 #include "pipeline/operation_pipeline_builder.h"
 #include "pipeline/operation_pipeline_executor.h"
-#include "operations/operation_factory.h"
+
 #include <spdlog/spdlog.h>
-#include <memory>
-#include <vector>
 
 namespace CaptureMoment::Core::Pipeline {
 
 /**
- * @brief Static method to build a fused Halide pipeline for the given adjustment operations.
+ * @brief Static method to build a fused pipeline executor.
  *
- * This method creates an OperationPipelineExecutor instance that encapsulates a compiled
- * Halide pipeline combining all the specified operations. The pipeline is constructed
- * once and cached within the executor for efficient reuse during execution.
+ * @details
+ * This method creates an `OperationPipelineExecutor` instance.
+ * The executor will compile the fused Halide pipeline once (in its constructor) and cache it
+ * for efficient reuse during every `execute` call.
  *
- * @param operations A vector of OperationDescriptor objects defining the sequence of adjustment operations to apply and fuse.
- * @param factory The OperationFactory instance used to retrieve operation-specific fusion logic required for pipeline construction.
- * @return A unique pointer to an IPipelineExecutor object, which encapsulates the compiled pipeline and provides an execute method.
- *         Returns nullptr if the pipeline construction fails.
+ * @param operations A vector of `OperationDescriptor` objects defining the sequence.
+ * @param factory The `OperationFactory` used to retrieve operation-specific fusion logic.
+ * @return A unique pointer to an `IPipelineExecutor` object.
+ *         Returns nullptr if `operations` is empty or an exception occurs.
  */
+
 std::unique_ptr<IPipelineExecutor> OperationPipelineBuilder::build(
     const std::vector<Operations::OperationDescriptor>& operations,
     const Operations::OperationFactory& factory
-    ) {
-    spdlog::info("OperationPipelineBuilder::build: Starting build for {} operations.", operations.size());
+    )
+{
+    spdlog::info("[OperationPipelineBuilder::build] Starting build for {} operations...", operations.size());
 
-    if (operations.empty()) {
-        spdlog::info("OperationPipelineBuilder::build: No operations provided. Returning executor with empty pipeline.");
+    if (operations.empty())
+    {
+        spdlog::info("[OperationPipelineBuilder::build] No operations provided. Returning null executor.");
         return std::make_unique<OperationPipelineExecutor>(operations, factory);
     }
 
     try {
-        // Create an OperationPipelineExecutor instance with the operations and factory.
-        // The executor will compile the fused pipeline once in its constructor and cache it
-        // for efficient reuse during subsequent executions.
+        // The executor will compile the fused pipeline graph once in its constructor
         return std::make_unique<OperationPipelineExecutor>(operations, factory);
 
     } catch (const std::exception& e) {
-        spdlog::error("OperationPipelineBuilder::build: Exception occurred during pipeline construction: {}", e.what());
+        spdlog::error("[OperationPipelineBuilder::build] Exception occurred during pipeline construction: {}", e.what());
         return nullptr;
     }
 }

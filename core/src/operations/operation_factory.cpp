@@ -12,7 +12,7 @@
 
 namespace CaptureMoment::Core::Operations {
 
-std::unique_ptr<IOperation> OperationFactory::create(
+ std::expected<std::unique_ptr<IOperation>, ErrorHandling::CoreError> OperationFactory::create(
     const OperationDescriptor& descriptor
 ) const {
 

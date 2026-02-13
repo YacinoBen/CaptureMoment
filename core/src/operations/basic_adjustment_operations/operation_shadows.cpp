@@ -6,11 +6,17 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_shadows.h"
+#include "common/error_handling/core_error.h"
 
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <limits>
 
 namespace CaptureMoment::Core::Operations {
+
+// ============================================================================
+// Internal Helper: Shared Halide Logic
+// ============================================================================
 
 template<typename InputType>
 Halide::Func applyShadowsAdjustment(
@@ -20,17 +26,18 @@ Halide::Func applyShadowsAdjustment(
     const Halide::Var& y,
     const Halide::Var& c,
     float low_threshold = 0.0f,
-    float high_threshold = 0.3f
-    )
+    float high_threshold = 0.3f)
 {
     Halide::Func shadows_func("shadows_op");
     Halide::Func luminance_func("luminance_shadows");
     Halide::Func mask_func("mask_shadows");
 
-    // Calcul de la luminance en utilisant les variables passées en paramètre
-    luminance_func(x, y) = 0.299f * input(x, y, 0) + 0.587f * input(x, y, 1) + 0.114f * input(x, y, 2);
+    // Calculate Luminance
+    luminance_func(x, y) = 0.299f * input(x, y, 0) +
+                           0.587f * input(x, y, 1) +
+                           0.114f * input(x, y, 2);
 
-    // Masque basé sur la luminance
+    // Mask: 1.0 below 0.0, ramp to 0.0 at 0.3
     mask_func(x, y) = Halide::select(
         luminance_func(x, y) >= high_threshold,
         0.0f,
@@ -39,99 +46,93 @@ Halide::Func applyShadowsAdjustment(
         (high_threshold - luminance_func(x, y)) / (high_threshold - low_threshold)
         );
 
-    // Application de l'ajustement d'ombres en utilisant les variables passées en paramètre
+    // Apply Adjustment
     shadows_func(x, y, c) = Halide::select(
-        c < 3, // R, G, B
+        c < 3,
         input(x, y, c) + shadows_value * mask_func(x, y),
-        input(x, y, c) // A (Alpha inchangé)
+        input(x, y, c) // Alpha unchanged
         );
 
     return shadows_func;
 }
 
-bool OperationShadows::execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)
+// ============================================================================
+// IOperation Implementation
+// ============================================================================
+
+std::expected<void, ErrorHandling::CoreError> OperationShadows::execute(
+    ImageProcessing::IWorkingImageHardware& working_image,
+    const OperationDescriptor& descriptor)
 {
-    // 1. Validate the input working image
+    // Step 1: Validation
     if (!working_image.isValid()) {
         spdlog::warn("OperationShadows::execute: Invalid working image provided");
-        return false;
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
-    // Skip execution if the operation is disabled
     if (!descriptor.enabled) {
-        spdlog::trace("OperationShadows::execute: Operation is disabled, skipping execution");
-        return true;
+        spdlog::trace("OperationShadows::execute: Operation is disabled, skipping");
+        return {};
     }
 
-    // 2. Extract the shadow adjustment value parameter from the descriptor
-    float shadows_value = descriptor.getParam<float>("value", 0.0f);
+    // Step 2: Extract Parameters
+    auto value_res = descriptor.getParam<float>("value");
+    if (!value_res) {
+        spdlog::error("OperationShadows::execute: Failed to get 'value' parameter");
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
+    }
+    float shadows_value = value_res.value();
 
-    // No-op optimization: Skip processing if the value matches the default
-    if (shadows_value == OperationShadows::DEFAULT_SHADOWS_VALUE) {
-        spdlog::trace("OperationShadows::execute: Shadow adjustment value is default ({}), skipping operation", OperationShadows::DEFAULT_SHADOWS_VALUE);
-        return true;
+    // Step 3: No-Op Optimization
+    if (std::abs(shadows_value - OperationShadows::DEFAULT_SHADOWS_VALUE) < std::numeric_limits<float>::epsilon()) {
+        spdlog::trace("OperationShadows::execute: Value is default, skipping");
+        return {};
     }
 
-    // Validate and clamp the shadow adjustment value to the defined operational range
-    if (shadows_value < OperationShadows::MIN_SHADOWS_VALUE || shadows_value > OperationShadows::MAX_SHADOWS_VALUE) {
-        spdlog::warn("OperationShadows::execute: Shadow adjustment value ({}) is outside the valid range [{}, {}]. Clamping.",
-                     shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
-        shadows_value = std::clamp(shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
+    // Step 4: Clamp Value
+    shadows_value = std::clamp(shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
+    spdlog::debug("OperationShadows::execute: Applying shadows with value={:.2f}", shadows_value);
+
+    // Step 5: Export & Execute
+    auto cpu_copy_result = working_image.exportToCPUCopy();
+    if (!cpu_copy_result) {
+        spdlog::error("OperationShadows::execute: Failed to export working image to CPU");
+        return std::unexpected(cpu_copy_result.error());
     }
+    auto& cpu_region_ptr = cpu_copy_result.value();
 
-    spdlog::debug("OperationShadows::execute: Applying shadow adjustment with value={:.2f}", shadows_value);
-
-    // Export the current working image data to a CPU-accessible copy for processing
-    auto cpu_copy = working_image.exportToCPUCopy();
-    if (!cpu_copy) {
-        spdlog::error("OperationShadows::execute: Failed to export working image to CPU copy for processing");
-        return false;
-    }
-
-    // 3. Execute the Halide-based image processing pipeline
     try {
-        spdlog::info("OperationShadows::execute: Creating Halide buffer for processing");
-
-        // Log image dimensions for debugging
-        spdlog::info("OperationShadows::execute: Processing image size: {}x{} ({} channels), total elements: {}",
-                     working_image.getSize().first,
-                     working_image.getSize().second,
-                     working_image.getChannels(),
-                     working_image.getDataSize());
-
-        // Create Halide variables for the coordinate system
         Halide::Var x, y, c;
+        std::span<float> data_span = cpu_region_ptr->getBuffer();
 
-        // Create input image buffer from the exported CPU copy data
         Halide::Buffer<float> input_buf(
-            cpu_copy->m_data.data(),
-            static_cast<int>(cpu_copy->m_width),
-            static_cast<int>(cpu_copy->m_height),
-            static_cast<int>(cpu_copy->m_channels)
+            data_span.data(),
+            static_cast<int>(cpu_region_ptr->m_width),
+            static_cast<int>(cpu_region_ptr->m_height),
+            static_cast<int>(cpu_region_ptr->m_channels)
             );
 
-        spdlog::info("OperationShadows::execute: Halide buffer created successfully");
-
-        // Appliquer l'ajustement d'ombres en utilisant la fonction utilitaire
         auto shadows_func = applyShadowsAdjustment(input_buf, shadows_value, x, y, c);
-
-        // Schedule the Halide function for optimized parallel execution
-        spdlog::info("OperationShadows::execute: Halide function defined with luminance mask logic");
-        shadows_func.parallel(y, 8).vectorize(x, 8); // Parallelize over Y-axis, vectorize over X-axis for performance
-        spdlog::info("OperationShadows::execute: Parallel and vectorization schedule applied, about to realize");
-
-        // Execute the Halide pipeline and write the result back to the input buffer
+        shadows_func.compute_root().parallel(y).vectorize(x, 8);
         shadows_func.realize(input_buf);
-        spdlog::info("OperationShadows::execute: Halide realization completed successfully");
 
-        // Update the working image with the processed CPU copy data
-        return working_image.updateFromCPU(*cpu_copy);
+        auto update_res = working_image.updateFromCPU(std::move(*cpu_region_ptr));
+        if (!update_res) {
+            spdlog::error("OperationShadows::execute: Failed to update working image from CPU");
+            return std::unexpected(update_res.error());
+        }
+
+        return {};
 
     } catch (const std::exception& e) {
-        spdlog::critical("OperationShadows::execute: Exception occurred during Halide processing: {}", e.what());
-        return false;
+        spdlog::critical("OperationShadows::execute: Exception: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 }
+
+// ============================================================================
+// IOperationFusionLogic Implementation
+// ============================================================================
 
 Halide::Func OperationShadows::appendToFusedPipeline(
     const Halide::Func& input_func,
@@ -141,25 +142,40 @@ Halide::Func OperationShadows::appendToFusedPipeline(
     const OperationDescriptor& params
     ) const
 {
-    // Extract the shadow adjustment value parameter from the operation descriptor
-    float shadows_value = params.getParam<float>("value", 0.0f);
+    auto value_res = params.getParam<float>("value");
+    float shadows_value = value_res.value_or(OperationShadows::DEFAULT_SHADOWS_VALUE);
 
-    // No-op optimization: Return the input function unchanged if the value is at default
-    if (shadows_value == OperationShadows::DEFAULT_SHADOWS_VALUE) {
-        spdlog::trace("OperationShadows::appendToFusedPipeline: No-op requested, returning input function unchanged");
+    if (std::abs(shadows_value - OperationShadows::DEFAULT_SHADOWS_VALUE) < std::numeric_limits<float>::epsilon()) {
         return input_func;
     }
 
-    // Validate and clamp the shadow adjustment value to the defined operational range
-    if (shadows_value < OperationShadows::MIN_SHADOWS_VALUE || shadows_value > OperationShadows::MAX_SHADOWS_VALUE) {
-        spdlog::warn("OperationShadows::appendToFusedPipeline: Clamping adjustment value to valid range [{}, {}]",
-                     OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
-        shadows_value = std::clamp(shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
+    shadows_value = std::clamp(shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
+    return applyShadowsAdjustment(input_func, shadows_value, x, y, c);
+}
+
+// ============================================================================
+// IOperationDefaultLogic Implementation
+// ============================================================================
+
+std::expected<void, ErrorHandling::CoreError> OperationShadows::executeOnImageRegion(
+    Common::ImageRegion& region,
+    const OperationDescriptor& params
+    ) const
+{
+    if (!region.isValid()) {
+        spdlog::error("[OperationShadows] executeOnImageRegion: Invalid ImageRegion.");
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
-    spdlog::debug("OperationShadows::appendToFusedPipeline: Building fusion fragment with value={:.2f}", shadows_value);
+    auto value_res = params.getParam<float>("value");
+    if (!value_res) {
+        spdlog::warn("[OperationShadows] executeOnImageRegion: Param 'value' missing, skipping.");
+        return {};
+    }
 
-    return applyShadowsAdjustment(input_func, shadows_value, x, y, c);
+    // TODO implement with OpenImageIO or OpenCV Or manually. To determine
+
+    return {};
 }
 
 } // namespace CaptureMoment::Core::Operations

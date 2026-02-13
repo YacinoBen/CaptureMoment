@@ -44,27 +44,27 @@ private:
     /**
      * @brief The input image region to process.
      */
-    std::shared_ptr<Common::ImageRegion> m_input_tile; // <-- Reste un ImageRegion pour l'initialisation
+    std::shared_ptr<Common::ImageRegion> m_input_tile;
     /**
      * @brief The resulting working image after processing.
      */
-    std::unique_ptr<ImageProcessing::IWorkingImageHardware> m_result; // <-- Changé en unique_ptr<IWorkingImageHardware>
+    std::unique_ptr<ImageProcessing::IWorkingImageHardware> m_result;
 
 public:
     /**
      * @brief Constructs a PhotoTask.
      *
-     * @param[in] input_tile A shared pointer to the ImageRegion representing the input tile to be processed.
+     * @param[in] input_tile A shared pointer to ImageRegion representing the input tile to be processed.
      *                       The task holds a copy of this shared pointer.
      * @param[in] ops A vector of OperationDescriptor objects defining the sequence of operations to apply.
-     *                The task stores a copy of this vector.
-     * @param[in] operation_factory A shared pointer to the OperationFactory used to instantiate
+     *                The task stores a copy of this vector (moved if possible).
+     * @param[in] operation_factory A shared pointer to OperationFactory used to instantiate
      *                              the concrete operation objects during execution.
      *                              The task holds a copy of this shared pointer.
      */
     PhotoTask(
         std::shared_ptr<Common::ImageRegion> input_tile,
-        const std::vector<Operations::OperationDescriptor>& ops,
+        std::vector<Operations::OperationDescriptor> ops, // OPTIMISATION : Pris par valeur au lieu de const ref
         std::shared_ptr<Operations::OperationFactory> operation_factory
         );
 

@@ -1,12 +1,9 @@
 # 🟦 Windows Build Guide
-This guide is optimized to handle the challenges of building **Halide** and **LLVM** on Windows.
-
-
-
-## Halide build (mandatory)
-* [**Halide build**](BUILDING_HALIDE.md).
+This guide is optimized to handle the challenges of building on Windows.
 
 ## 🛠️ Environment Setup with vcpkg
+
+**VCPKG_ROOT :** Ensure this environment variable points to your Vcpkg installation.
 
 ### 1. Install Vcpkg
 ```powershell
@@ -18,6 +15,8 @@ cd C:\vcpkg
 
 ### 2. Enable Binary Caching (Crucial!)
 To avoid recompiling LLVM every time you clean your project, enable local binary caching. Check if it's ON by default.
+
+
 
 ```PowerShell
 # Create a permanent cache folder
@@ -90,5 +89,5 @@ Not configured at yet
 | release-vcpkg-msvc  | Auto-detected         | Release    | x64-windows-release       | Optimized for Space/Time Savings (Recommended). |
 | debug-vcpkg-mingw   | MinGW Makefiles       | Debug      | x64-mingw-dynamic         | For the MinGW toolchain.                        |
 | release-vcpkg-mingw | MinGW Makefiles       | Release    | x64-mingw-dynamic-release | Optimized for MinGW (Time/Space Savings).       |
-| debug-vs            | Visual Studio 17 2022 | Debug      | N/A                       | Without Vcpkg toolchain, uses default VS build. |
-| release-vs          | Visual Studio 17 2022 | Release    | N/A                       | Without Vcpkg toolchain.                        |
+| debug-vs            | Visual Studio 18 2026 | Debug      | N/A                       | Without Vcpkg toolchain, uses default VS build. |
+| release-vs          | Visual Studio 18 2026 | Release    | N/A                       | Without Vcpkg toolchain.                        |

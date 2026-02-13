@@ -18,11 +18,11 @@ namespace CaptureMoment::Core::Engine {
 // Constructor: Initializes the task with input data, operations, and the factory.
 PhotoTask::PhotoTask(
     std::shared_ptr<Common::ImageRegion> input_tile,
-    const std::vector<Operations::OperationDescriptor>& ops,
+    std::vector<Operations::OperationDescriptor> ops,
     std::shared_ptr<Operations::OperationFactory> operation_factory
     )
     : m_operation_factory{std::move(operation_factory)},
-    m_operation_descriptors{ops},
+    m_operation_descriptors{std::move(ops)},
     m_input_tile{std::move(input_tile)},
     m_result{nullptr}
 {
@@ -61,15 +61,15 @@ void PhotoTask::execute() {
     spdlog::info("PhotoTask::execute: Starting OperationPipeline::applyOperations");
 
     // Apply the sequence of operations to the working image.
-    bool success = Operations::OperationPipeline::applyOperations(*m_result, m_operation_descriptors, *m_operation_factory);
+    auto success = Operations::OperationPipeline::applyOperations(*m_result, m_operation_descriptors, *m_operation_factory);
 
-    if (!success) {
-        spdlog::error("PhotoTask::execute: OperationPipeline::applyOperations failed.");
+    if (!success.has_value()) {
+        spdlog::error("PhotoTask::execute: OperationPipeline::applyOperations failed: {}", ErrorHandling::to_string(success.error()));
         m_result = nullptr;
     }
 
     m_progress = 1.0f;
-    spdlog::info("PhotoTask::execute: Completed with success={}", success);
+    spdlog::info("PhotoTask::execute: Completed with success={}", success.has_value());
 }
 
 } // namespace CaptureMoment::Core::Engine

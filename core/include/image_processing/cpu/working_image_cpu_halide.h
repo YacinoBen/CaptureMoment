@@ -10,58 +10,65 @@
 #include "image_processing/cpu/interfaces/i_working_image_cpu.h"
 
 #include <memory>
+#include <expected>
 
 namespace CaptureMoment::Core {
 
 namespace ImageProcessing {
-
 /**
- * @brief Concrete implementation of WorkingImageCPU_Halide for image data stored in CPU RAM using Halide.
+ * @brief Updates the internal image data from a CPU-based ImageRegion.
  *
- * This class holds the image data within standard CPU memory (RAM), managed
- * by a Halide::Buffer for optimized CPU processing. It inherits from WorkingImageHalide
- * and implements its specific Halide-based logic.
+ * @param cpu_image The source image data.
+ * @return std::expected<void, std::error_code>.
+ *         Returns {} (void) on success, or an error code on failure.
  */
+
 class WorkingImageCPU_Halide final : public IWorkingImageCPU, public WorkingImageHalide {
 public:
     /**
-     * @brief Constructs a WorkingImageCPU_Halide object, optionally initializing it with an ImageRegion.
-     * @param initial_image Optional initial image data. If not provided, the object starts invalid.
+     * @brief Constructs a WorkingImageCPU_Halide.
+     * @param initial_image Optional initial image data. Ownership is transferred via move.
      */
-    explicit WorkingImageCPU_Halide(std::shared_ptr<Common::ImageRegion> initial_image = nullptr);
+    explicit WorkingImageCPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image = nullptr);
 
     /**
      * @brief Virtual destructor.
      */
-    ~WorkingImageCPU_Halide() override;
-
-    // --- IWorkingImageHardware Interface Implementation ---
-    // (Must implement all methods from IWorkingImageHardware)
+    ~WorkingImageCPU_Halide() override = default;
 
     /**
-     * @brief Updates the internal image data from a CPU-based ImageRegion.
+     * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.
      *
-     * This method creates a new Halide::Buffer<float> based on the dimensions
-     * of the input ImageRegion and copies the pixel data from the ImageRegion
-     * into the Halide buffer's host memory.
-     *
-     * @param[in] cpu_image The source image data residing in CPU memory.
-     * @return true if the update operation was successful, false otherwise.
+     * @param cpu_image The source image data (const reference).
+     * @return std::expected<void, std::error_code>. Void on success, error code on failure.
      */
-    [[nodiscard]] bool updateFromCPU(const Common::ImageRegion &cpu_image) override;
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
+    updateFromCPU(const Common::ImageRegion& cpu_image) override;
+
 
     /**
-     * @brief Exports the current internal Halide image data to a new CPU-based ImageRegion owned by the caller.
+     * @brief Updates internal image data by MOVING from a CPU-based ImageRegion.
      *
-     * This method creates a **new** ImageRegion instance on the heap and copies
-     * the pixel data from the internal Halide buffer's host memory into it.
-     * The caller receives ownership of the returned shared pointer.
+     * Preferred method during initialization. Transfers ownership of the buffer
+     * without copying bytes.
      *
-     * @return A shared pointer to a **newly allocated** ImageRegion containing the copied image data
-     *         from the internal Halide buffer.
-     *         Returns nullptr on failure (allocation or copy error).
+     * @param cpu_image The source image data (rvalue reference).
+     * @return std::expected<void, std::error_code>. Void on success, error code on failure.
      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> exportToCPUCopy() override;
+    [[nodiscard]] std::expected<void,  ErrorHandling::CoreError>
+    updateFromCPU(Common::ImageRegion&& cpu_image);
+
+    /**
+     * @brief Exports internal data to a new ImageRegion.
+     *
+     * Performs a deep copy. The caller receives unique ownership.
+     *
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
+     *         Unique pointer to data on success, error code on failure.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
+    exportToCPUCopy() override;
+
     /**
      * @brief Gets the dimensions (width, height) of the internal Halide buffer.
      *
@@ -110,16 +117,12 @@ public:
 private:
 
     /**
-     * @brief Private helper method to convert the internal Halide buffer to an ImageRegion.
+     * @brief Helper to convert Halide buffer to ImageRegion.
      *
-     * This internal helper encapsulates the logic for converting the internal Halide::Buffer
-     * to a new ImageRegion instance. It handles the allocation, dimension setting, and
-     * data copying from the Halide buffer to the ImageRegion's data vector.
-     * This method is used by exportToCPUCopy to avoid code duplication.
-     * @return A shared pointer to a newly allocated ImageRegion containing the copied image data
-     * from the internal Halide buffer. Returns nullptr on failure (allocation or copy error).
-      */
-    [[nodiscard]] std::shared_ptr<Common::ImageRegion> convertHalideToImageRegion();    
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    convertHalideToImageRegion();
 };
 
 } // namespace ImageProcessing

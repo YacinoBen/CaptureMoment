@@ -12,9 +12,9 @@ Due to complex dependencies (specifically Halide and LLVM), instructions are sep
 
 Before selecting your platform, ensure you have these tools:
 
-1.  **CMake 3.27+**
+1.  **CMake 4.2+**
 2.  **C++23 Compiler**:
-    * **Windows**: MSVC 2022 or MinGW (GCC 13+).
+    * **Windows**: MSVC 2026 or MinGW (GCC 13+).
     * **Linux**: GCC 13+ or Clang 16+.
     * **macOS**: Apple Clang 16+ (Xcode 15+).
 
@@ -34,24 +34,24 @@ Before selecting your platform, ensure you have these tools:
 | Library     | Version      | Link                                                     |
 |-------------|:------------------:|----------------------------------------------------------|
 | OpenImageIO | 3.1.8.0             | https://github.com/AcademySoftwareFoundation/OpenImageIO |
-| Halide      | 21.x +           | https://github.com/halide/Halide                         |
+| Halide      | 18.x +           | https://github.com/halide/Halide                         |
 | spdlog      | 1.16.0      | https://github.com/gabime/spdlog                         |
 | Exiv2         | 0.28.7| https://github.com/Exiv2/exiv2  
 | Magicmagic_enum          |0.9.7| https://github.com/Neargye/magic_enum/
 |  Qt6           | 6.10| https://doc.qt.io/qt-6/ 
 
 ---
-## 📦 Vcpkg Configuration (General)
+## 📦 How to build
 
-If you are using Vcpkg (recommended for Windows), the following points are essential:
+### Build Halide
+First of all you need to build Halide
+* [**HALIDE**](./BUILDING_HALIDE.md).
 
-VCPKG_ROOT : Ensure this environment variable points to your Vcpkg installation.
+### Qt-UI (not mandatory)
+If you want to use UI, you need to build Qt.
+You can download directly from the official website. Or just install the packages. Choose the **6.10** version
 
-Binary Caching : To avoid recompiling LLVM (a huge Halide dependency) on every clean or triplet change, it is crucial to enable binary caching. Refer to the Windows guide for instructions.
-
----
-## 🌍 Choose Your Platform
-
+### 🌍 Choose Your Platform
 Click the link for your OS for detailed instructions:
 
 * [🟦 **Windows**](./guidelines/BUILDING_WINDOWS.md).

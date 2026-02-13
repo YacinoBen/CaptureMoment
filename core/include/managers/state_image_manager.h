@@ -1,6 +1,17 @@
 /**
  * @file state_image_manager.h
  * @brief Declaration of StateImageManager class
+ *
+ * @details
+ * This class manages the asynchronous state of the image being edited. It orchestrates
+ * the application of active operations to the original image using a fused Halide pipeline.
+ *
+ * **Key Architectural Features:**
+ * - **Fused Pipeline Execution:** Uses `OperationPipelineBuilder` to construct a single
+ *   optimized computation graph for all active operations.
+ * - **Asynchronous Updates:** Heavy processing occurs on a worker thread via `std::async(std::launch::async)`.
+ * - **Thread-Safe State Access:** Uses `std::mutex` to protect access to `m_working_image` and other shared state.
+ *
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -11,17 +22,16 @@
 #include "pipeline/operation_pipeline_builder.h"
 #include "managers/source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
-
 #include "operations/operation_factory.h"
-#include "pipeline/operation_pipeline_builder.h"
 
 #include <vector>
 #include <memory>
 #include <mutex>
 #include <functional>
 #include <future>
-#include <atomic>
 #include <optional>
+#include <string_view>
+#include <string>
 
 #include <spdlog/spdlog.h>
 
@@ -30,38 +40,33 @@ namespace CaptureMoment::Core {
 namespace Managers {
 
 /**
- * @brief Manages the working image state by applying a sequence of active operations using fused pipeline execution.
+ * @class StateImageManager
+ * @brief Manages the working image state by applying a sequence of active operations.
  *
- * This class is responsible for maintaining the current state of the image being edited
- * by applying a list of active operations on the original image using a fused Halide pipeline.
- * It acts as a central point for operation state management, decoupled from UI and history logic.
- * It orchestrates the update of the working image using the OperationPipelineBuilder and OperationPipelineExecutor.
- * The update process is performed asynchronously on a separate thread to avoid blocking the caller.
+ * This class acts as a bridge between the high-level operation list and the low-level
+ * execution engine.
  */
 class StateImageManager {
 public:
     /**
-     * @brief Callback type for reporting update progress or completion.
-     * Invoked on the worker thread after the update attempt.
-     * @param success True if the update was successful, false otherwise.
+     * @brief Callback type for reporting update completion.
+     * @details Uses standard `std::function` for portability across compilers.
+     *
+     * @param success True if the update and processing were successful, false otherwise.
      */
     using UpdateCallback = std::function<void(bool success)>;
 
     /**
      * @brief Constructs a StateImageManager.
      *
-     * Initializes the manager with required dependencies for image processing using fused pipeline execution.
-     *
-     * @param source_manager Shared pointer to the SourceManager for original image access.
-     * @param pipeline_builder Shared pointer to the OperationPipelineBuilder for creating fused pipelines.
-     * @throws std::invalid_argument if any dependency is null.
+     * @param source_manager Shared pointer to the SourceManager for accessing original image data.
+     * @throws std::invalid_argument if source_manager is null.
      */
     explicit StateImageManager(
         std::shared_ptr<Managers::SourceManager> source_manager);
 
     /**
      * @brief Destructor.
-     * Ensures clean shutdown of the manager.
      */
     ~StateImageManager();
 
@@ -71,161 +76,144 @@ public:
 
     /**
      * @brief Sets the original image source path.
-     * This method must be called after the original image is loaded via PhotoEngine
-     * to establish the base for all subsequent operations.
+     *
+     * Uses `std::string_view` to accept temporary strings or string literals without allocation.
+     * Internally, the path is copied to `std::string` for storage and async use.
      *
      * @param path Path of the loaded image file.
-     * @return true if the original image path was successfully set, false otherwise.
+     * @return true if the source was set successfully and image is valid.
      */
-    [[nodiscard]] bool setOriginalImageSource(const std::string& path);
+    [[nodiscard]] bool setOriginalImageSource(std::string_view path);
 
     /**
      * @brief Adds a new operation to the active sequence.
-     * This operation is appended to the end of the list. The working image update is triggered.
-     * The update itself happens asynchronously using fused pipeline execution.
      *
-     * @param descriptor The operation descriptor to add.
-     * @return true if the operation was added successfully.
+     * @param descriptor The operation descriptor (parameters, type, etc.).
+     * @return true if added successfully.
      */
     [[nodiscard]] bool addOperation(const Operations::OperationDescriptor& descriptor);
 
     /**
      * @brief Modifies an existing operation in the active sequence.
-     * The working image update is triggered after modification using fused pipeline execution.
-     * The update itself happens asynchronously.
      *
-     * @param index Index of the operation to modify within the active sequence.
+     * @param index Index of the operation to modify.
      * @param new_descriptor The new operation descriptor.
-     * @return true if the operation was modified successfully, false if index is out of bounds.
+     * @return true if modified successfully, false if index is invalid.
      */
     [[nodiscard]] bool modifyOperation(size_t index, const Operations::OperationDescriptor& new_descriptor);
 
     /**
      * @brief Removes an operation from the active sequence.
-     * The working image update is triggered after removal using fused pipeline execution.
-     * The update itself happens asynchronously.
      *
-     * @param index Index of the operation to remove within the active sequence.
-     * @return true if the operation was removed successfully, false if index is out of bounds.
+     * @param index Index of the operation to remove.
+     * @return true if removed successfully, false if index is invalid.
      */
     [[nodiscard]] bool removeOperation(size_t index);
 
     /**
-     * @brief Clears all active operations, resetting the working image to the original state.
-     * The working image update is triggered, effectively re-applying an empty operation list using fused pipeline execution.
-     * The update itself happens asynchronously.
+     * @brief Clears all active operations.
      *
-     * @return true if the reset process was initiated successfully.
+     * @return true if reset was initiated successfully.
      */
     [[nodiscard]] bool resetToOriginal();
 
     /**
-     * @brief Requests an asynchronous update of the working image based on the current sequence of operations.
-     * This method initiates the update process on a separate worker thread using std::async.
-     * It captures the current state of active operations and the original image path to ensure
-     * consistency during the potentially long-running update process.
-     * If an update is already in progress, this request is ignored.
+     * @brief Requests an asynchronous update of the working image.
      *
-     * @param callback Optional callback function to be executed on the worker thread after the update attempt.
-     * The callback receives a boolean indicating the success of the update.
-     * @return A std::future<bool> that can be used by the caller to wait for the update to complete
-     * and retrieve the final success status. The future is ready when the update finishes.
+     * @param callback Optional callback executed on the worker thread upon completion.
+     * @return `std::future<bool>` representing the asynchronous task.
      */
     [[nodiscard]] std::future<bool> requestUpdate(std::optional<UpdateCallback> callback = std::nullopt);
 
     /**
-     * @brief Gets the current working image hardware abstraction.
-     * This method is thread-safe and provides access to the working image.
-     * @return Pointer to the current IWorkingImageHardware, or nullptr if not loaded.
+     * @brief Gets the current working image (Thread-Safe).
+     *
+     * @return Shared pointer to the current `IWorkingImageHardware`. Returns nullptr if no image exists.
      */
-    [[nodiscard]] ImageProcessing::IWorkingImageHardware* getWorkingImage() const;
+    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
 
     /**
-     * @brief Checks if an update of the working image is currently in progress.
-     * This method provides a thread-safe way to determine if the internal state
-     * (specifically m_working_image) might be changing due to an active update task.
+     * @brief Checks if a processing update is currently in progress.
      *
-     * @return true if an update is ongoing, false otherwise.
+     * @return true if the worker thread is processing, false otherwise.
      */
     [[nodiscard]] bool isUpdatePending() const;
 
     /**
-     * @brief Gets the file path of the original image source.
-     * This path was set via setOriginalImageSource.
+     * @brief Gets the path of the original image source.
      *
-     * @return The file path of the original image, or an empty string if not set.
+     * @return A copy of the file path as `std::string`.
      */
     [[nodiscard]] std::string getOriginalImageSourcePath() const;
 
     /**
-     * @brief Gets the current list of active operations.
-     * This method provides a thread-safe snapshot of the operations
-     * that are currently applied to generate the working image.
+     * @brief Gets a snapshot of the current active operations.
      *
-     * @return A copy of the vector containing the active OperationDescriptors.
+     * @return A copy of the vector of `OperationDescriptor`s.
      */
     [[nodiscard]] std::vector<Operations::OperationDescriptor> getActiveOperations() const;
 
 private:
     /**
-     * @brief Mutex protecting concurrent access to m_active_operations, m_working_image, and m_original_image_path.
-     * This mutex ensures thread-safe modification of the internal state variables.
+     * @brief Mutex protecting access to `m_active_operations`, `m_original_image_path`, and `m_working_image`.
      */
-    mutable std::mutex m_mutex;
+    mutable std::mutex m_state_mutex;
+
     /**
-     * @brief The ordered list of operation descriptors to apply to the original image.
-     * This vector represents the current sequence of active operations that define the state of the working image.
+     * @brief The ordered list of operations to apply.
      */
     std::vector<Operations::OperationDescriptor> m_active_operations;
 
     /**
-     * @brief Shared pointer to the pipeline builder responsible for creating fused operation pipelines.
+     * @brief The builder responsible for constructing the fused Halide pipeline.
      */
     std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
 
     /**
-     * @brief The current state of the processed image.
-     * This image is updated asynchronously based on the operations defined in m_active_operations using fused pipeline execution.
+     * @brief The current processed image buffer.
+     * Protected by `m_state_mutex` for thread-safe access.
      */
-    std::unique_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
-    /**
-     * @brief The file path of the original image loaded into the system.
-     * This path is used as the base for all operations and to retrieve the original image data.
-     */
-    std::string m_original_image_path;
-    /**
-     * @brief Atomic flag indicating whether an asynchronous update task is currently running.
-     * This flag is used to prevent multiple simultaneous update requests.
-     */
-    std::atomic<bool> m_is_updating {false};
+    std::shared_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
 
     /**
-     * @brief Shared pointer to the factory responsible for creating operation instances.
+     * @brief File path of the original source image.
+     * Kept as `std::string` because ownership is required for async lambda captures.
+     */
+    std::string m_original_image_path;
+
+    /**
+     * @brief Mutex protecting the atomic flag `m_is_updating`.
+     */
+    mutable std::mutex m_flag_mutex;
+
+    /**
+     * @brief Flag preventing multiple concurrent update requests.
+     * Protected by `m_flag_mutex` for thread-safe access.
+     */
+    bool m_is_updating{false};
+
+    /**
+     * @brief Factory for creating concrete operation instances.
      */
     std::shared_ptr<Operations::OperationFactory> m_operation_factory;
 
     /**
-     * @brief Shared pointer to the SourceManager dependency.
-     * Used to retrieve the original image data from the source file.
+     * @brief Dependency to access original image tiles.
      */
     std::shared_ptr<Managers::SourceManager> m_source_manager;
 
     /**
-     * @brief Performs the core image update logic on a worker thread using fused pipeline execution.
-     * This private method is executed by std::async. It retrieves the original image,
-     * builds a fused pipeline using the pipeline builder, executes it on the working image,
-     * and updates the internal m_working_image member in a thread-safe manner.
-     * It also handles the execution of the optional callback.
+     * @brief Performs the actual image processing on the worker thread.
      *
-     * @param ops_to_apply The sequence of operations to apply to the original image.
-     * @param original_path The path to the original image file (used for retrieval).
-     * @param callback Optional callback to execute after the update attempt.
-     * @return true if the update process (retrieval, processing, internal update) was successful, false otherwise.
+     * @param ops_to_apply Copy of the operations list (captured by move).
+     * @param original_path Copy of the image path (captured by move).
+     * @param callback Optional callback to execute on completion.
+     * @return true if processing succeeded, false otherwise.
      */
     [[nodiscard]] bool performUpdate(
-        const std::vector<Operations::OperationDescriptor>& ops_to_apply,
-        const std::string& original_path,
-        const std::optional<UpdateCallback>& callback
+        std::vector<Operations::OperationDescriptor> ops_to_apply,
+        std::string original_path,
+        std::optional<UpdateCallback> callback
         );
 };
 

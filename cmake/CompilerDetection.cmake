@@ -5,7 +5,7 @@
 # ============================================================
 # Format: COMPILER_ID|MIN_VERSION|NAME
 set(SUPPORTED_COMPILERS
-    "MSVC|19.30|MSVC (Visual Studio 2022 17.0+)"
+    "MSVC|19.44|MSVC (Visual Studio 2026 18.0+)"
     "GNU|13.0|GCC"
     "Clang|16.0|Clang"
     "AppleClang|15.0|Apple Clang (Xcode 15+)"
@@ -30,7 +30,7 @@ function(verify_cpp23_support)
             
             if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS MIN_VERSION)
                 message(FATAL_ERROR 
-                    "${NAME} ${CMAKE_CXX_COMPILER_VERSION} < ${MIN_VERSION} (required for C++23).")
+                    "${NAME} ${CMAKE_CXX_COMPILER_VERSION} < ${MIN_VERSION} (required for best support C++23).")
             endif()
             
             message(STATUS "C++23 support verified (${NAME} ${CMAKE_CXX_COMPILER_VERSION})")

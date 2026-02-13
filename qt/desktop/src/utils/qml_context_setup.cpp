@@ -7,6 +7,7 @@
 
 #include "utils/qml_context_setup.h"
 #include "controller/image_controller_sgs.h"
+#include "controller/image_controller_rhi.h"
 #include "serializer/serializer_controller.h"
 
 #include <spdlog/spdlog.h>
