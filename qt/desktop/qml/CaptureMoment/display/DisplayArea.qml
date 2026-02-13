@@ -11,6 +11,10 @@ Rectangle {
 
     color: "#1a1a1a"
 
+    // Local properties to force info display immediately upon loading
+    property int currentSourceWidth: 0
+    property int currentSourceHeight: 0
+
     signal openImageClicked()
 
     ColumnLayout {
@@ -35,7 +39,7 @@ Rectangle {
             ColumnLayout {
                 anchors.centerIn: parent
                 spacing: 20
-                visible: controller.imageWidth === 0
+                visible: currentSourceWidth === 0
                 z: 1
 
                 Text {
@@ -66,8 +70,10 @@ Rectangle {
             color: "#252525"
             Layout.fillWidth: true
             Layout.preferredHeight: infoText.implicitHeight + 20
-            Layout.alignment: Qt.AlignBottom
-            visible: infoText.visible
+            Layout.minimumHeight: 30
+
+            // Visibility driven by local properties updated on load
+            visible: currentSourceWidth > 0
 
             Text {
                 id: infoText
@@ -75,13 +81,14 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.margins: 10
 
-                text: "Source: " + controller.imageWidth + "x" + controller.imageHeight +
+                // Uses local properties (immediate) or controller as fallback
+                text: "Source: " + currentSourceWidth + "x" + currentSourceHeight +
                       " | Display: " + (controller.displayManager ? controller.displayManager.displayImageSize.width : 0) +
                       "x" + (controller.displayManager ? controller.displayManager.displayImageSize.height : 0)
 
                 color: "#CCCCCC"
                 font.pixelSize: 12
-                visible: controller.imageWidth > 0
+                visible: true
             }
         }
     }
@@ -94,22 +101,22 @@ Rectangle {
 
     function updateViewport() {
         if (!controller || !controller.displayManager) {
-            console.log("!controller || !controller.displayManager")
             return;
         }
 
-        var availableHeight = height - (infoFooter.visible ? infoFooter.height : 0);
+        // Safety check: ensure dimensions are valid
+        if (width <= 0 || height <= 0) return;
+
+        // Calculate footer height.
+        // We check if visible AND height > 0 to avoid layout glitches during initialization.
+        var footerHeight = (infoFooter.visible && infoFooter.height > 0) ? infoFooter.height : 0;
+        var availableHeight = height - footerHeight;
 
         controller.displayManager.setViewportSize(Qt.size(width, availableHeight));
     }
 
-    onWidthChanged: {
-        updateViewport();
-    }
-
-    onHeightChanged: {
-        updateViewport();
-    }
+    onWidthChanged: updateViewport()
+    onHeightChanged: updateViewport()
 
     FileDialog {
         id: fileDialog
@@ -127,9 +134,16 @@ Rectangle {
         function onImageLoaded(loadedWidth, loadedHeight) {
             console.log("DisplayArea::onImageLoaded, Image loaded:", loadedWidth, "x", loadedHeight)
 
+            // Update local properties immediately to trigger UI changes (footer visibility)
+            currentSourceWidth = loadedWidth;
+            currentSourceHeight = loadedHeight;
+
             if (controller.displayManager) {
-                updateViewport();
-                controller.displayManager.fitToView();
+                // This ensures the Layout engine has finished resizing the footer
+                // before we calculate the available height for the image.
+                // This prevents the image from overflowing on first load.
+                Qt.callLater(updateViewport);
+                Qt.callLater(controller.displayManager.fitToView);
             }
         }
 
