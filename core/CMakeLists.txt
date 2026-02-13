@@ -1,15 +1,12 @@
-# Core library for CaptureMoment
-# The root CMakeLists.txt already found and verified all dependencies
-# via PackageHelpers.cmake - we just link them here
-
-cmake_minimum_required(VERSION 3.25)
-
 # Debug: Show current directory
 message(STATUS "Starting configuration of capturemoment_core...")
 message(STATUS "[core] CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Source files (only .cpp files that get compiled)
 set(CORE_SOURCES
+    # Initialization
+    src/core_initialization.cpp
+
     # Manager
     src/managers/source_manager.cpp
     src/managers/state_image_manager.cpp
@@ -25,6 +22,7 @@ set(CORE_SOURCES
     src/image_processing/gpu/working_image_gpu_halide.cpp
     src/image_processing/factories/working_image_factory.cpp
     src/image_processing/halide/working_image_halide.cpp
+    src/image_processing/registration/working_image_registration.cpp
 
     # Deciders
     src/image_processing/deciders/benchmarking_backend_decider.cpp
@@ -38,15 +36,16 @@ set(CORE_SOURCES
     src/serializer/strategy/appdata_xmp_path_strategy.cpp
     src/serializer/strategy/configurable_xmp_path_strategy.cpp
     src/serializer/strategy/sidecar_xmp_path_strategy.cpp
+    src/serializer/file_serializer_manager.cpp
+    src/serializer/file_serializer_writer.cpp
+    src/serializer/file_serializer_reader.cpp
+    src/serializer/operation_serialization.cpp
+
 
     # Pipeline
     src/pipeline/operation_pipeline_executor.cpp
     src/pipeline/operation_pipeline_builder.cpp
-
-    src/serializer/file_serializer_manager.cpp
-    src/serializer/operation_serialization.cpp
-    src/serializer/file_serializer_writer.cpp
-    src/serializer/file_serializer_reader.cpp
+    src/pipeline/fallback_pipeline_executor.cpp
 
     # List Operations base adjustment
     src/operations/basic_adjustment_operations/operation_brightness.cpp
@@ -59,6 +58,9 @@ set(CORE_SOURCES
     # Engine
     src/engine/photo_engine.cpp
     src/engine/photo_task.cpp
+
+    # Utils
+    src/utils/image_conversion.cpp
 )
 
 # Verify sources exist
@@ -71,6 +73,9 @@ endforeach()
 
 # Create library
 add_library(capturemoment_core STATIC ${CORE_SOURCES})
+
+# PCH file and optimization
+capturemoment_enable_optimizations(capturemoment_core include/pch.h)
 
 # Add headers for IDE
 file(GLOB_RECURSE HEADER_FILES "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")

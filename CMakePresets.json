@@ -122,7 +122,7 @@
             "displayName": "Debug (Visual Studio)",
             "description": "Debug with Visual Studio generator",
             "inherits": "base",
-            "generator": "Visual Studio 17 2022",
+            "generator": "Visual Studio 18 2026",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             },
@@ -137,7 +137,7 @@
             "displayName": "Release (Visual Studio)",
             "description": "Release with Visual Studio",
             "inherits": "base",
-            "generator": "Visual Studio 17 2022",
+            "generator": "Visual Studio 18 2026",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             },
@@ -151,6 +151,7 @@
             "name": "vcpkg-base",
             "hidden": true,
             "inherits": "base",
+
             "cacheVariables": {
                 "VCPKG_INSTALLED_DIR": "${sourceDir}/build/vcpkg_installed",
                 "VCPKG_MANIFEST_MODE": "ON",

@@ -17,8 +17,10 @@ Compiling dependencies (especially LLVM via Halide) is resource-intensive.
 
 ## System Requirements
 
-### LLVM
-- **Required**: LLVM 21.1.1 or higher (LLVM 21.1.0 has a critical bug in the NVPTX backend and must be avoided)
+## Version Requirement
+
+- **Minimum Version**: Halide 18.0 +
+- Older versions lack critical GPU scheduling improvements and may not support modern hardware features.
 
 ### GPU Backend Requirements
 
@@ -58,6 +60,7 @@ You can see more details about the excetion in the corresponding files (BUILDING
 brew install halide
 ```
 **More details:** https://formulae.brew.sh/formula/halide
+
 ❌ **Note**: Maybe packages do not include GPU support.
 
 ### Windows (vcpkg)
@@ -72,25 +75,3 @@ You can also install GPU support as Feature Dependencies
 - **Official Build Guide**: https://halide-lang.org/docs/md_doc_2_building_halide_with_c_make.html
 
 🔧 **Building from source is the only reliable way to enable full GPU support** (especially CUDA). Users requiring GPU acceleration should follow the official CMake build documentation to compile Halide with the desired backends enabled.
-
-## Version Requirement
-
-- **Minimum Version**: Halide 21.0.0
-- Older versions lack critical GPU scheduling improvements and may not support modern hardware features.
-
-## Runtime Backend Detection
-
-Your application should always check for available backends at runtime:
-
-```cpp
-bool hasGPUSupport() {
-    try {
-        auto gpu = Halide::get_device_api(Halide::DeviceAPI::Metal);
-        return gpu != nullptr;
-    } catch (...) {
-        return false;
-    }
-}
-```
-
-**Always provide a CPU fallback for systems without GPU drivers or unsupported hardware.**

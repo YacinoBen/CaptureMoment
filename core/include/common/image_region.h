@@ -4,9 +4,6 @@
  *
  * This header provides the @ref CaptureMoment::Core::Common::ImageRegion struct,
  * which encapsulates the raw pixel data for a rectangular region of an image.
- * It is the primary data container used throughout the image processing pipeline,
- * facilitating data transfer between stages like loading (@ref SourceManager),
- * processing (@ref IOperation), and display preparation.
  *
  * @author CaptureMoment Team
  * @date 2025
@@ -14,14 +11,19 @@
 
 #pragma once
 
-#include "pixel_format.h" // Defines the PixelFormat enum
-#include <vector>         // Required for std::vector<float> storage
-#include <cstddef>        // Required for size_t
+#include "pixel_format.h"
+#include <vector>
+#include <cstddef>
 #include <concepts>
+#include <span>
+#include <cassert>
+#include <limits>
+#include <cstdint>
 
 namespace CaptureMoment::Core {
 
-namespace Common{
+namespace Common {
+
 /**
  * @struct ImageRegion
  * @brief Represents a rectangular region of an image and its pixel data.
@@ -29,212 +31,219 @@ namespace Common{
  * This structure holds the raw pixel values for a specified rectangular area
  * of an image. It defines the spatial location (`m_x`, `m_y`), dimensions
  * (`m_width`, `m_height`), color format (`m_channels`, `m_format`), and the
- * actual pixel data (`m_data`). It serves as the fundamental unit of data
- * processed by the pipeline stages.
+ * actual pixel data (`m_data`).
  *
  * @par Memory Layout
- * The pixel data in `m_data` is stored in a strict **row-major order**.
- * For an image region with C channels, W width, and H height, the pixel
- * at coordinates (x, y, c) (where c is the channel index) is located at:
- * `m_data[(y * W + x) * C + c]`.
+ * Row-major order: `data[(y * width + x) * channels + c]`.
+ * Total number of elements: `getDataSize() = width * height * channels`.
  *
- * Example layout for a 3x2 image region in RGBA format:
- * @code
- * // Memory layout (row-major):
- * // [R₀₀ G₀₀ B₀₀ A₀₀ R₀₁ G₀₁ B₀₁ A₀₁ R₀₂ G₀₂ B₀₂ A₀₂] // Row 0
- * // [R₁₀ G₁₀ B₁₀ A₁₀ R₁₁ G₁₁ B₁₁ A₁₁ R₁₂ G₁₂ B₁₂ A₁₂] // Row 1
- * // Data vector: m_data = {R₀₀, G₀₀, B₀₀, A₀₀, R₀₁, G₀₁, B₀₁, A₀₁, ...};
- * @endcode
- *
- * @par Usage Lifecycle
- * 1. **Creation/Loading:** Typically initialized by @ref SourceManager::getTile,
- *    which allocates `m_data` and fills it with pixel values from an image file.
- * 2. **Processing:** Modified in-place by @ref IOperation implementations during
- *    the execution phase (e.g., via @ref OperationPipeline::applyOperations).
- * 3. **Display/Output:** Potentially converted or prepared for rendering or
- *    file export by other core or UI components.
- *
- * @warning The pixel data (`m_data`) is typically stored as `float32` values
- *          during processing to support High Dynamic Range (HDR) and preserve
- *          precision. Conversion to integer formats (e.g., `uint8`) for display
- *          or file output requires appropriate clamping (e.g., `[0.0f, 1.0f]`
- *          before multiplying by 255.0f) and rounding.
- *
- * @see SourceManager::getTile()
- * @see IOperation::execute()
- * @see OperationPipeline::applyOperations()
- * @see PixelFormat
+ * @par Design Choice (Value Type)
+ * ImageRegion is designed as a POD-like struct for efficient copying/moving by value
+ * (e.g., returning from a SourceManager). However, deep copies of m_data are expensive.
+ * Prefer passing by `std::span<float>` in algorithms that only read data.
  */
-
 struct ImageRegion {
+
+    // ============================================================
+    // Dimensions & Meta-data
+    // ============================================================
 
     /**
      * @brief X-coordinate of the top-left corner of this region in the full source image.
-     *
-     * This member indicates the horizontal offset of the top-left pixel of this
-     * region relative to the full image from which it might have been extracted.
-     * It is primarily informational and context-providing, especially for
-     * operations that might need to know the absolute position within the source.
      */
-    int m_x{0};
+    std::int32_t m_x{0};
 
     /**
      * @brief Y-coordinate of the top-left corner of this region in the full source image.
-     *
-     * This member indicates the vertical offset of the top-left pixel of this
-     * region relative to the full image from which it might have been extracted.
-     * It is primarily informational and context-providing, especially for
-     * operations that might need to know the absolute position within the source.
      */
-    int m_y{0};
+    std::int32_t m_y{0};
 
     /**
      * @brief Width of this image region in pixels.
-     *
-     * Must be a positive value.
      */
-    int m_width{0};
+    std::int32_t m_width{0};
 
     /**
      * @brief Height of this image region in pixels.
-     *
-     * Must be a positive value.
      */
-    int m_height{0};
+    std::int32_t m_height{0};
 
     /**
      * @brief Number of color channels per pixel.
-     *
-     * The number of channels must be consistent with the `m_format`.
-     * Common values are 3 (e.g., for RGB) or 4 (e.g., for RGBA).
-     * @see m_format
      */
-    int m_channels{4};
+    std::int32_t m_channels{4};
 
     /**
-     * @brief Format specifying how pixels are stored (channels and data type).
-     *
-     * Defines the pixel layout, including the number of channels and the data
-     * type per channel (e.g., float32 vs uint8). This must be consistent with
-     * `m_channels` and the actual content of `m_data`.
-     * @see PixelFormat
+     * @brief Format specifying how pixels are stored.
      */
     PixelFormat m_format{PixelFormat::RGBA_F32};
 
     /**
-     * @brief Pixel data (row-major layout)
+     * @brief Pixel data (row-major layout).
      *
-     * The pixel values are stored sequentially in row-major order.
-     * The size of this vector must be exactly `m_width * m_height * m_channels`.
-     * The data type of the values (e.g., float, uint8) is implicitly defined
-     * by the `m_format` member.
-     *
-     * @par Vector size
-     * `m_data.size() = m_width × m_height × m_channels`
-     *
-     * @par Manual access example
-     * @code
-     * ImageRegion region;
-     * size_t index = (20 * region.m_width + 10) * region.m_channels + 0;
-     * float red = region.m_data[index];
-     * @endcode
-     *
-     * @note Prefer the operator()(y, x, c) for safer access
+     * Stored as float32 to support HDR.
      */
     std::vector<float> m_data;
 
+    // ============================================================
+    // Accessors & Utilities
+    // ============================================================
 
     /**
-     * @brief Validates the integrity of the ImageRegion's dimensions and data buffer size.
+     * @brief Validates the integrity of the ImageRegion (Overflow-Safe Version).
      *
-     * Checks if the width, height, and channels are positive, and if the
-     * size of the `m_data` vector matches the expected size calculated
-     * from `m_width * m_height * m_channels`.
+     * Improvements over basic version:
+     * 1. Detects unsigned integer overflow during size calculation.
+     * 2. Validates that the expected size matches the actual data vector size.
+     * 3. Rejects absurd channel counts or zero dimensions.
      *
-     * @return true if all dimensions are positive and the data size is correct.
-     * @return false otherwise (e.g., invalid dimensions or mismatched buffer size).
+     * @return true if dimensions are valid and data matches the expected size, false otherwise.
      */
-    [[nodiscard]] constexpr bool isValid() const noexcept {
-        // 1. Check for positive dimensions (including channels)
+    [[nodiscard]] constexpr bool isValid() const noexcept
+    {
+        // 1. Basic sanity checks
         if (m_width <= 0 || m_height <= 0 || m_channels <= 0) {
             return false;
         }
 
-        // 2. Check if the vector size matches the calculated size
-        // This is crucial to detect corrupted or incorrectly resized regions.
-        const size_t expected_size = static_cast<size_t>(m_width) * m_height * m_channels;
+        // Optional: Reject unreasonable channel counts (e.g. > 8 for typical RGB/CMYK)
+        // Prevents logic errors where dimensions are small but channels are huge causing overflow.
+        if (m_channels > 8) {
+            return false;
+        }
+
+        // 2. Safe Calculation Helper (Prevents Overflow)
+        // Using a lambda to keep the logic local and constexpr-friendly.
+        auto safe_multiply = [](std::size_t a, std::size_t b, std::size_t& out_result) constexpr -> bool {
+            if (a != 0 && b > std::numeric_limits<std::size_t>::max() / a) {
+                // b > MAX / a  implies  a * b > MAX  (Integer Overflow)
+                return false;
+            }
+            out_result = a * b;
+            return true;
+        };
+
+        // Cast to std::size_t to work with unsigned arithmetic
+        const std::size_t w = static_cast<std::size_t>(m_width);
+        const std::size_t h = static_cast<std::size_t>(m_height);
+        const std::size_t c = static_cast<std::size_t>(m_channels);
+
+        // 3. Calculate pixel count safely (width * height)
+        std::size_t pixel_count = 0;
+        if (!safe_multiply(w, h, pixel_count)) {
+            return false; // Overflow detected in width * height
+        }
+
+        // 4. Calculate total elements safely (pixel_count * channels)
+        std::size_t expected_size = 0;
+        if (!safe_multiply(pixel_count, c, expected_size)) {
+            return false; // Overflow detected in total elements
+        }
+
+        // 5. Consistency Check
+        // Ensure the vector holds exactly the amount of data expected.
         return m_data.size() == expected_size;
     }
 
     /**
      * @brief Calculates the total size in bytes of the pixel data buffer.
-     * @return The total size in bytes (`m_data.size() * sizeof(float)`).
-     *
-     * @code
-     * ImageRegion region;
-     * region.width = 1920;
-     * region.height = 1080;
-     * region.channels = 4;
-     * size_t bytes = region.sizeInBytes();
-     * @endcode
      */
-    [[nodiscard]] constexpr size_t sizeInBytes() const noexcept {
+    [[nodiscard]] constexpr std::size_t sizeInBytes() const noexcept {
         return m_data.size() * sizeof(float);
     }
 
     /**
-     * @brief Provides safe, unchecked access to a specific pixel's channel value (non-const).
-     *
-     * This operator provides direct access to the pixel value at a given
-     * (row, column, channel) index within the `m_data` buffer.
-     *
-     * @warning This function performs **no bounds checking**. The caller
-     *          **must** ensure that the provided indices `y`, `x`, and `c`
-     *          are within the valid range:
-     *          - `0 <= y < m_height`
-     *          - `0 <= x < m_width`
-     *          - `0 <= c < m_channels`
-     *          Failure to do so results in undefined behavior.
-     *
-     * @param y The row index (0 for the top row).
-     * @param x The column index (0 for the leftmost column).
-     * @param c The channel index (e.g., 0 for Red, 1 for Green, etc.).
-     * @return A reference to the pixel value at the specified location.
+     * @brief Calculates the total number of data elements (pixels * channels) in the pixel data buffer.
+     * @return The total number of float elements (m_width * m_height * m_channels).
      */
-    [[nodiscard]] float& operator()(int y, int x, int c) noexcept {
-        return m_data[static_cast<size_t>((y * m_width + x) * m_channels + c)];
+    [[nodiscard]] constexpr std::size_t getDataSize() const noexcept {
+        return m_data.size();
     }
 
     /**
-     * @brief Provides safe, unchecked access to a specific pixel's channel value (const).
+     * @brief Returns a non-owning std::span over the pixel data.
      *
-     * This const overload of the subscript operator provides read-only access
-     * to the pixel value at a given (row, column, channel) index.
+     * This is the preferred method to pass the image data to algorithms
+     * or external APIs (like Halide) without copying the vector.
      *
-     * @warning Like the non-const version, this function performs **no bounds checking**.
-     *          The caller must ensure indices `y`, `x`, `c` are valid.
+     * @return std::span<float> view of the internal buffer.
+     */
+    [[nodiscard]] std::span<float> getBuffer() noexcept {
+        return m_data;
+    }
+
+    /**
+     * @brief Returns a const non-owning std::span over the pixel data.
+     */
+    [[nodiscard]] std::span<const float> getBuffer() const noexcept {
+        return m_data;
+    }
+
+    /**
+     * @brief Provides unchecked access to a specific pixel's channel value.
      *
-     * @param y The row index.
-     * @param x The column index.
-     * @param c The channel index.
-     * @return A const reference to the pixel value at the specified location.
+     * Uses an assert in Debug mode to catch out-of-bounds errors early during development.
+     *
+     * @warning Release mode performs no bounds checking for maximum performance.
+     */
+    [[nodiscard]] float& operator()(int y, int x, int c) noexcept {
+        assert(y >= 0 && y < m_height);
+        assert(x >= 0 && x < m_width);
+        assert(c >= 0 && c < m_channels);
+        // Cast to size_t safely before arithmetic
+        const std::size_t idx = (static_cast<std::size_t>(y) * m_width + x) * m_channels + c;
+        return m_data[idx];
+    }
+
+    /**
+     * @brief Const overload of operator().
      */
     [[nodiscard]] const float& operator()(int y, int x, int c) const noexcept {
-        return m_data[static_cast<size_t>((y * m_width + x) * m_channels + c)];
+        assert(y >= 0 && y < m_height);
+        assert(x >= 0 && x < m_width);
+        assert(c >= 0 && c < m_channels);
+        const std::size_t idx = (static_cast<std::size_t>(y) * m_width + x) * m_channels + c;
+        return m_data[idx];
     }
 };
 
+// ============================================================
+// C++23 Concepts
+// ============================================================
+
 /**
- * @concept ValidImageRegion
- * @brief Checks if an ImageRegion object is valid according to its internal rules.
- *        This concept can be used to constrain functions that require a valid ImageRegion.
+ * @concept ImageLike
+ * @brief A concept that constrains a type to behave like an image container.
+ *
+ * It allows any struct that
+ * provides the necessary interface (width, height, data access) to be used in
+ * generic image processing algorithms. This is crucial for polymorphism without
+ * inheritance overhead.
  */
 template<typename T>
-concept ValidImageRegion = requires(const T& t)
+concept ImageLike = requires(const T& t)
 {
-    requires std::same_as<T, ImageRegion>;
+    // Must have dimensions
+    { t.m_width } -> std::convertible_to<int>;
+    { t.m_height } -> std::convertible_to<int>;
+    { t.m_channels } -> std::convertible_to<int>;
+
+    // Must have a validity check
     { t.isValid() } -> std::same_as<bool>;
-    // add others verfications
+
+    // Must support read-only access via getBuffer() or similar
+    // (We check if it provides a view into contiguous float data)
+    { t.getBuffer() } -> std::convertible_to<std::span<const float>>;
+};
+
+/**
+ * @concept MutableImageLike
+ * @brief Extends ImageLike to require read/write access.
+ */
+template<typename T>
+concept MutableImageLike = ImageLike<T> && requires(T t)
+{
+    { t.getBuffer() } -> std::convertible_to<std::span<float>>;
 };
 
 } // namespace Common

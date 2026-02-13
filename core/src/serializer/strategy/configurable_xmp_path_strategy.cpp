@@ -1,19 +1,20 @@
 /**
  * @file configurable_xmp_path_strategy.cpp
- * @brief Implementation of ConfigurableeXmpPathStrategy
+ * @brief Implementation of ConfigurableXmpPathStrategy
  * @author CaptureMoment Team
  * @date 2025
  */
 
 #include "serializer/strategy/configurable_xmp_path_strategy.h"
 #include <spdlog/spdlog.h>
-#include <filesystem>
 #include <exiv2/exiv2.hpp>
+#include <filesystem>
 
 namespace CaptureMoment::Core::Serializer {
 
 ConfigurableXmpPathStrategy::ConfigurableXmpPathStrategy(const std::string& base_xmp_dir, std::unique_ptr<IXmpProvider> xmp_provider)
-    : m_base_xmp_dir {base_xmp_dir}, m_xmp_provider {std::move(xmp_provider)}
+    : m_base_xmp_dir(base_xmp_dir)
+    , m_xmp_provider(std::move(xmp_provider))
 {
     if (!m_xmp_provider) {
         spdlog::error("ConfigurableXmpPathStrategy: Constructor received a null IXmpProvider.");
@@ -38,13 +39,15 @@ std::string ConfigurableXmpPathStrategy::getXmpPathForImage(std::string_view sou
         return {};
     }
 
-    std::filesystem::path image_path_obj {source_image_path};
+    std::filesystem::path image_path_obj(source_image_path);
+
+    // Calculate relative path
+    // NOTE: Assumes 'source_image_path' is absolute.
     std::filesystem::path relative_path = image_path_obj.lexically_relative(image_path_obj.root_path());
 
-    std::filesystem::path xmp_relative_dir = relative_path.parent_path();
-    std::string xmp_filename = relative_path.stem().string() + relative_path.extension().string() + ".xmp";
-
-    std::filesystem::path xmp_final_path = std::filesystem::path {m_base_xmp_dir} / xmp_relative_dir / xmp_filename;
+    // Construct target path in configured directory, mirroring structure
+    std::filesystem::path xmp_final_path = m_base_xmp_dir / relative_path;
+    xmp_final_path += ".xmp";
 
     spdlog::debug("ConfigurableXmpPathStrategy::getXmpPathForImage: Mapped '{}' to XMP path: '{}'", source_image_path, xmp_final_path.string());
     return xmp_final_path.string();
@@ -59,6 +62,7 @@ std::string ConfigurableXmpPathStrategy::getImagePathFromXmp(std::string_view xm
 
     spdlog::debug("ConfigurableXmpPathStrategy::getImagePathFromXmp: Attempting to read original image path from XMP: {}", xmp_path);
 
+    // Read the XMP packet to find the stored path
     std::string xmp_packet = m_xmp_provider->readXmp(xmp_path);
     if (xmp_packet.empty()) {
         spdlog::warn("ConfigurableXmpPathStrategy::getImagePathFromXmp: IXmpProvider returned an empty XMP packet for file: {}", xmp_path);
@@ -72,6 +76,7 @@ std::string ConfigurableXmpPathStrategy::getImagePathFromXmp(std::string_view xm
             return {};
         }
 
+        // Extract the stored source path
         std::string source_image_path_from_xmp = xmp_data["Xmp.cm.sourceImagePath"].toString();
 
         if (source_image_path_from_xmp.empty()) {

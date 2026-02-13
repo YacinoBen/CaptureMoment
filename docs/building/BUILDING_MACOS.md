@@ -1,17 +1,5 @@
 # macOS Building Guide
-For macOS, we recommend using Homebrew to manage dependencies (Qt, OpenImageIO, Halide, Exiv2, magic_enum).
-
-## Qt-UI (not mandatory)
-If you want to develop the UI with Qt, you can directly download the actual version (e.g., 6.9.3) from the official website.
-Or also you can use :
-
-```powershell
-brew update
-brew install qt6
-```
-
-## Halide build (mandatory)
-* [**Halide build**](BUILDING_HALIDE.md).
+For macOS, we recommend using Homebrew to manage dependencies (OpenImageIO, Halide, Exiv2, magic_enum).
 
 ## Prerequisites
 * Homebrew

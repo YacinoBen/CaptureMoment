@@ -7,39 +7,37 @@ ColumnLayout {
     id: editorLayout
     spacing: 0
 
-    // Top Panel (full width)
     TopPanel {
         id: topPanel
         Layout.fillWidth: true
 
         onFileClicked: {
             console.log("File view clicked")
-            // Afficher la vue File dans le center panel
         }
 
         onBibliothequeClicked: {
             console.log("Bibliotheque view clicked")
-            // Afficher la vue Bibliotheque dans le center panel
         }
 
         onCollectionsClicked: {
             console.log("Collections view clicked")
-            // Afficher la vue Collections dans le center panel
         }
 
         onParametresClicked: {
             console.log("Parametres view clicked")
-            // Afficher la vue Parametres dans le center panel
+        }
+
+        onBtnLoadImageClicked: {
+            console.log("button load image clicked")
+            centerPanel.idDisplayArea.openFile()
         }
     }
 
-    // Main content with SplitView (Left/Center/Right)
     SplitView {
         Layout.fillWidth: true
         Layout.fillHeight: true
         orientation: Qt.Horizontal
 
-        // Left Panel
         LeftPanel {
             id: leftPanel
             SplitView.preferredWidth: 250
@@ -47,7 +45,6 @@ ColumnLayout {
             SplitView.maximumWidth: 400
         }
 
-        // Center Panel (Image Display)
         CenterPanel {
             id: centerPanel
             SplitView.fillWidth: true
@@ -55,7 +52,6 @@ ColumnLayout {
             SplitView.minimumWidth: 800
         }
 
-        // Right Panel (Operations)
         RightPanel {
             id: rightPanel
             SplitView.preferredWidth: 350
@@ -64,7 +60,6 @@ ColumnLayout {
         }
     }
 
-    // Bottom Panel (full width)
     BottomPanel {
         id: bottomPanel
         Layout.fillWidth: true

@@ -12,7 +12,7 @@ env:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     strategy:
       matrix:
@@ -34,10 +34,12 @@ jobs:
           fetch-depth: 0
 
       # ====================================================================
-      # Setup MSBuild
+      # Update Chocolatey and install dependencies
       # ====================================================================
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Choco - Install CMake
+        run: choco upgrade cmake.install -y
+      - name:  Choco - Install Visual MSVC 2026
+        run: choco install visualstudio2026community --version=118.2.1 -y
 
       # ====================================================================
       # Setup Qt
@@ -45,7 +47,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-         version: '6.9.3'
+         version: '6.10.2'
          target: 'desktop'
          arch: 'win64_msvc2022_64'
          modules: 'qtshadertools'

@@ -1,6 +1,7 @@
 /**
  * @file i_file_serializer_reader.h
  * @brief Declaration of IFileSerializerReader interface
+ * @details Defines the contract for loading operation descriptors from a file.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -9,7 +10,6 @@
 
 #include <string_view>
 #include <vector>
-
 #include "operations/operation_descriptor.h"
 
 namespace CaptureMoment::Core {
@@ -25,7 +25,9 @@ public:
 
     /**
      * @brief Loads a list of operations from a file in the target format (e.g., XMP).
+     *
      * The source file path is determined by the injected IXmpPathStrategy based on the source image path.
+     *
      * @param source_image_path The path to the source image file. Used by the path strategy to determine the source XMP file location.
      * @return A vector of OperationDescriptors loaded from the file, or an empty vector if loading failed.
      */

@@ -134,6 +134,19 @@ private :
      */
     QThread m_worker_thread;
 
+
+    /**
+     * @brief Holds the current source image for display operations.
+     *
+     * This member stores a shared pointer to the ImageRegion that represents
+     * the current state of the image being processed and displayed.
+     * It is updated whenever a new image is loaded or when operations
+     * are applied that result in a new working image.
+     * The shared_ptr ensures safe access from multiple threads and
+     * automatic memory management.
+     */
+    std::shared_ptr<Core::Common::ImageRegion> m_source_image;
+
     /**
      * @brief Registered operation models for notifications
      * These models will receive operationCompleted/operationFailed signals

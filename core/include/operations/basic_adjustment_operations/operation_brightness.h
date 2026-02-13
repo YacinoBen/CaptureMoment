@@ -8,6 +8,7 @@
 #pragma once
 #include "operations/interfaces/i_operation.h"
 #include "operations/interfaces/i_operation_fusion_logic.h"
+#include "operations/interfaces/i_operation_default_logic.h"
 #include "operations/operation_ranges.h"
 
 namespace CaptureMoment::Core {
@@ -31,7 +32,7 @@ namespace Operations {
  * - > 0: Increase brightness
  * - < 0: Decrease brightness
  */
-class OperationBrightness : public IOperation,  public IOperationFusionLogic
+class OperationBrightness : public IOperation,  public IOperationFusionLogic, public IOperationDefaultLogic
 {
 public:
     // --- Metadata ---
@@ -70,9 +71,9 @@ public:
      * Performs a validation check to ensure the value is within the defined range [MIN_BRIGHTNESS_VALUE, MAX_BRIGHTNESS_VALUE].
      * @param working_image The hardware-agnostic image buffer to modify.
      * @param params Must contain a "value" (float) parameter.
-     * @return true if successful.
+     * @return std::expected<void, ErrorHandling::CoreError>.
      */
-    [[maybe_unused]] [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
+    [[maybe_unused]] [[nodiscard]] std::expected<void, ErrorHandling::CoreError> execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 
     /**
      * @brief Appends this operation's logic to a fused Halide pipeline.
@@ -104,6 +105,16 @@ public:
         const Halide::Var& x,
         const Halide::Var& y,
         const Halide::Var& c,
+        const OperationDescriptor& params
+        ) const override;
+
+
+
+    /**
+     * @brief Executes the adjustment on a raw ImageRegion (CPU fallback).
+     */
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> executeOnImageRegion(
+        Common::ImageRegion& region,
         const OperationDescriptor& params
         ) const override;
 };

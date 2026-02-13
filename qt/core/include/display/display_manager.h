@@ -1,6 +1,6 @@
 /**
  * @file display_manager.h
- * @brief Manages image display with downsampling, zoom, and pan.
+ * @brief Manages image display with downsampling (with OIIO), zoom, and pan.
  * @author CaptureMoment Team
  * @date 2025
  * * Architecture:
@@ -79,10 +79,16 @@ private:
     /** @brief Pre-calculated scale factor (m_display_image_size / m_source_image_size). */
     float m_display_scale{1.0f};
 
-    std::shared_ptr<Core::Common::ImageRegion> m_source_image;
-    
     /** @brief Pointer to the active rendering component. */
     Rendering::IRenderingItemBase* m_rendering_item{nullptr};
+
+
+    /**
+     * @brief Shared pointer to the High-Res Source Image.
+     * DisplayManager does NOT own this memory, but holds a reference
+     * to allow re-downsampling on Viewport resize without querying Controller.
+     */
+    std::shared_ptr<Core::Common::ImageRegion> m_source_image;
 
 public:
     /**

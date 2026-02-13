@@ -18,219 +18,249 @@
 #include <spdlog/spdlog.h>
 #include <thread>
 #include <future>
-#include <sstream>
+#include <format>
+#include <utility>
 
 namespace CaptureMoment::Core::Managers {
 
+// ============================================================
+// Construction / Destruction
+// ============================================================
+
 StateImageManager::StateImageManager(
     std::shared_ptr<Managers::SourceManager> source_manager)
-    : m_source_manager(std::move(source_manager))
+    : m_pipeline_builder(std::make_shared<Pipeline::OperationPipelineBuilder>())
+    , m_operation_factory(std::make_shared<Operations::OperationFactory>())
+    , m_source_manager(std::move(source_manager))
 {
     if (!m_source_manager) {
         spdlog::critical("StateImageManager: Null dependency provided during construction.");
         throw std::invalid_argument("StateImageManager: Null dependency provided.");
     }
 
-    m_pipeline_builder = std::make_shared<Pipeline::OperationPipelineBuilder>();
-
-    m_operation_factory = std::make_shared<Operations::OperationFactory>();
     Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
 
     spdlog::debug("StateImageManager: Constructed with fused pipeline support.");
 }
 
-// Destructor for StateImageManager.
 StateImageManager::~StateImageManager()
 {
     spdlog::debug("StateImageManager: Destroyed.");
 }
 
-// Sets the original image source path.
-bool StateImageManager::setOriginalImageSource(const std::string& path)
+// ============================================================
+// State Management
+// ============================================================
+
+bool StateImageManager::setOriginalImageSource(std::string_view path)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
+
     if (!m_source_manager || !m_source_manager->isLoaded() || m_source_manager->width() <= 0) {
         spdlog::error("StateImageManager::setOriginalImageSource: SourceManager has no valid image loaded.");
         return false;
     }
+
+    // Copy string_view to std::string member for long-term storage
     m_original_image_path = path;
-    spdlog::info("StateImageManager::setOriginalImageSource: Original image source set for '{}'.", path);
+
+    spdlog::info("StateImageManager::setOriginalImageSource: Original image source set for '{}'.", m_original_image_path);
+
+    // Reset image pointer to null until first update is requested
+    // Using m_state_mutex to protect m_working_image now
+    m_working_image = nullptr;
+
     return true;
 }
 
-// Adds a new operation to the active sequence.
 bool StateImageManager::addOperation(const Operations::OperationDescriptor& descriptor)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     m_active_operations.push_back(descriptor);
-    spdlog::debug("StateImageManager::addOperation: Added operation '{}'. Total active: {}.", descriptor.name, m_active_operations.size());
+    spdlog::debug("StateImageManager::addOperation: Added operation '{}'. Total active: {}.",
+                  descriptor.name, m_active_operations.size());
     return true;
 }
 
-// Modifies an existing operation in the active sequence.
 bool StateImageManager::modifyOperation(size_t index, const Operations::OperationDescriptor& new_descriptor)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     if (index >= m_active_operations.size()) {
-        spdlog::error("StateImageManager::modifyOperation: Index {} out of bounds (size: {}).", index, m_active_operations.size());
+        spdlog::error("StateImageManager::modifyOperation: Index {} out of bounds (size: {}).",
+                      index, m_active_operations.size());
         return false;
     }
     m_active_operations[index] = new_descriptor;
-    spdlog::debug("StateImageManager::modifyOperation: Modified operation at index {}. Total active: {}.", index, m_active_operations.size());
+    spdlog::debug("StateImageManager::modifyOperation: Modified operation at index {}.", index);
     return true;
 }
 
-// Removes an operation from the active sequence.
 bool StateImageManager::removeOperation(size_t index)
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     if (index >= m_active_operations.size()) {
-        spdlog::error("StateImageManager::removeOperation: Index {} out of bounds (size: {}).", index, m_active_operations.size());
+        spdlog::error("StateImageManager::removeOperation: Index {} out of bounds (size: {}).",
+                      index, m_active_operations.size());
         return false;
     }
     m_active_operations.erase(m_active_operations.begin() + index);
-    spdlog::debug("StateImageManager::removeOperation: Removed operation at index {}. Total active: {}.", index, m_active_operations.size());
+    spdlog::debug("StateImageManager::removeOperation: Removed operation at index {}.", index);
     return true;
 }
 
-// Clears all active operations, resetting the working image to the original.
 bool StateImageManager::resetToOriginal()
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     m_active_operations.clear();
     spdlog::debug("StateImageManager::resetToOriginal: Cleared all operations.");
     return true;
 }
 
-// Requests an asynchronous update of the working image.
-std::future<bool> StateImageManager::requestUpdate(std::optional<UpdateCallback> callback)
+std::shared_ptr<ImageProcessing::IWorkingImageHardware> StateImageManager::getWorkingImage() const
 {
-    bool was_updating = m_is_updating.exchange(true);
-    if (was_updating)
-    {
-        spdlog::warn("StateImageManager::requestUpdate: Update already in progress, request ignored.");
-        if (callback.has_value()) {
-            callback.value()(false);
-        }
-        return std::async(std::launch::deferred, []() { return false; });
-    }
-
-    spdlog::debug("StateImageManager::requestUpdate: Initiating async update with fused pipeline.");
-
-    std::vector<Operations::OperationDescriptor> ops_to_apply;
-    std::string original_path;
-    {
-        std::lock_guard lock(m_mutex);
-        ops_to_apply = m_active_operations;
-        original_path = m_original_image_path;
-    }
-
-    auto future = std::async(std::launch::async, [this, ops_to_apply, original_path, callback]() {
-        return this->performUpdate(ops_to_apply, original_path, callback);
-    });
-
-    return future;
+    std::lock_guard lock(m_state_mutex); // Protect access to m_working_image
+    return m_working_image;
 }
 
-// Gets the current working image.
-ImageProcessing::IWorkingImageHardware* StateImageManager::getWorkingImage() const
-{
-    std::lock_guard lock(m_mutex);
-    return m_working_image.get();
-}
-
-// Checks if an update of the working image is currently in progress.
 bool StateImageManager::isUpdatePending() const
 {
-    return m_is_updating.load();
-}
-
-bool StateImageManager::performUpdate(
-    const std::vector<Operations::OperationDescriptor>& ops_to_apply,
-    const std::string& original_path,
-    const std::optional<UpdateCallback>& callback
-    )
-{
-    std::ostringstream oss;
-    oss << std::hex << std::this_thread::get_id();
-    std::string thread_id_str = oss.str();
-    spdlog::debug("StateImageManager::performUpdate: Started on thread {}.", thread_id_str);
-
-    bool success = false;
-
-    spdlog::trace("StateImageManager::performUpdate: Using original path: '{}'", original_path);
-
-    auto original_tile = m_source_manager->getTile(0, 0, m_source_manager->width(), m_source_manager->height());
-    if (!original_tile)
-    {
-        spdlog::error("StateImageManager::performUpdate (thread {}): Failed to get original tile from SourceManager.", thread_id_str);
-        success = false;
-    }
-    else
-    {
-        // Load the original image data into the new working image buffer
-        auto backend = CaptureMoment::Core::Config::AppConfig::instance().getProcessingBackend();
-        spdlog::debug("StateImageManager::performUpdate: Using backend: {}",
-                      (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
-
-        auto new_working_image = ImageProcessing::WorkingImageFactory::create(backend, *original_tile);
-        if (!new_working_image) {
-            spdlog::error("StateImageManager::performUpdate (thread {}): WorkingImageFactory::create failed.", thread_id_str);
-            success = false;
-        } else {
-            // Build the fused pipeline executor for the current sequence of operations
-            auto pipeline_executor = m_pipeline_builder->build(ops_to_apply, Operations::OperationFactory{});
-            if (!pipeline_executor) {
-                spdlog::error("StateImageManager::performUpdate (thread {}): OperationPipelineBuilder::build failed.", thread_id_str);
-                success = false;
-            } else {
-                // Execute the fused pipeline on the working image
-                auto pipeline_executor = m_pipeline_builder->build(ops_to_apply, *m_operation_factory);
-
-                if (!pipeline_executor->execute(*new_working_image)) {
-                    spdlog::error("StateImageManager::performUpdate (thread {}): IPipelineExecutor::execute failed.", thread_id_str);
-                    success = false;
-                } else {
-                    spdlog::debug("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.", thread_id_str, ops_to_apply.size());
-                    success = true;
-
-                    // Update the internal state with the new working image
-                    {
-                        std::lock_guard lock(m_mutex);
-                        m_working_image = std::move(new_working_image);
-                        spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id_str);
-                    }
-                }
-            }
-        }
-    }
-
-    {
-        std::lock_guard lock(m_mutex);
-        if (!success) {
-            spdlog::warn("StateImageManager::performUpdate (thread {}): Keeping previous working image due to pipeline failure.", thread_id_str);
-        }
-        m_is_updating.store(false);
-    }
-
-    if (callback.has_value()) {
-        callback.value()(success);
-    }
-
-    spdlog::debug("StateImageManager::performUpdate: Finished on thread {}.", thread_id_str);
-    return success;
+    std::lock_guard lock(m_flag_mutex); // Protect access to m_is_updating
+    return m_is_updating;
 }
 
 std::string StateImageManager::getOriginalImageSourcePath() const
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     return m_original_image_path;
 }
 
 std::vector<Operations::OperationDescriptor> StateImageManager::getActiveOperations() const
 {
-    std::lock_guard lock(m_mutex);
+    std::lock_guard lock(m_state_mutex);
     return m_active_operations;
+}
+
+std::future<bool> StateImageManager::requestUpdate(std::optional<UpdateCallback> callback)
+{
+    // Atomic exchange equivalent using mutex
+    {
+        std::lock_guard lock(m_flag_mutex);
+        if (m_is_updating)
+        {
+            spdlog::warn("StateImageManager::requestUpdate: Update already in progress, request ignored.");
+
+            if (callback) {
+                callback.value()(false);
+            }
+            return std::async(std::launch::deferred, []() { return false; });
+        }
+        m_is_updating = true; // Set the flag
+    } // Unlock m_flag_mutex immediately after checking/modifying the flag
+
+
+    spdlog::debug("StateImageManager::requestUpdate: Initiating async update.");
+
+    // Snapshot the state. We copy them out for the lambda.
+    std::vector<Operations::OperationDescriptor> ops_to_apply;
+    std::string original_path;
+    {
+        std::lock_guard lock(m_state_mutex);
+        ops_to_apply = m_active_operations; // Copy vector
+        original_path = m_original_image_path;  // Copy string
+    }
+
+    // Launch async task
+    auto future = std::async(std::launch::async,
+                             [this,
+                              ops_to_apply = std::move(ops_to_apply), // Move the copied data
+                              original_path = std::move(original_path),
+                              callback = std::move(callback)]() mutable
+                             {
+                                 bool result = this->performUpdate(std::move(ops_to_apply), std::move(original_path), std::move(callback));
+
+                                 // Reset the flag allowing new updates *after* processing is done
+                                 {
+                                     std::lock_guard lock(this->m_flag_mutex);
+                                     this->m_is_updating = false;
+                                 }
+
+                                 return result;
+                             });
+
+    return future;
+}
+
+bool StateImageManager::performUpdate(
+    std::vector<Operations::OperationDescriptor> ops_to_apply,
+    std::string original_path,
+    std::optional<UpdateCallback> callback)
+{
+    std::string thread_id = std::format("0x{:x}", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+    spdlog::debug("StateImageManager::performUpdate: Started on thread {}.", thread_id);
+
+    bool success = false;
+
+    spdlog::trace("StateImageManager::performUpdate: Using original path: '{}'", original_path);
+
+    // 1. Retrieve Original Tile from SourceManager
+    auto original_tile = m_source_manager->getTile(0, 0, m_source_manager->width(), m_source_manager->height());
+
+    if (!original_tile)
+    {
+        spdlog::error("StateImageManager::performUpdate (thread {}): Failed to get original tile.", thread_id);
+        success = false;
+    }
+    else
+    {
+        // 2. Create Working Image (CPU or GPU)
+        auto backend = CaptureMoment::Core::Config::AppConfig::instance().getProcessingBackend();
+        spdlog::info("StateImageManager::performUpdate: Using backend: {}",
+                     (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
+
+        // Dereference unique_ptr before passing
+        auto unique_new_image = ImageProcessing::WorkingImageFactory::create(backend, *original_tile.value());
+
+        if (!unique_new_image) {
+            spdlog::error("StateImageManager::performUpdate (thread {}): WorkingImageFactory::create failed.", thread_id);
+            success = false;
+        } else
+        {
+            // 3. Build Fused Pipeline
+            // Pass the operations vector by move to the builder
+            auto pipeline_executor = m_pipeline_builder->build(std::move(ops_to_apply), *m_operation_factory);
+
+            if (!pipeline_executor) {
+                spdlog::error("StateImageManager::performUpdate (thread {}): OperationPipelineBuilder::build failed.", thread_id);
+                success = false;
+            } else {
+                // 4. Execute Pipeline
+                if (!pipeline_executor->execute(*unique_new_image)) {
+                    spdlog::error("StateImageManager::performUpdate (thread {}): IPipelineExecutor::execute failed.", thread_id);
+                    success = false;
+                } else {
+                    spdlog::info("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.",
+                                 thread_id, ops_to_apply.size());
+                    success = true;
+
+                    // 5. Update Working Image (Thread-Safe)
+                    {
+                        std::lock_guard lock(m_state_mutex); // Protect access to m_working_image
+                        m_working_image = std::move(unique_new_image); // Store the new image
+                    }
+
+                    spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id);
+                }
+            }
+        }
+    }
+
+
+    if (callback) {
+        callback.value()(success);
+    }
+
+    spdlog::debug("StateImageManager::performUpdate: Finished on thread {}.", thread_id);
+    return success;
 }
 
 } // namespace CaptureMoment::Core::Managers
