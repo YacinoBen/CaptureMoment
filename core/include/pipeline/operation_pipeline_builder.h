@@ -60,6 +60,20 @@ public:
         const Operations::OperationFactory& factory
         );
 
+    /**
+     * @brief Builds a fused pipeline (Rvalue optimized).
+     *
+     * @details
+     * Optimized version that takes ownership of the operation descriptor list.
+     *
+     * @param[in] operations A vector of `OperationDescriptor` objects (moved).
+     * @param[in] factory The `OperationFactory` instance.
+     * @return A unique pointer to an `IPipelineExecutor`.
+     */
+    [[nodiscard]] static std::unique_ptr<IPipelineExecutor> build(
+        std::vector<Operations::OperationDescriptor>&& operations,
+        const Operations::OperationFactory& factory
+        );
 };
 
 } // namespace Pipeline
