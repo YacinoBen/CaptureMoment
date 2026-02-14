@@ -64,7 +64,7 @@ public:
      */
     PhotoTask(
         std::shared_ptr<Common::ImageRegion> input_tile,
-        std::vector<Operations::OperationDescriptor> ops, // OPTIMISATION : Pris par valeur au lieu de const ref
+        std::vector<Operations::OperationDescriptor> ops,
         std::shared_ptr<Operations::OperationFactory> operation_factory
         );
 
