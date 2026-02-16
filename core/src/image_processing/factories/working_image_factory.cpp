@@ -7,10 +7,20 @@
  */
 
 #include "image_processing/factories/working_image_factory.h"
+#include "config/app_config.h"
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::ImageProcessing {
 
+std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
+    const Common::ImageRegion& source_image)
+{
+    auto backend = Config::AppConfig::instance().getProcessingBackend();
+    
+    spdlog::trace("WorkingImageFactory::create (global config): Using global backend config: {}", static_cast<int>(backend));
+    
+    return create(backend, source_image);
+}
 std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
     Common::MemoryType backend,
     const Common::ImageRegion& source_image
@@ -20,7 +30,7 @@ std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
     auto it = s_registry.find(backend);
 
     if (it == s_registry.end()) {
-        spdlog::error("[WorkingImageFactory] No creator registered for backend type {}. Unable to create working image.",
+        spdlog::error("WorkingImageFactory::create: No creator registered for backend type {}. Unable to create working image.",
                       static_cast<int>(backend));
         return nullptr;
     }
@@ -30,7 +40,7 @@ std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
         auto creator = it->second;
         return creator(source_image);
     } catch (const std::exception& e) {
-        spdlog::critical("[WorkingImageFactory] Exception thrown by creator for backend {}: {}",
+        spdlog::critical("WorkingImageFactory::create: Exception thrown by creator for backend {}: {}",
                          static_cast<int>(backend), e.what());
         return nullptr;
     }
@@ -42,7 +52,7 @@ void WorkingImageFactory::registerCreator(
     )
 {
     if (s_registry.contains(type)) {
-        spdlog::warn("[WorkingImageFactory] Overriding existing creator for backend type {}.", static_cast<int>(type));
+        spdlog::warn("WorkingImageFactory::registerCreator: Overriding existing creator for backend type {}.", static_cast<int>(type));
     }
     s_registry[type] = std::move(creator);
 }
