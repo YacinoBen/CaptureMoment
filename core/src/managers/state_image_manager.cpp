@@ -64,39 +64,11 @@ bool StateImageManager::setOriginalImageSource(std::string_view path)
     return true;
 }
 
-bool StateImageManager::addOperation(const Operations::OperationDescriptor& descriptor)
+void StateImageManager::setActiveOperations(const std::vector<Operations::OperationDescriptor>& operations)
 {
     std::lock_guard lock(m_state_mutex);
-    m_active_operations.push_back(descriptor);
-    spdlog::debug("StateImageManager::addOperation: Added operation '{}'. Total active: {}.",
-                  descriptor.name, m_active_operations.size());
-    return true;
-}
-
-bool StateImageManager::modifyOperation(size_t index, const Operations::OperationDescriptor& new_descriptor)
-{
-    std::lock_guard lock(m_state_mutex);
-    if (index >= m_active_operations.size()) {
-        spdlog::error("StateImageManager::modifyOperation: Index {} out of bounds (size: {}).",
-                      index, m_active_operations.size());
-        return false;
-    }
-    m_active_operations[index] = new_descriptor;
-    spdlog::debug("StateImageManager::modifyOperation: Modified operation at index {}.", index);
-    return true;
-}
-
-bool StateImageManager::removeOperation(size_t index)
-{
-    std::lock_guard lock(m_state_mutex);
-    if (index >= m_active_operations.size()) {
-        spdlog::error("StateImageManager::removeOperation: Index {} out of bounds (size: {}).",
-                      index, m_active_operations.size());
-        return false;
-    }
-    m_active_operations.erase(m_active_operations.begin() + index);
-    spdlog::debug("StateImageManager::removeOperation: Removed operation at index {}.", index);
-    return true;
+    m_active_operations = operations;
+    spdlog::debug("StateImageManager::setActiveOperations: Replaced {} operations.", operations.size());
 }
 
 bool StateImageManager::resetToOriginal()

@@ -91,31 +91,6 @@ public:
     [[nodiscard]] bool setOriginalImageSource(std::string_view path);
 
     /**
-     * @brief Adds a new operation to the active sequence.
-     *
-     * @param descriptor The operation descriptor (parameters, type, etc.).
-     * @return true if added successfully.
-     */
-    [[nodiscard]] bool addOperation(const Operations::OperationDescriptor& descriptor);
-
-    /**
-     * @brief Modifies an existing operation in the active sequence.
-     *
-     * @param index Index of the operation to modify.
-     * @param new_descriptor The new operation descriptor.
-     * @return true if modified successfully, false if index is invalid.
-     */
-    [[nodiscard]] bool modifyOperation(size_t index, const Operations::OperationDescriptor& new_descriptor);
-
-    /**
-     * @brief Removes an operation from the active sequence.
-     *
-     * @param index Index of the operation to remove.
-     * @return true if removed successfully, false if index is invalid.
-     */
-    [[nodiscard]] bool removeOperation(size_t index);
-
-    /**
      * @brief Clears all active operations.
      *
      * @return true if reset was initiated successfully.
@@ -157,6 +132,13 @@ public:
      * @return A copy of the vector of `OperationDescriptor`s.
      */
     [[nodiscard]] std::vector<Operations::OperationDescriptor> getActiveOperations() const;
+
+    /**
+     * @brief One atomic list modify operation.
+     *
+     * @param operations The new list of operations.
+     */
+    void setActiveOperations(const std::vector<Operations::OperationDescriptor>& operations);
 
 private:
     /**
