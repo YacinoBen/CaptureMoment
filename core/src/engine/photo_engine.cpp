@@ -113,22 +113,16 @@ int PhotoEngine::channels() const noexcept
 
 void PhotoEngine::applyOperations(const std::vector<Operations::OperationDescriptor>& ops)
 {
-    if (!m_state_manager) {
+       if (!m_state_manager) {
         spdlog::error("PhotoEngine::applyOperations: StateImageManager is null.");
         return;
     }
 
-    spdlog::debug("PhotoEngine: Applying {} operations.", ops.size());
+    // 1. Update the active operations in StateImageManager
+    m_state_manager->setActiveOperations(ops);
 
-    // Replace current state with the new list
-    // Note: resetToOriginal clears the list, then we add new ops.
-    (void) m_state_manager->resetToOriginal();
-    for (const auto& op : ops) {
-        (void) m_state_manager->addOperation(op);
-    }
-
-    // Trigger asynchronous processing
-     (void) m_state_manager->requestUpdate();
+    // 2. Request an update to apply the new operations
+    (void) m_state_manager->requestUpdate();
 }
 
 std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const
