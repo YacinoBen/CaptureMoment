@@ -5,6 +5,9 @@
  * @date 2026
  */
 
+#include "operations/interfaces/i_operation.h"
+
+
 #include "pipeline/operation_pipeline_executor.h"
 #include "operations/operation_factory.h"
 #include "image_processing/halide/working_image_halide.h"

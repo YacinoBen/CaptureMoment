@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "operations/interfaces/i_operation_fusion_logic.h"
+
 #include "pipeline/interfaces/i_pipeline_executor.h"
 #include "pipeline/interfaces/i_halide_pipeline_executor.h"
 #include "operations/operation_descriptor.h"
