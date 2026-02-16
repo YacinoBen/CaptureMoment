@@ -24,7 +24,7 @@
 // ============================================================
 // 2. External Libraries
 // ============================================================
-#include <Halide.h>
+#include "Halide.h"
 #include <spdlog/spdlog.h>
 
 // ============================================================
@@ -55,6 +55,9 @@
 
 // Serializer Module
 #include "serializer/serializer.h"
+
+// Core Strategies Module
+#include "strategies/strategies.h"
 
 // ============================================================
 // 4. Internal Core - Common & Config
