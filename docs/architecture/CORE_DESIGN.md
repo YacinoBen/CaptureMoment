@@ -1,5 +1,7 @@
 # Core Architecture Design Principles
+
 The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
+
 ---
 ## 1. Data-Centric Design: Plain Old Data (POD) / Value Types
 A fundamental principle of this architecture is the segregation of data storage from processing logic. Core data structures are kept simple and easy to handle:
@@ -16,6 +18,7 @@ The `ISourceManager` defines the contract for handling the image source, namely,
 * **Responsibility:** Encapsulate file I/O, caching, and physical pixel access.
 * **Decoupling:** By using the `ISourceManager` interface, the core logic (the `OperationPipeline`) is entirely agnostic to the underlying I/O technology.
 * **Implementation (`SourceManager`):** The concrete implementation uses industry-standard tools like OpenImageIO (OIIO) to handle diverse file formats and efficient caching via `OIIO::ImageBuf` and `OIIO::ImageCache`. This shields the rest of the application from OIIO's specific complexities.
+* **Pattern Explanation (Strategy):** The `ISourceManager` interface defines a family of algorithms (different I/O methods). `SourceManager` provides a concrete implementation. This allows switching between different I/O strategies (e.g., OIIO, native filesystem, network) without changing the code that depends on `ISourceManager`, promoting flexibility and maintainability.
 ---
 ## 3. Hardware-Agnostic Processing Architecture
 The most significant recent evolution is the introduction of a hardware-agnostic processing layer that abstracts CPU and GPU execution behind a unified interface.
@@ -26,13 +29,15 @@ This interface represents an image used as a working buffer, abstracting its har
 * `updateFromCPU(const ImageRegion&)`: Updates the working buffer from CPU data.
 * `isValid()`: Checks if the buffer is valid.
 * `getSize()`, `getChannels()`, `getDataSize()`: Query buffer dimensions.
+* **Pattern Explanation (Interface/Abstraction):** The interface `IWorkingImageHardware` defines the contract for interacting with an image buffer, regardless of its physical location. Concrete implementations (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) provide the specific logic for CPU or GPU memory. This allows the rest of the application (like `OperationPipelineExecutor`) to work with the abstract interface, promoting hardware independence and easier testing.
 ### Concrete Implementations
 * **`WorkingImageCPU_Halide`:** Uses Halide buffers for CPU processing.
 * **`WorkingImageGPU_Halide`:** Uses Halide buffers with GPU scheduling for GPU processing.
-### `CaptureMoment::Core::ImageProcessing::WorkingImageFactory` (Factory Pattern)
+### `CaptureMoment::Core::ImageProcessing::WorkingImageFactory` (Factory & Registry Pattern)
 This factory encapsulates the logic for creating the appropriate `IWorkingImageHardware` implementation based on the configured backend.
 * **Responsibility:** Centralize creation logic to avoid duplication in `StateImageManager` and `PhotoTask`.
 * **Usage:** Both `StateImageManager` and `PhotoTask` use this factory to create working images, ensuring consistent initialization.
+* **Pattern Explanation (Factory):** The `WorkingImageFactory` encapsulates the creation logic, hiding the complexity of instantiating different concrete types (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`). The Registry pattern (using an `unordered_map` of creators) allows new backends (e.g., `WorkingImageCUDA`, `WorkingImageVulkan`) to be registered at startup without modifying the factory's core code, enhancing extensibility.
 ### Backend Selection
 * **`CaptureMoment::Core::Config::AppConfig`:** Singleton that stores the selected processing backend (`MemoryType::CPU_RAM` or `MemoryType::GPU_MEMORY`).
 * **`BenchmarkingBackendDecider`:** Performs runtime benchmarking to determine the optimal backend and stores the result in `AppConfig`.
@@ -46,10 +51,12 @@ The **`IProcessingTask`** interface defines a unit of work encapsulating the pro
 * **Responsibility:** Encapsulate the data (input tile, operations, factory), the execution logic (`execute`), and provide access to the result (`result`) and progress (`progress`).
 * **Decoupling:** The interface abstracts the *how* of processing, allowing for different implementations (e.g., CPU-based, GPU-based in the future) or different types of tasks (e.g., loading, saving).
 * **Implementation (`PhotoTask`):** A concrete implementation that applies a sequence of operations defined by `OperationDescriptors` to an `IWorkingImageHardware` using the static `OperationPipeline::applyOperations` method. It creates the working image using `WorkingImageFactory` based on the configured backend.
+* **Pattern Explanation (Command):** The `IProcessingTask` interface represents a command (a unit of work). `PhotoTask` is a concrete command object that encapsulates all the necessary data (`OperationDescriptors`, `IWorkingImageHardware`) and the logic to execute the processing. This pattern allows for queuing, scheduling, and potentially undoing/redoing tasks, making the processing pipeline more flexible and manageable.
 ### `CaptureMoment::Core::Domain::IProcessingBackend` & `CaptureMoment::Core::Engine::PhotoEngine` (Orchestrator / Facade)
 The **`IProcessingBackend`** interface defines the contract for creating and submitting **`IProcessingTasks`**.
 * **Responsibility:** Orchestrate the overall processing flow. This includes managing the state of the loaded image (`SourceManager`), maintaining the list of active operations, creating **`IProcessingTasks`** via `createTask`, and handling their execution via `submit`. It also manages committing the final result back to the source via `commitResult`.
 * **Implementation (`PhotoEngine`):** The main concrete orchestrator. It uses the `SourceManager` to load images and provide initial data (`tiles`). It executes tasks (synchronously in v1 via `submit`) and provides methods like `getWorkingImageAsRegion()` to export the hardware buffer to CPU for display purposes.
+* **Pattern Explanation (Facade):** `PhotoEngine` acts as a facade, providing a simplified interface to the complex subsystem of `SourceManager`, `StateImageManager`, `OperationPipeline`, and task execution. It hides the intricate details of how these components interact, making it easier for the UI layer to initiate processing.
 * **Benefit:** This centralizes the high-level logic (when to process, what operations are active, how to handle results, managing the working state) away from the low-level pipeline execution and resource management.
 ---
 ## 5. Low-Level Pipeline Execution: Statelessness and Utility
@@ -60,6 +67,7 @@ The `OperationPipeline` class is refactored into a stateless class containing on
 * **Decoupling:** It is independent of `SourceManager`, `PhotoEngine`, or any task management. It only knows about `IWorkingImageHardware`, `OperationDescriptor`, and `OperationFactory`.
 * **Location:** This class resides in the `operations` folder, centralizing the low-level processing logic within the operation domain.
 * **Benefit:** High reusability and testability. It's a pure function-like component that performs the core processing step.
+* **Pattern Explanation (Utility/Stateless):** Being stateless means the class doesn't hold any instance-specific data. Its methods are pure functions of their inputs. This makes it highly reusable, thread-safe (as it doesn't modify shared state), and easy to test in isolation.
 ---
 ## 6. Operation Management: The Factory Pattern
 This pattern remains crucial for creating operation instances within the processing pipeline.
@@ -70,6 +78,7 @@ This pattern remains crucial for creating operation instances within the process
 * **Benefit:** Enables pipeline fusion optimization by allowing operations to contribute their Halide logic to a combined computational graph.
 * **`CaptureMoment::Core::Operations::OperationFactory` (formerly `OperationFactory`):** This component is responsible for knowing how to construct concrete implementations of `IOperation` based on an `OperationType` defined in the `OperationDescriptor`.
 * **Benefit:** Adding a new operation (e.g., `OperationSaturation`) only requires defining the new class and registering it in the factory setup, without modifying the `OperationPipeline`'s core logic. This promotes high maintainability and scalability.
+* **Pattern Explanation (Factory):** The `OperationFactory` centralizes the creation of `IOperation` subclasses. It maps an `OperationType` to a specific creation routine. This removes the need for `OperationPipeline` to have `if/else` or `switch` statements for every possible operation type, making it easy to add new operations without touching existing code.
 * [**See more**](core/OPERATIONS.md).
 ---
 ## 7. Pipeline Fusion Architecture
@@ -77,10 +86,12 @@ The architecture now includes advanced pipeline fusion capabilities for optimal 
 ### `CaptureMoment::Core::Pipeline::IPipelineExecutor` & `CaptureMoment::Core::Pipeline::OperationPipelineExecutor` (Strategy Pattern)
 * **`IPipelineExecutor`**: Abstract interface for executing a pre-built pipeline on an image.
 * **`OperationPipelineExecutor`**: Concrete implementation that executes fused adjustment operation pipelines using Halide's computational graph optimization.
+* **Pattern Explanation (Strategy):** `IPipelineExecutor` defines the algorithm for executing a pipeline. `OperationPipelineExecutor` provides a specific implementation using Halide fusion. Other strategies (e.g., `FallbackPipelineExecutor` for sequential execution) could implement the same interface, allowing the system to switch between them dynamically based on requirements or capabilities.
 ### `CaptureMoment::Core::Pipeline::OperationPipelineBuilder` (Builder Pattern)
 * **Responsibility:** Builds and compiles the fused Halide pipeline for the stored operations.
 * **Optimization:** Creates combined computational passes that eliminate intermediate buffer copies between operations.
 * **Integration:** Works with `IOperationFusionLogic` implementations to chain operations into a single pipeline.
+* **Pattern Explanation (Builder):** The `OperationPipelineBuilder` separates the construction of the complex `OperationPipelineExecutor` object (specifically its internal Halide graph and compiled pipeline) from its representation. This allows the same construction process to create different representations (e.g., different compiled pipelines based on the list of operations).
 ### Operation Fusion Integration
 * **`IOperationFusionLogic`**: Operations implement this interface to provide their fusion logic via `appendToFusedPipeline`.
 * **Sequential vs Fused**: Operations maintain both `execute` (for sequential processing) and `appendToFusedPipeline` (for pipeline fusion) methods.
@@ -96,21 +107,45 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Memory Management**: Uses `std::vector<float>` as backing store for Halide buffers, enabling in-place modifications without unnecessary copies.
 * **Direct Buffer Access**: Provides `getHalideBuffer()` method for direct pipeline execution.
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
-* **Moved Dependencies**: Now owns `m_pipeline_builder` and `m_operation_factory` for better encapsulation.
-* **Fused Execution**: Uses `OperationPipelineBuilder` and `OperationPipelineExecutor` for optimal performance.
-* **Hardware Agnostic**: Automatically selects appropriate execution path based on configured backend.
+* **Moved Dependencies:** Now owns `m_pipeline_builder` and `m_operation_factory` for better encapsulation.
+* **Fused Execution:** Uses `OperationPipelineBuilder` and `OperationPipelineExecutor` for optimal performance.
+* **Hardware Agnostic:** Automatically selects appropriate execution path based on configured backend.
 ---
-## 9. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
+## 9. Pipeline Management and Execution Strategies
+Recent refactoring introduced a more structured approach to managing pipeline execution strategies.
+### `CaptureMoment::Core::Pipeline::PipelineBuilder` (Registry Pattern)
+* **Responsibility:** Central registry for creating `IPipelineExecutor` instances based on `PipelineType` (e.g., HalideOperation).
+* **Pattern Explanation (Registry):** Similar to the `WorkingImageFactory`, this uses a static map to associate a `PipelineType` with a creator function. This allows new pipeline types (e.g., AI-based, OpenCV-based) to be registered at startup without modifying existing managers like `StateImageManager`. It decouples the high-level orchestrator from the specific executor creation logic.
+### `CaptureMoment::Core::Pipeline::PipelineRegistry`
+* **Responsibility:** Static helper to populate the `PipelineBuilder` registry at startup.
+### `CaptureMoment::Core::Pipeline::PipelineContext`
+* **Responsibility:** Central container holding the `PipelineBuilder` and instances of `IPipelineManager`.
+* **Pattern Explanation (Container/Service Locator):** `PipelineContext` acts as a service locator for the pipeline infrastructure, holding the `PipelineBuilder` and the active `IPipelineManager` instances. This simplifies dependency injection into `StateImageManager`.
+### `CaptureMoment::Core::Strategies::IPipelineManager` (Abstract Interface)
+* **Responsibility:** High-level interface for managing a specific category of image processing (e.g., Halide adjustments).
+* **Contract:** Defines `init(operations, factory)` and `execute(working_image)` methods.
+* **Pattern Explanation (Strategy):** `IPipelineManager` defines the strategy for managing a specific type of pipeline execution (e.g., Halide adjustments). `PipelineHalideOperationManager` implements this strategy, encapsulating the lifecycle and configuration of the `OperationPipelineExecutor`.
+### `CaptureMoment::Core::Strategies::PipelineHalideOperationManager` (Concrete Strategy)
+* **Responsibility:** Concrete implementation managing Halide-based adjustment operations.
+* **Encapsulation:** Handles the lifecycle and initialization of `OperationPipelineExecutor` based on the list of operations.
+* **Thread Safety:** Includes mutex protection for concurrent access during initialization and execution.
+---
+## 10. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
 The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed as an **independent layer**, separate from the core image processing engine (`PhotoEngine`), to maximize modularity and flexibility.
 ### Components
 * **`CaptureMoment::Core::Serializer::IXmpProvider`:** An interface abstracting the low-level XMP packet read/write operations. This allows switching between different XMP libraries (e.g., Exiv2, Adobe XMP Toolkit) without changing dependent code.
+* **Pattern Explanation (Strategy):** `IXmpProvider` defines the strategy for interacting with XMP data. Different providers (`Exiv2Provider`) implement this strategy using specific libraries.
 * **Implementation (`Exiv2Provider`):** A concrete implementation using the Exiv2 library to interact with XMP packets within image files.
 * **`CaptureMoment::Core::Serializer::IXmpPathStrategy`:** An interface defining how to determine the file path for the XMP data associated with a given image path. This allows for different storage strategies (sidecar files, AppData directory, configurable path).
+* **Pattern Explanation (Strategy):** `IXmpPathStrategy` defines the strategy for locating XMP files. Different strategies (`SidecarXmpPathStrategy`, `AppDataXmpPathStrategy`) implement this differently.
 * **Implementations (`SidecarXmpPathStrategy`, `AppDataXmpPathStrategy`, `ConfigurableXmpPathStrategy`):** Concrete implementations of the path strategy interface, each defining its own logic for mapping an image path to an XMP file path.
 * **`CaptureMoment::Core::Serializer::IFileSerializerWriter` & `CaptureMoment::Core::Serializer::IFileSerializerReader`:** Interfaces for writing and reading operation data to/from a file format (currently XMP). They depend on `IXmpProvider` and `IXmpPathStrategy`.
+* **Pattern Explanation (Interface Segregation):** Separate writer and reader interfaces allow for independent implementation and testing.
 * **Implementations (`FileSerializerWriter`, `FileSerializerReader`):** Concrete implementations that use the injected provider and strategy to perform the actual serialization/deserialization of `OperationDescriptor` lists to/from XMP packets.
 * **`CaptureMoment::Core::Serializer::FileSerializerManager`:** A high-level manager that orchestrates the `IFileSerializerWriter` and `IFileSerializerReader`. It provides a unified interface (`saveToFile`, `loadFromFile`) for **external UI/QML layers** to use, not directly managed by `PhotoEngine`.
+* **Pattern Explanation (Facade):** `FileSerializerManager` provides a simplified interface to the complex serialization subsystem (`IXmpProvider`, `IXmpPathStrategy`, `IFileSerializerWriter/Reader`).
 * **`CaptureMoment::Core::Serializer::OperationSerialization`:** A namespace containing utility functions (`serializeParameter`, `deserializeParameter`) for converting `std::any` parameter values within `OperationDescriptor` to/from string representations suitable for storage in XMP metadata, preserving type information. This module relies on **generic conversion utilities** from the `CaptureMoment::Core::utils` namespace.
+* **Pattern Explanation (Namespace/Utilities):** A namespace groups related utility functions. **Note:** The use of `std::any` for operation parameters is planned to be replaced by `std::variant` for better type safety and performance.
 * **`CaptureMoment::Core::Serializer::Exiv2Initializer`:** A utility class ensuring the Exiv2 library is initialized before any operations are performed.
 ### Benefits of Independence
 * **Modularity:** `PhotoEngine` focuses purely on image processing orchestration. The serialization logic is completely separate.
@@ -119,7 +154,7 @@ The core library includes a flexible system for saving and loading the state of 
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
 * [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
 ---
-## 10. Utility Modules and Generic Conversion
+## 11. Utility Modules and Generic Conversion
 Generic utility functions, such as string conversion, are centralized to promote reusability and reduce code duplication across the core library.
 ### `CaptureMoment::Core::utils::toString`
 * **Purpose:** Provides a generic mechanism for converting primitive types (e.g., `int`, `float`, `double`, `bool`) and `std::string` to their string representation.
@@ -127,11 +162,12 @@ Generic utility functions, such as string conversion, are centralized to promote
 * **Location:** Implemented in `utils/to_string_utils.h`, placed directly in the `utils` folder without subdirectories for conversion or other purposes.
 * **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
 ---
-## 11. Namespace Organization
+## 12. Namespace Organization
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 - **`CaptureMoment::Core::Common`**: Contains fundamental data structures like `ImageRegion` and `PixelFormat`.
 - **`CaptureMoment::Core::Operations`**: Contains operation-related logic, including `IOperation`, `OperationDescriptor`, `OperationFactory`, `OperationPipeline`, and specific operation implementations (e.g., `OperationBrightness`).
-- **`CaptureMoment::Core::Pipeline`**: Contains pipeline fusion logic, including `IPipelineExecutor`, `OperationPipelineExecutor`, and `OperationPipelineBuilder`.
+- **`CaptureMoment::Core::Pipeline`**: Contains pipeline fusion logic, including `IPipelineExecutor`, `OperationPipelineExecutor`, `PipelineBuilder`, `PipelineContext`, and `PipelineType`.
+- **`CaptureMoment::Core::Strategies`**: Contains high-level processing strategies, including `IPipelineManager` and `PipelineHalideOperationManager`.
 - **`CaptureMoment::Core::Managers`**: Contains managers responsible for resource handling, such as `ISourceManager` and `SourceManager`.
 - **`CaptureMoment::Core::Domain`**: Contains domain-specific interfaces, such as `IProcessingTask` and `IProcessingBackend`.
 - **`CaptureMoment::Core::Engine`**: Contains the core application logic orchestrators, such as `PhotoTask` and `PhotoEngine`.
@@ -141,7 +177,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 - **`CaptureMoment::Core::utils`**: Contains generic utility functions, such as `toString`.
 This organization clarifies the role of each component and prevents naming collisions.
 ---
-## 12. Recent Architectural Improvements
+## 13. Recent Architectural Improvements
 ### Pipeline Fusion Optimization
 - **Fused Execution**: Operations now support both sequential (`execute`) and fused (`appendToFusedPipeline`) execution patterns.
 - **Zero-Copy Processing**: `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::vector<float>` and `Halide::Buffer`.
@@ -155,6 +191,10 @@ This organization clarifies the role of each component and prevents naming colli
 - **In-Place Processing**: Halide buffers operate directly on shared data vectors, eliminating redundant copies.
 - **Optimized Scheduling**: Pipeline fusion creates single computational passes instead of multiple sequential operations.
 - **Backend Selection**: Runtime benchmarking automatically determines optimal CPU/GPU usage.
+### Pipeline Management Refactoring
+- **Registry Pattern**: Introduced `PipelineBuilder` and `PipelineRegistry` for flexible executor creation.
+- **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager` for high-level strategy control.
+- **Pipeline Context**: Centralized infrastructure management via `PipelineContext`.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
