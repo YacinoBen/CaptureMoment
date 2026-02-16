@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include "pipeline/pipeline_context.h"
 
 #include "operations/operation_descriptor.h"
 #include "managers/source_manager.h"
@@ -38,6 +37,10 @@
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core {
+
+namespace Pipeline {
+    class PipelineContext; // Necessary also to break tool compilation otherwise we will have error halide.h problems
+}
 
 namespace Managers {
 
