@@ -6,30 +6,22 @@
  */
 
 #include "managers/state_image_manager.h"
-#include "pipeline/operation_pipeline_builder.h"
-#include "managers/source_manager.h"
-#include "pipeline/interfaces/i_pipeline_executor.h"
 
 #include "image_processing/factories/working_image_factory.h"
 #include "operations/operation_registry.h"
 
-#include "config/app_config.h"
+#include "pipeline/pipeline_context.h"
 
 #include <spdlog/spdlog.h>
 #include <thread>
-#include <future>
 #include <format>
 #include <utility>
 
 namespace CaptureMoment::Core::Managers {
 
-// ============================================================
-// Construction / Destruction
-// ============================================================
-
 StateImageManager::StateImageManager(
     std::shared_ptr<Managers::SourceManager> source_manager)
-    : m_pipeline_builder(std::make_shared<Pipeline::OperationPipelineBuilder>())
+    : m_pipeline_context(std::make_unique<Pipeline::PipelineContext>()) 
     , m_operation_factory(std::make_shared<Operations::OperationFactory>())
     , m_source_manager(std::move(source_manager))
 {
@@ -39,8 +31,7 @@ StateImageManager::StateImageManager(
     }
 
     Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
-
-    spdlog::debug("StateImageManager: Constructed with fused pipeline support.");
+    spdlog::debug("StateImageManager: Constructed with persistent pipeline executor support.");
 }
 
 StateImageManager::~StateImageManager()
@@ -142,43 +133,38 @@ std::vector<Operations::OperationDescriptor> StateImageManager::getActiveOperati
 
 std::future<bool> StateImageManager::requestUpdate(std::optional<UpdateCallback> callback)
 {
-    // Atomic exchange equivalent using mutex
     {
         std::lock_guard lock(m_flag_mutex);
         if (m_is_updating)
         {
             spdlog::warn("StateImageManager::requestUpdate: Update already in progress, request ignored.");
-
             if (callback) {
                 callback.value()(false);
             }
             return std::async(std::launch::deferred, []() { return false; });
         }
-        m_is_updating = true; // Set the flag
-    } // Unlock m_flag_mutex immediately after checking/modifying the flag
-
+        m_is_updating = true;
+    }
 
     spdlog::debug("StateImageManager::requestUpdate: Initiating async update.");
 
-    // Snapshot the state. We copy them out for the lambda.
     std::vector<Operations::OperationDescriptor> ops_to_apply;
     std::string original_path;
     {
         std::lock_guard lock(m_state_mutex);
-        ops_to_apply = m_active_operations; // Copy vector
-        original_path = m_original_image_path;  // Copy string
+        ops_to_apply = m_active_operations;
+        original_path = m_original_image_path;
     }
 
     // Launch async task
     auto future = std::async(std::launch::async,
                              [this,
-                              ops_to_apply = std::move(ops_to_apply), // Move the copied data
+                              ops_to_apply = std::move(ops_to_apply),
                               original_path = std::move(original_path),
                               callback = std::move(callback)]() mutable
                              {
                                  bool result = this->performUpdate(std::move(ops_to_apply), std::move(original_path), std::move(callback));
 
-                                 // Reset the flag allowing new updates *after* processing is done
                                  {
                                      std::lock_guard lock(this->m_flag_mutex);
                                      this->m_is_updating = false;
@@ -213,48 +199,42 @@ bool StateImageManager::performUpdate(
     else
     {
         // 2. Create Working Image (CPU or GPU)
-        auto backend = CaptureMoment::Core::Config::AppConfig::instance().getProcessingBackend();
-        spdlog::info("StateImageManager::performUpdate: Using backend: {}",
-                     (backend == Common::MemoryType::CPU_RAM) ? "CPU" : "GPU");
-
-        // Dereference unique_ptr before passing
-        auto unique_new_image = ImageProcessing::WorkingImageFactory::create(backend, *original_tile.value());
+        auto unique_new_image = ImageProcessing::WorkingImageFactory::create(*original_tile.value());
 
         if (!unique_new_image) {
             spdlog::error("StateImageManager::performUpdate (thread {}): WorkingImageFactory::create failed.", thread_id);
             success = false;
         } else
         {
-            // 3. Build Fused Pipeline
-            // Pass the operations vector by move to the builder
-            auto pipeline_executor = m_pipeline_builder->build(std::move(ops_to_apply), *m_operation_factory);
+            // 3. INITIALIZATION & EXECUTION via PipelineContext
+            
+            auto& halide_operations_manager = m_pipeline_context->getHalideManager();
 
-            if (!pipeline_executor) {
-                spdlog::error("StateImageManager::performUpdate (thread {}): OperationPipelineBuilder::build failed.", thread_id);
-                success = false;
-            } else {
-                // 4. Execute Pipeline
-                if (!pipeline_executor->execute(*unique_new_image)) {
-                    spdlog::error("StateImageManager::performUpdate (thread {}): IPipelineExecutor::execute failed.", thread_id);
-                    success = false;
-                } else {
-                    spdlog::info("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.",
-                                 thread_id, ops_to_apply.size());
-                    success = true;
+            // 3a. Initialiser la stratégie (Ceci met à jour l'exécuteur interne avec les nouvelles opérations)
+            spdlog::trace("StateImageManager::performUpdate: Initializing Halide Strategy with {} ops.", ops_to_apply.size());
+            halide_operations_manager.init(ops_to_apply, *m_operation_factory);
 
-                    // 5. Update Working Image (Thread-Safe)
-                    {
-                        std::lock_guard lock(m_state_mutex); // Protect access to m_working_image
-                        m_working_image = std::move(unique_new_image); // Store the new image
-                    }
+            // 3b. Exécuter la stratégie
+            if (halide_operations_manager.execute(*unique_new_image)) {
+                spdlog::info("StateImageManager::performUpdate (thread {}): Fused pipeline executed successfully on {} operations.",
+                             thread_id, ops_to_apply.size());
+                success = true;
 
-                    spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id);
+                // 4. Update Working Image (Thread-Safe)
+                {
+                    std::lock_guard lock(m_state_mutex);
+                    m_working_image = std::move(unique_new_image);
                 }
+
+                spdlog::info("StateImageManager::performUpdate (thread {}): Working image updated successfully.", thread_id);
+            } else {
+                spdlog::error("StateImageManager::performUpdate (thread {}): Pipeline execution failed.", thread_id);
+                success = false;
             }
         }
     }
 
-
+    // Callback invocation
     if (callback) {
         callback.value()(success);
     }

@@ -4,12 +4,13 @@
  *
  * @details
  * This class manages the asynchronous state of the image being edited. It orchestrates
- * the application of active operations to the original image using a fused Halide pipeline.
+ * the application of active operations to the original image.
  *
  * **Key Architectural Features:**
- * - **Fused Pipeline Execution:** Uses `OperationPipelineBuilder` to construct a single
- *   optimized computation graph for all active operations.
- * - **Asynchronous Updates:** Heavy processing occurs on a worker thread via `std::async(std::launch::async)`.
+ * - **Pipeline Context:** Delegates all pipeline construction and strategy management
+ *   to the `PipelineContext`. This class focuses solely on application state (operations list,
+ *   file paths, threading).
+ * - **Asynchronous Updates:** Heavy processing occurs on a worker thread.
  * - **Thread-Safe State Access:** Uses `std::mutex` to protect access to `m_working_image` and other shared state.
  *
  * @author CaptureMoment Team
@@ -18,8 +19,9 @@
 
 #pragma once
 
+#include "pipeline/pipeline_context.h"
+
 #include "operations/operation_descriptor.h"
-#include "pipeline/operation_pipeline_builder.h"
 #include "managers/source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
 #include "operations/operation_factory.h"
@@ -165,9 +167,11 @@ private:
     std::vector<Operations::OperationDescriptor> m_active_operations;
 
     /**
-     * @brief The builder responsible for constructing the fused Halide pipeline.
+     * @brief The Pipeline Context infrastructure.
+     * @details
+     * Owns the Builder and the Halide Strategy. Handles the heavy lifting of pipeline creation.
      */
-    std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
+    std::unique_ptr<Pipeline::PipelineContext> m_pipeline_context;
 
     /**
      * @brief The current processed image buffer.
