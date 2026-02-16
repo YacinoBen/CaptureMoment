@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <Halide.h>
+#include "Halide.h"
 #include "operations/operation_descriptor.h"
 
 namespace CaptureMoment::Core {

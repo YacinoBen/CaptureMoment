@@ -8,7 +8,7 @@
 
 #include "image_processing/deciders/benchmarking_backend_decider.h"
 #include <spdlog/spdlog.h>
-#include <Halide.h>
+#include "Halide.h"
 #include <array>
 #include <string>
 
