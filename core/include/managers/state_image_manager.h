@@ -3,22 +3,21 @@
  * @brief Declaration of StateImageManager class
  *
  * @details
- * This class manages the asynchronous state of the image being edited. It orchestrates
- * the application of active operations to the original image.
+ * This class manages the asynchronous processing state of the image being edited.
+ * It acts as a coordinator between the image source, the infrastructure contexts
+ * (Pipeline & Workers), and the working image memory.
  *
  * **Key Architectural Features:**
- * - **Pipeline Context:** Delegates all pipeline construction and strategy management
- *   to the `PipelineContext`. This class focuses solely on application state (operations list,
- *   file paths, threading).
- * - **Asynchronous Updates:** Heavy processing occurs on a worker thread.
- * - **Thread-Safe State Access:** Uses `std::mutex` to protect access to `m_working_image` and other shared state.
+ * - **Contexts:** Owns `PipelineContext` (Strategies) and `WorkerContext` (Executors).
+ * - **Move Semantics:** All data processing methods accept ownership of data via `std::move`.
+ * - **Thread-Safe:** Uses mutexes to protect the working image and status flags.
+ * - **Stateless Processing:** Does not store operation lists; it receives, processes, and discards.
  *
  * @author CaptureMoment Team
  * @date 2026
  */
 
 #pragma once
-
 
 #include "operations/operation_descriptor.h"
 #include "managers/source_manager.h"
@@ -30,7 +29,6 @@
 #include <mutex>
 #include <functional>
 #include <future>
-#include <optional>
 #include <string_view>
 #include <string>
 
@@ -38,31 +36,32 @@
 
 namespace CaptureMoment::Core {
 
+// Forward declarations to avoid circular dependencies
 namespace Pipeline {
-    class PipelineContext; // Necessary also to break tool compilation otherwise we will have error halide.h problems
+    class PipelineContext;
+}
+
+namespace Workers {
+    class WorkerContext;
 }
 
 namespace Managers {
 
 /**
  * @class StateImageManager
- * @brief Manages the working image state by applying a sequence of active operations.
+ * @brief Manages the working image lifecycle and coordinates asynchronous processing.
  *
- * This class acts as a bridge between the high-level operation list and the low-level
- * execution engine.
+ * This class receives processing requests (e.g., apply operations) from the engine,
+ * prepares the working memory, delegates execution to workers via the WorkerContext,
+ * and updates the final result.
  */
 class StateImageManager {
 public:
     /**
-     * @brief Callback type for reporting update completion.
-     * @details Uses standard `std::function` for portability across compilers.
-     *
-     * @param success True if the update and processing were successful, false otherwise.
-     */
-    using UpdateCallback = std::function<void(bool success)>;
-
-    /**
      * @brief Constructs a StateImageManager.
+     *
+     * @details
+     * Initializes the PipelineContext and WorkerContext.
      *
      * @param source_manager Shared pointer to the SourceManager for accessing original image data.
      * @throws std::invalid_argument if source_manager is null.
@@ -82,28 +81,39 @@ public:
     /**
      * @brief Sets the original image source path.
      *
-     * Uses `std::string_view` to accept temporary strings or string literals without allocation.
-     * Internally, the path is copied to `std::string` for storage and async use.
-     *
      * @param path Path of the loaded image file.
      * @return true if the source was set successfully and image is valid.
      */
     [[nodiscard]] bool setOriginalImageSource(std::string_view path);
 
     /**
-     * @brief Clears all active operations.
+     * @brief Resets the image to its original state (synchronous).
      *
-     * @return true if reset was initiated successfully.
+     * @details
+     * This method applies an empty list of operations (reset) and waits for completion.
+     * It is used by `PhotoEngine::loadImage` to ensure the image is ready immediately.
+     *
+     * @return `std::expected<void, CoreError>` indicating success or failure.
      */
-    [[nodiscard]] bool resetToOriginal();
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> resetToOriginal();
 
     /**
-     * @brief Requests an asynchronous update of the working image.
+     * @brief Applies a list of operations to the current image using move semantics.
      *
-     * @param callback Optional callback executed on the worker thread upon completion.
-     * @return `std::future<bool>` representing the asynchronous task.
+     * @details
+     * This method is the primary entry point for image processing. It takes ownership
+     * of the provided operation descriptors via `std::move` to avoid unnecessary copies.
+     *
+     * **Workflow:**
+     * 1. Creates a new working image from the source.
+     * 2. Initializes the Halide strategy from the context, transferring the operation data.
+     * 3. Creates a worker and executes the pipeline asynchronously.
+     * 4. Updates the internal working image state upon successful completion.
+     *
+     * @param ops The list of operation descriptors to apply (moved into the method).
+     * @return `std::future<bool>` representing the asynchronous result.
      */
-    [[nodiscard]] std::future<bool> requestUpdate(std::optional<UpdateCallback> callback = std::nullopt);
+    [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
      * @brief Gets the current working image (Thread-Safe).
@@ -126,37 +136,25 @@ public:
      */
     [[nodiscard]] std::string getOriginalImageSourcePath() const;
 
-    /**
-     * @brief Gets a snapshot of the current active operations.
-     *
-     * @return A copy of the vector of `OperationDescriptor`s.
-     */
-    [[nodiscard]] std::vector<Operations::OperationDescriptor> getActiveOperations() const;
-
-    /**
-     * @brief One atomic list modify operation.
-     *
-     * @param operations The new list of operations.
-     */
-    void setActiveOperations(const std::vector<Operations::OperationDescriptor>& operations);
-
 private:
     /**
-     * @brief Mutex protecting access to `m_active_operations`, `m_original_image_path`, and `m_working_image`.
+     * @brief Mutex protecting access to `m_working_image` and `m_original_image_path`.
      */
     mutable std::mutex m_state_mutex;
 
     /**
-     * @brief The ordered list of operations to apply.
-     */
-    std::vector<Operations::OperationDescriptor> m_active_operations;
-
-    /**
      * @brief The Pipeline Context infrastructure.
      * @details
-     * Owns the Builder and the Halide Strategy. Handles the heavy lifting of pipeline creation.
+     * Owns the Builder and the Strategy Managers (Halide, Sky, etc.).
      */
     std::unique_ptr<Pipeline::PipelineContext> m_pipeline_context;
+
+    /**
+     * @brief The Worker Context infrastructure.
+     * @details
+     * Owns the logic to create and retrieve processing workers.
+     */
+    std::unique_ptr<Workers::WorkerContext> m_worker_context;
 
     /**
      * @brief The current processed image buffer.
@@ -166,7 +164,6 @@ private:
 
     /**
      * @brief File path of the original source image.
-     * Kept as `std::string` because ownership is required for async lambda captures.
      */
     std::string m_original_image_path;
 
@@ -177,7 +174,6 @@ private:
 
     /**
      * @brief Flag preventing multiple concurrent update requests.
-     * Protected by `m_flag_mutex` for thread-safe access.
      */
     bool m_is_updating{false};
 
@@ -190,20 +186,6 @@ private:
      * @brief Dependency to access original image tiles.
      */
     std::shared_ptr<Managers::SourceManager> m_source_manager;
-
-    /**
-     * @brief Performs the actual image processing on the worker thread.
-     *
-     * @param ops_to_apply Copy of the operations list (captured by move).
-     * @param original_path Copy of the image path (captured by move).
-     * @param callback Optional callback to execute on completion.
-     * @return true if processing succeeded, false otherwise.
-     */
-    [[nodiscard]] bool performUpdate(
-        std::vector<Operations::OperationDescriptor> ops_to_apply,
-        std::string original_path,
-        std::optional<UpdateCallback> callback
-        );
 };
 
 } // namespace Managers
