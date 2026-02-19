@@ -19,12 +19,11 @@
 
 namespace CaptureMoment::Core::Managers {
 
-StateImageManager::StateImageManager(
-    std::shared_ptr<Managers::SourceManager> source_manager)
+StateImageManager::StateImageManager()
     : m_pipeline_context(std::make_unique<Pipeline::PipelineContext>())
     , m_worker_context(std::make_unique<Workers::WorkerContext>())
     , m_operation_factory(std::make_shared<Operations::OperationFactory>())
-    , m_source_manager(std::move(source_manager))
+    , m_source_manager(std::make_unique<Managers::SourceManager>())
 {
     if (!m_source_manager) {
         spdlog::critical("StateImageManager: Null dependency provided during construction.");
@@ -45,22 +44,65 @@ StateImageManager::~StateImageManager()
 // State Management
 // ============================================================
 
-bool StateImageManager::setOriginalImageSource(std::string_view path)
+bool StateImageManager::loadImage(std::string_view path)
 {
-    std::lock_guard lock(m_state_mutex);
+    // 1. Load the file into the INTERNAL SourceManager
+    auto load_result = m_source_manager->loadFile(path);
 
-    if (!m_source_manager || !m_source_manager->isLoaded() || m_source_manager->width() <= 0) {
-        spdlog::error("StateImageManager::setOriginalImageSource: SourceManager has no valid image loaded.");
+    if (!load_result) {
+        spdlog::error("StateImageManager::loadImage: Failed to load file '{}': {}", path, static_cast<int>(load_result.error()));
         return false;
     }
 
-    m_original_image_path = path;
-    spdlog::info("StateImageManager::setOriginalImageSource: Original image source set for '{}'.", m_original_image_path);
+    // 2. Update State Metadata
+    {
+        std::lock_guard lock(m_state_mutex);
+        m_original_image_path = std::string(path);
+        // Reset working image pointer
+        m_working_image = nullptr;
+    }
 
-    // Reset image pointer to null until first update is requested
-    m_working_image = nullptr;
+    spdlog::info("StateImageManager::loadImage: Image '{}' loaded successfully ({}x{}).",
+                 path, m_source_manager->width(), m_source_manager->height());
 
     return true;
+}
+
+std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingImageToSource()
+{
+    // 1. Retrieve the current working image
+    // Note: getWorkingImage() handles its own locking, but we might want to lock m_state_mutex
+    // if we want to ensure the image doesn't change during this export (snapshot behavior).
+    // For now, we assume the caller handles synchronization or accepts the race condition (latest frame).
+    std::shared_ptr<ImageProcessing::IWorkingImageHardware> working_image_hw;
+    {
+        std::lock_guard lock(m_state_mutex);
+        working_image_hw = m_working_image;
+    }
+
+    if (!working_image_hw) {
+        spdlog::error("StateImageManager::commitWorkingImageToSource: No working image available.");
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+    }
+
+    // 2. Export to CPU memory
+    auto cpu_copy_result = working_image_hw->exportToCPUCopy();
+    if (!cpu_copy_result) {
+        spdlog::error("StateImageManager::commitWorkingImageToSource: CPU export failed: {}",
+                       ErrorHandling::to_string(cpu_copy_result.error()));
+        return std::unexpected(cpu_copy_result.error());
+    }
+
+    std::unique_ptr<Common::ImageRegion> cpu_copy = std::move(cpu_copy_result.value());
+
+    // 3. Write back to the INTERNAL SourceManager
+    if (!m_source_manager->setTile(*cpu_copy)) {
+        spdlog::error("StateImageManager::commitWorkingImageToSource: Write to source failed.");
+        return std::unexpected(ErrorHandling::CoreError::IOError);
+    }
+
+    spdlog::info("StateImageManager: Changes committed to source.");
+    return {};
 }
 
 std::expected<void, ErrorHandling::CoreError> StateImageManager::resetToOriginal()
@@ -177,6 +219,24 @@ std::future<bool> StateImageManager::applyOperations(std::vector<Operations::Ope
 
         return success;
     });
+}
+
+int StateImageManager::getSourceWidth() const
+{
+    std::lock_guard lock(m_state_mutex);
+    return m_source_manager ? m_source_manager->width() : 0;
+}
+
+int StateImageManager::getSourceHeight() const
+{
+    std::lock_guard lock(m_state_mutex);
+    return m_source_manager ? m_source_manager->height() : 0;
+}
+
+int StateImageManager::getSourceChannels() const
+{
+    std::lock_guard lock(m_state_mutex);
+    return m_source_manager ? m_source_manager->channels() : 0;
 }
 
 } // namespace CaptureMoment::Core::Managers

@@ -63,11 +63,9 @@ public:
      * @details
      * Initializes the PipelineContext and WorkerContext.
      *
-     * @param source_manager Shared pointer to the SourceManager for accessing original image data.
      * @throws std::invalid_argument if source_manager is null.
      */
-    explicit StateImageManager(
-        std::shared_ptr<Managers::SourceManager> source_manager);
+    explicit StateImageManager();
 
     /**
      * @brief Destructor.
@@ -79,12 +77,22 @@ public:
     StateImageManager& operator=(const StateImageManager&) = delete;
 
     /**
-     * @brief Sets the original image source path.
-     *
-     * @param path Path of the loaded image file.
-     * @return true if the source was set successfully and image is valid.
+     * @brief Loads an image file into the internal SourceManager.
+     * @param path Path to the image file.
+     * @return true if successful.
      */
-    [[nodiscard]] bool setOriginalImageSource(std::string_view path);
+    [[nodiscard]] bool loadImage(std::string_view path);
+
+    /**
+     * @brief Commits the current working image (with applied operations) back to the SourceManager.
+     *
+     * @details
+     * This effectively overwrites the original image data with the processed version.
+     * Future resets or reloads will use this new "original" data.
+     *
+     * @return std::expected with void or error.
+     */
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> commitWorkingImageToSource();
 
     /**
      * @brief Resets the image to its original state (synchronous).
@@ -136,6 +144,27 @@ public:
      */
     [[nodiscard]] std::string getOriginalImageSourcePath() const;
 
+    /*
+    * @brief Gets the width of the original source image.
+    *
+    * These methods query the SourceManager for the original image properties.
+    */
+    [[nodiscard]] int getSourceWidth() const;
+
+    /*
+    * @brief Gets the height of the original source image.
+    *
+    * These methods query the SourceManager for the original image properties.
+    */
+    [[nodiscard]] int getSourceHeight() const;
+
+    /*
+     * @brief Gets the number of channels of the original source image.
+     *
+     * These methods query the SourceManager for the original image properties.
+     */
+    [[nodiscard]] int getSourceChannels() const;
+
 private:
     /**
      * @brief Mutex protecting access to `m_working_image` and `m_original_image_path`.
@@ -183,9 +212,9 @@ private:
     std::shared_ptr<Operations::OperationFactory> m_operation_factory;
 
     /**
-     * @brief Dependency to access original image tiles.
+     * @brief Dependency to access original image tiles and metadata.
      */
-    std::shared_ptr<Managers::SourceManager> m_source_manager;
+    std::unique_ptr<Managers::SourceManager> m_source_manager;
 };
 
 } // namespace Managers
