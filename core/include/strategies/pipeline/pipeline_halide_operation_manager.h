@@ -68,20 +68,6 @@ public:
      * @details
      * Uses the stored builder to create a new executor and swaps it atomically.
      *
-     * @param operations The list of operation descriptors.
-     * @param factory The operation factory reference.
-     */
-    void init(
-        const std::vector<Operations::OperationDescriptor>& operations,
-        const Operations::OperationFactory& factory
-    );
-
-        /**
-     * @brief Initializes the manager with a new list of operations (Thread-Safe).
-     *
-     * @details
-     * Uses the stored builder to create a new executor and swaps it atomically.
-     *
      * @param operations The list of operation descriptors (moved).
      * @param factory The operation factory reference.
      */
@@ -89,6 +75,13 @@ public:
         std::vector<Operations::OperationDescriptor>&& operations,
         const Operations::OperationFactory& factory
     );
+
+    /**
+     * @brief Exposes the fast parameter update directly (Optional/Advanced).
+     * Allows explicit control if the caller knows only values changed.
+     */
+    void updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations);
+
 
 private:
     /**
@@ -102,6 +95,11 @@ private:
      * Access must be guarded by m_mutex.
      */
     std::unique_ptr<Pipeline::OperationPipelineExecutor> m_executor;
+
+    /**
+     * @brief Cache of the previous operation list to detect structural changes.
+     */
+    std::vector<Operations::OperationDescriptor> m_last_operations;
 };
 
 } // namespace Strategies
