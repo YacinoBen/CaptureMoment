@@ -4,8 +4,7 @@
  *
  * @details
  * This class manages the registration of available `IPipelineExecutor` implementations
- * with the central `PipelineBuilder`. It follows the same pattern as `OperationRegistry`
- * to ensure consistency across the codebase.
+ * with the central `PipelineBuilder`.
  *
  * @author CaptureMoment Team
  * @date 2026
