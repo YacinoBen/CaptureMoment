@@ -54,6 +54,7 @@
 #include "domain/domain.h"            // Task interfaces, etc.
 #include "engine/engine.h"           // Orchestrators like PhotoEngine
 #include "serializer/serializer.h"   // Serialization interfaces, providers, etc.
+#include "workers/workers.h"         // Worker interfaces, builders, registries, etc.
 
 
 // ============================================================
