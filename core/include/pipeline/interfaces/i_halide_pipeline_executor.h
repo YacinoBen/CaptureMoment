@@ -56,8 +56,8 @@ protected:
      * - Type: Float(32)
      * - Dimensions: 4 (x, y, c) where c is {R, G, B, A}
      */
-    IHalidePipelineExecutor() 
-        : m_input(Halide::Float(32), 4){}
+    IHalidePipelineExecutor()
+        : m_input(Halide::Float(32), 3){}
 
     /**
      * @brief The shared Halide Input Parameter.
