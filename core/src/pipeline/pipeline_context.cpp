@@ -25,15 +25,17 @@ PipelineContext::PipelineContext()
     // 3. Instantiate concrete managers (Halide only for now)
     m_halide_manager = std::make_unique<Strategies::PipelineHalideOperationManager>(*m_builder);
 
-     spdlog::debug("PipelineContext::PipelineContext: Context initialized with Builder and Managers.");
-     spdlog::debug("PipelineContext::PipelineContext: Builder and Managers are ready for use.");
+    if (!m_halide_manager) {
+        spdlog::error("PipelineContext::PipelineContext: Failed to build Halide Manager.");
+    }
+
+    spdlog::debug("PipelineContext::PipelineContext: Context initialized with Builder and Managers.");
+    spdlog::debug("PipelineContext::PipelineContext: Builder and Managers are ready for use.");
 
      // Note: The actual initialization of managers with operations is done later by StateImageManager
      // when it has the list of operations ready. This allows the Context to be flexible and not
      // tied to a specific set of operations at construction time.
 
-     spdlog::info("PipelineContext::PipelineContext: Initialization complete.");
-    
     spdlog::info("PipelineContext::PipelineContext: Initialization complete.");
 }
 
