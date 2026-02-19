@@ -42,7 +42,6 @@ namespace Engine {
 class PhotoEngine
 {
 private:
-    std::shared_ptr<Managers::SourceManager> m_source_manager;
     std::unique_ptr<Managers::StateImageManager> m_state_manager;
 
 public:

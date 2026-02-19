@@ -16,37 +16,30 @@
 namespace CaptureMoment::Core::Engine {
 
 PhotoEngine::PhotoEngine()
-    : m_source_manager(std::make_shared<Managers::SourceManager>())
-    , m_state_manager(std::make_unique<Managers::StateImageManager>(m_source_manager))
+    : m_state_manager(std::make_unique<Managers::StateImageManager>())
 {
     spdlog::debug("PhotoEngine: Constructed with StateImageManager.");
 }
 
 std::expected<void, ErrorHandling::CoreError> PhotoEngine::loadImage(std::string_view path)
 {
-    if (!m_source_manager) {
-        spdlog::error("PhotoEngine::loadImage: SourceManager is null.");
+       if (!m_state_manager) {
+        spdlog::error("PhotoEngine::loadImage: StateImageManager is null.");
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 
-    // 1. Load the file into SourceManager
-    // Propagate error immediately if loading fails
-    auto load_result = m_source_manager->loadFile(path);
-    if (!load_result) {
-        return std::unexpected(load_result.error());
+    // 1. Load the image via StateImageManager (which internally uses SourceManager)
+    // This also updates the internal state and prepares the working image.
+    // The StateImageManager::loadImage method returns a boolean, so we check for success.
+    if (!m_state_manager->loadImage(path)) {
+        spdlog::error("PhotoEngine::loadImage: Failed to load image '{}'.", path);
+        return std::unexpected(ErrorHandling::CoreError::IOError);
     }
 
-    // 2. Initialize StateImageManager with the path
-    // Check return value for validity
-    if (!m_state_manager->setOriginalImageSource(std::string(path))) {
-        spdlog::error("PhotoEngine::loadImage: Failed to set image source in StateImageManager.");
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    // 3. Trigger initial processing (Reset to Original)
+    // 2. Trigger initial processing (Reset to Original) to have a ready-to-display image.
     auto process_result = m_state_manager->resetToOriginal();
+
     if (!process_result) {
-        // The error inside resetToOriginal was already logged, we just propagate it.
         return std::unexpected(process_result.error());
     }
 
@@ -56,36 +49,10 @@ std::expected<void, ErrorHandling::CoreError> PhotoEngine::loadImage(std::string
 
 std::expected<void, ErrorHandling::CoreError> PhotoEngine::commitWorkingImageToSource()
 {
-    if (!m_source_manager || !m_state_manager) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: Managers are null.");
+    if (!m_state_manager) {
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
-
-    // 1. Retrieve the current working image
-    auto working_image_hw = m_state_manager->getWorkingImage();
-    if (!working_image_hw) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: No working image available.");
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    // 2. Export to CPU memory
-    auto cpu_copy_result = working_image_hw->exportToCPUCopy();
-    if (!cpu_copy_result) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: CPU export failed: {}",
-                       ErrorHandling::to_string(cpu_copy_result.error()));
-        return std::unexpected(cpu_copy_result.error());
-    }
-
-    std::unique_ptr<Common::ImageRegion> cpu_copy = std::move(cpu_copy_result.value());
-
-    // 3. Write back to SourceManager
-    if (!m_source_manager->setTile(*cpu_copy)) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: Write to source failed.");
-        return std::unexpected(ErrorHandling::CoreError::IOError);
-    }
-
-    spdlog::info("PhotoEngine: Changes committed to source.");
-    return {};
+    return m_state_manager->commitWorkingImageToSource();
 }
 
 void PhotoEngine::resetWorkingImage()
@@ -98,17 +65,17 @@ void PhotoEngine::resetWorkingImage()
 
 int PhotoEngine::width() const noexcept
 {
-    return m_source_manager ? m_source_manager->width() : 0;
+    return m_state_manager->getSourceWidth();
 }
 
 int PhotoEngine::height() const noexcept
 {
-    return m_source_manager ? m_source_manager->height() : 0;
+    return m_state_manager->getSourceHeight();
 }
 
 int PhotoEngine::channels() const noexcept
 {
-    return m_source_manager ? m_source_manager->channels() : 0;
+    return m_state_manager->getSourceChannels();
 }
 
 void PhotoEngine::applyOperations(std::vector<Operations::OperationDescriptor>&& ops)
