@@ -91,28 +91,35 @@ public:
     void updatePipeline(std::vector<Operations::OperationDescriptor> operations);
 
     /**
-     * @brief Initializes the executor with a new list of operations.
+     * @brief Initializes the executor with a moved list of operations (Optimized).
      *
      * @details
-     * This method triggers the "Heavy Lifting": building the operation graph and
-     * JIT compiling the Halide pipeline. The result is stored in `m_pipeline`.
-     * This should be called when the user changes parameters in the UI.
+     * This method is the main entry point for building and compiling a new Halide pipeline.
+     * It takes ownership of the operations vector (Move Semantics) and stores it in `m_operations`.
+     * It then calls `buildOperationChain()` to construct the Halide graph and `applyScheduling()`
+     * to optimize it, before finally compiling it into `m_pipeline`.
      *
      * @param operations The list of operation descriptors.
      * @param factory The operation factory reference.
      */
     void init(
-        const std::vector<Operations::OperationDescriptor>& operations,
+        std::vector<Operations::OperationDescriptor>&& operations,
         const Operations::OperationFactory& factory
     );
 
     /**
-     * @brief Initializes the executor with a moved list of operations (Optimized).
+     * @brief Updates the runtime values of the cached parameters WITHOUT recompiling.
+     *
+     * @details
+     * This is the key method for interactive performance (slider movement).
+     * It takes ownership of the provided operations (Move Semantics) to update
+     * the internal state `m_operations` and sync the `Halide::Param` objects.
+     * IMPORTANT: The structure of operations (names, order) must match the
+     * structure used during the last `init()` call.
+     *
+     * @param operations The list of operation descriptors with updated values (Moved).
      */
-    void init(
-        std::vector<Operations::OperationDescriptor>&& operations,
-        const Operations::OperationFactory& factory
-    );
+    void updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations);
 
 private:
     /**
@@ -129,14 +136,6 @@ private:
     const Operations::OperationFactory* m_factory;
 
     /**
-     * @brief The final output function of the fused graph.
-     * @details
-     * This Func depends on `m_input` (inherited).
-     * It is scheduled and compiled into `m_pipeline`.
-     */
-    Halide::Func m_output_func;
-
-    /**
      * @brief The compiled Halide pipeline object.
      * @details
      * Storing this allows us to execute the pipeline repeatedly without recompiling.
@@ -144,9 +143,12 @@ private:
     Halide::Pipeline m_pipeline;
 
     /**
-     * @brief Halide variables for the pipeline dimensions.
+     * @brief Cache of dynamic parameters for the current pipeline.
+     * @details
+     * Key: Operation Name (e.g., "blacks").
+     * Value: The Halide::Param<float> object used in the compiled graph.
      */
-    mutable Halide::Var m_x, m_y, m_c;
+    std::unordered_map<std::string, Halide::Param<float>> m_pipeline_params;
 
     /**
      * @brief Cached backend type (CPU/GPU) from AppConfig.

@@ -6,8 +6,6 @@
  */
 
 #include "operations/interfaces/i_operation.h"
-
-
 #include "pipeline/operation_pipeline_executor.h"
 #include "operations/operation_factory.h"
 #include "image_processing/halide/working_image_halide.h"
@@ -24,29 +22,10 @@ OperationPipelineExecutor::OperationPipelineExecutor()
     : IHalidePipelineExecutor(),
       m_backend(Config::AppConfig::instance().getProcessingBackend()),
       m_chain_built(false),
-      m_x("x"), m_y("y"), m_c("c"),
       m_factory(nullptr)
 {
-    spdlog::debug("OperationPipelineExecutor::OperationPipelineExecutor: Constructed. Input set to Float(32), 4 channels. Backend: {}", 
+    spdlog::debug("OperationPipelineExecutor: Constructed. Input set to Float(32), 3 dimensions. Backend: {}", 
                   static_cast<int>(m_backend));
-}
-
-void OperationPipelineExecutor::init(
-    const std::vector<Operations::OperationDescriptor>& operations,
-    const Operations::OperationFactory& factory)
-{
-    spdlog::debug("OperationPipelineExecutor::init (Copy): Initializing with {} operations.", operations.size());
-
-    m_operations = operations;
-    m_factory = &factory;
-
-    if (!m_operations.empty()) {
-        buildOperationChain();
-    } else {
-        m_chain_built = false;
-        m_pipeline = Halide::Pipeline(); // Reset pipeline
-        m_output_func = Halide::Func();  // Reset function
-    }
 }
 
 void OperationPipelineExecutor::init(
@@ -63,7 +42,32 @@ void OperationPipelineExecutor::init(
     } else {
         m_chain_built = false;
         m_pipeline = Halide::Pipeline();
-        m_output_func = Halide::Func();
+        m_pipeline_params.clear();
+    }
+}
+
+void OperationPipelineExecutor::updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations)
+{
+    // Move the input vector into the member variable. This updates our internal state 
+    // with the latest values without any memory allocation or copying of the data structure.
+    m_operations = std::move(operations);
+
+    // FAST PATH: Iterate over the updated operations and sync the Halide Parameters.
+    // This loop is extremely fast as it only updates float values in the compiled pipeline.
+    for (const auto& desc : m_operations) {
+        if (!desc.enabled) continue;
+
+        auto it = m_pipeline_params.find(desc.name);
+        if (it != m_pipeline_params.end()) {
+            // Parameter exists in cache, update its value
+            if (auto val_res = desc.getParam<float>("value")) {
+                it->second.set(val_res.value());
+            }
+        } else {
+            // If we reach here, the structure changed (new operation added) but init() wasn't called.
+            // This indicates a logic error in the caller (should have called init instead).
+            spdlog::warn("OperationPipelineExecutor::updateRuntimeParams: Param '{}' not found in cache. Structure changed? Call init().", desc.name);
+        }
     }
 }
 
@@ -74,28 +78,31 @@ void OperationPipelineExecutor::buildOperationChain()
         return;
     }
 
-    spdlog::trace("OperationPipelineExecutor::buildOperationChain: Building operation graph...");
+    spdlog::trace("OperationPipelineExecutor::buildOperationChain: Building operation graph with dynamic params...");
 
-    // Capture operations by copy for the lambda, factory by pointer
-    auto ops = m_operations;
-    auto* factory_ptr = m_factory;
+    // IMPORTANT: Use local variables for Func and Vars to avoid crashes from reusing stale Halide objects.
+    // The 'm_pipeline' member stores the compiled result, but the construction uses fresh objects.
+    Halide::Var x("x"), y("y"), c("c");
+    Halide::Func output_func;
+
+    // Reset the parameter cache
+    m_pipeline_params.clear();
 
     // Define the output function based on the inherited m_input
-    // m_output_func(x, y, c) = m_input(x, y, c)
-    m_output_func(m_x, m_y, m_c) = m_input(m_x, m_y, m_c);
+    output_func(x, y, c) = m_input(x, y, c);
 
     // Apply operations sequentially
-    for (const auto& desc : ops) {
+    for (const auto& desc : m_operations) {
         if (!desc.enabled) {
             continue;
         }
 
-        if (!factory_ptr) {
+        if (!m_factory) {
             spdlog::error("OperationPipelineExecutor::buildOperationChain: Factory is null during graph build.");
             return;
         }
 
-        auto op_impl_expected = factory_ptr->create(desc);
+        auto op_impl_expected = m_factory->create(desc);
         if (!op_impl_expected) {
             spdlog::warn("OperationPipelineExecutor::buildOperationChain: Failed to create operation '{}'. Skipping.", desc.name);
             continue;
@@ -105,22 +112,32 @@ void OperationPipelineExecutor::buildOperationChain()
         auto* fusion_logic = dynamic_cast<const Operations::IOperationFusionLogic*>(op_impl.get());
 
         if (fusion_logic) {
-            // Chain the output of the previous op to the input of the next
-            m_output_func = fusion_logic->appendToFusedPipeline(m_output_func, m_x, m_y, m_c, desc);
+            // 1. Create or Retrieve the Halide::Param for this operation
+            auto& param_ref = m_pipeline_params[desc.name];
+
+            // 2. Initialize the parameter with the current value from the descriptor
+            // This ensures the first run (compilation) has valid data.
+            if (auto val_res = desc.getParam<float>("value")) {
+                param_ref.set(val_res.value());
+            }
+
+            // 3. Pass the Parameter (not the descriptor) to the operation
+            // The operation will use this param in its expression graph.
+            output_func = fusion_logic->appendToFusedPipeline(output_func, x, y, c, param_ref);
         } else {
             spdlog::warn("OperationPipelineExecutor::buildOperationChain: Operation '{}' does not support fusion. Skipping.", desc.name);
         }
     }
 
     // Apply scheduling (CPU or GPU)
-    applyScheduling(m_output_func, m_x, m_y, m_c);
+    applyScheduling(output_func, x, y, c);
 
     // Compile the pipeline (JIT)
     // This is the heavy step. It happens here so execute() is fast.
     try {
-        m_pipeline = Halide::Pipeline(m_output_func);
+        m_pipeline = Halide::Pipeline(output_func);
         m_chain_built = true;
-        spdlog::info("OperationPipelineExecutor::buildOperationChain: Pipeline compiled successfully.");
+        spdlog::info("OperationPipelineExecutor::buildOperationChain: Pipeline compiled successfully with {} cached parameters.", m_pipeline_params.size());
     } catch (const Halide::CompileError& e) {
         spdlog::critical("OperationPipelineExecutor::buildOperationChain: Halide Compile Error: {}", e.what());
         m_chain_built = false;
