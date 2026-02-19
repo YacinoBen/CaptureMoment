@@ -21,18 +21,26 @@ namespace CaptureMoment::Core::Operations {
 template<typename InputType>
 Halide::Func applyContrastAdjustment(
     const InputType& input,
-    float contrast_value,
+    const Halide::Param<float>& param_contrast,
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c)
 {
     Halide::Func contrast_func("contrast_op");
 
+    // Safety: Clamp the input parameter to the operation's defined valid range.
+    Halide::Expr safe_contrast = Halide::clamp(
+        param_contrast, 
+        OperationContrast::MIN_CONTRAST_VALUE, 
+        OperationContrast::MAX_CONTRAST_VALUE
+    );
+
     // Multiplicative contrast centered at 0.5 (Mid-gray)
     // Formula: 0.5 + (Input - 0.5) * ContrastFactor
+    // Result is clamped to [0.0, 1.0] to maintain valid color space.
     contrast_func(x, y, c) = Halide::select(
         c < 3,
-        Halide::clamp(0.5f + (input(x, y, c) - 0.5f) * contrast_value, 0.0f, 1.0f),
+        Halide::clamp(0.5f + (input(x, y, c) - 0.5f) * safe_contrast, 0.0f, 1.0f),
         input(x, y, c) // Alpha unchanged
         );
 
@@ -94,8 +102,11 @@ std::expected<void, ErrorHandling::CoreError> OperationContrast::execute(
             static_cast<int>(cpu_region_ptr->m_height),
             static_cast<int>(cpu_region_ptr->m_channels)
             );
+            
+        Halide::Param<float> temp_param;
+        temp_param.set(contrast_value);
 
-        auto contrast_func = applyContrastAdjustment(input_buf, contrast_value, x, y, c);
+        auto contrast_func = applyContrastAdjustment(input_buf, temp_param, x, y, c);
         contrast_func.compute_root().parallel(y).vectorize(x, 8);
         contrast_func.realize(input_buf);
 
@@ -122,18 +133,12 @@ Halide::Func OperationContrast::appendToFusedPipeline(
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
-    const OperationDescriptor& params
+    const Halide::Param<float>& param
     ) const
 {
-    auto value_res = params.getParam<float>("value");
-    float contrast_value = value_res.value_or(OperationContrast::DEFAULT_CONTRAST_VALUE);
-
-    if (std::abs(contrast_value - OperationContrast::DEFAULT_CONTRAST_VALUE) < std::numeric_limits<float>::epsilon()) {
-        return input_func;
-    }
-
-    contrast_value = std::clamp(contrast_value, OperationContrast::MIN_CONTRAST_VALUE, OperationContrast::MAX_CONTRAST_VALUE);
-    return applyContrastAdjustment(input_func, contrast_value, x, y, c);
+    // Halide's optimizer will simplify the math if the contrast factor is 1.0.
+    spdlog::trace("OperationContrast::appendToFusedPipeline: Fusing with Halide Param (In-Graph Clamped)");
+    return applyContrastAdjustment(input_func, param, x, y, c);
 }
 
 // ============================================================================

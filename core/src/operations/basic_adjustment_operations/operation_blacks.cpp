@@ -22,7 +22,7 @@ namespace CaptureMoment::Core::Operations {
 template<typename InputType>
 Halide::Func applyBlacksAdjustment(
     const InputType& input,
-    float blacks_value,
+    const Halide::Param<float>& param_blacks,
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
@@ -47,10 +47,17 @@ Halide::Func applyBlacksAdjustment(
         (high_threshold - luminance_func(x, y)) / (high_threshold - low_threshold)
         );
 
+
+    Halide::Expr safe_blacks_val = Halide::clamp(
+        param_blacks, 
+        OperationBlacks::MIN_BLACKS_VALUE, 
+        OperationBlacks::MAX_BLACKS_VALUE
+    );
+
     // Apply Adjustment
     blacks_func(x, y, c) = Halide::select(
         c < 3,
-        input(x, y, c) + blacks_value * mask_func(x, y),
+        input(x, y, c) + safe_blacks_val * mask_func(x, y),
         input(x, y, c) // Alpha unchanged
         );
 
@@ -113,7 +120,10 @@ std::expected<void, ErrorHandling::CoreError> OperationBlacks::execute(
             static_cast<int>(cpu_region_ptr->m_channels)
             );
 
-        auto blacks_func = applyBlacksAdjustment(input_buf, blacks_value, x, y, c);
+        Halide::Param<float> temp_param;
+        temp_param.set(blacks_value);
+
+        auto blacks_func = applyBlacksAdjustment(input_buf, temp_param, x, y, c);
         blacks_func.compute_root().parallel(y).vectorize(x, 8);
         blacks_func.realize(input_buf);
 
@@ -147,21 +157,11 @@ Halide::Func OperationBlacks::appendToFusedPipeline(
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
-    const OperationDescriptor& params
+    const Halide::Param<float>& param
     ) const
 {
-    auto value_res = params.getParam<float>("value");
-    float blacks_value = value_res.value_or(OperationBlacks::DEFAULT_BLACKS_VALUE);
-
-    if (std::abs(blacks_value - OperationBlacks::DEFAULT_BLACKS_VALUE) < std::numeric_limits<float>::epsilon()) {
-        spdlog::trace("OperationBlacks::appendToFusedPipeline: No-op requested, returning input");
-        return input_func;
-    }
-
-    blacks_value = std::clamp(blacks_value, OperationBlacks::MIN_BLACKS_VALUE, OperationBlacks::MAX_BLACKS_VALUE);
-    spdlog::debug("OperationBlacks::appendToFusedPipeline: Fusing with value={:.2f}", blacks_value);
-
-    return applyBlacksAdjustment(input_func, blacks_value, x, y, c);
+    spdlog::trace("OperationBlacks::appendToFusedPipeline: Fusing with Halide Param");
+    return applyBlacksAdjustment(input_func, param, x, y, c);
 }
 
 // ============================================================================
