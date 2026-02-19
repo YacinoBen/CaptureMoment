@@ -105,10 +105,9 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Memory Management**: Uses `std::vector<float>` as backing store for Halide buffers, enabling in-place modifications without unnecessary copies.
 * **Direct Buffer Access**: Provides `getHalideBuffer()` method for direct pipeline execution.
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
-* **Moved Dependencies:** Now owns `m_pipeline_builder` and `m_operation_factory` for better encapsulation.
-* **Fused Execution:** Uses `OperationPipelineBuilder` and `OperationPipelineExecutor` for optimal performance.
-* **Hardware Agnostic:** Automatically selects appropriate execution path based on configured backend.
-* **Coordinator Role:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
+* **Ownership of SourceManager:** Now owns `m_source_manager` exclusively, decoupling `PhotoEngine` from direct I/O concerns.
+* **Delegated Responsibilities:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
+* **Enhanced Interface:** Provides methods like `loadImage`, `commitWorkingImageToSource`, and getters for source image properties (`width`, `height`, `channels`).
 ---
 ## 9. Pipeline Management and Execution Strategies
 Recent refactoring introduced a more structured approach to managing pipeline execution strategies.
@@ -128,6 +127,7 @@ Recent refactoring introduced a more structured approach to managing pipeline ex
 * **Responsibility:** Concrete implementation managing Halide-based adjustment operations.
 * **Encapsulation:** Handles the lifecycle and initialization of `OperationPipelineExecutor` based on the list of operations.
 * **Thread Safety:** Includes mutex protection for concurrent access during initialization and execution.
+* **Performance Optimization:** Implements `updateRuntimeParams` and tracks `m_last_operations` to detect structural changes vs. value-only updates, enabling fast parameter adjustments without recompilation.
 ---
 ## 10. Asynchronous Processing Workers
 A new layer has been introduced to handle specific processing tasks asynchronously, further decoupling execution logic.
@@ -204,8 +204,8 @@ This organization clarifies the role of each component and prevents naming colli
 - **Hardware Agnostic**: Same fusion logic works for both CPU and GPU backends through the unified interface.
 - **Dynamic Binding Correction**: Fixed pipeline execution to correctly bind input buffers at runtime, resolving issues with static compilation.
 ### Simplified PhotoEngine Architecture
-- **Reduced Coupling**: `PhotoEngine` constructor now has zero parameters, with internal managers handling their own dependencies.
-- **Centralized Management**: `StateImageManager` now owns both `m_pipeline_builder` and `m_operation_factory` for better encapsulation.
+- **Reduced Coupling**: `PhotoEngine` constructor now has zero parameters, with internal managers handling their own dependencies. It no longer directly owns `SourceManager`.
+- **Centralized Management**: `StateImageManager` now owns `m_source_manager`, `m_pipeline_builder`, and `m_operation_factory` for better encapsulation and clearer responsibilities.
 - **Automatic Registration**: Operation factory registration happens internally within `StateImageManager`.
 ### Enhanced Performance
 - **In-Place Processing**: Halide buffers operate directly on shared data vectors, eliminating redundant copies.
@@ -222,6 +222,14 @@ This organization clarifies the role of each component and prevents naming colli
 - **Coordination**: `StateImageManager` acts as a coordinator, delegating execution to workers via `WorkerContext`.
 ### Move Semantics Optimization
 - **Efficient Data Transfer**: `applyOperations` in `StateImageManager` and `PhotoEngine` now uses move semantics (`std::move`) for operation vectors, reducing unnecessary copies.
+### Operation Fusion Logic Update
+- **Halide Parameters**: Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates.
+### Operation Manager Optimization
+- **Runtime Parameter Updates**: `PipelineHalideOperationManager` implements `updateRuntimeParams` to update pipeline parameters quickly without recompilation if only values change.
+- **Structural Change Detection**: Uses `m_last_operations` to detect structural changes (add/remove/modify type/enable) versus value-only changes.
+### StateImageManager as Central Coordinator
+- **Exclusive Source Management**: `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
+- **Simplified PhotoEngine**: `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
