@@ -8,7 +8,6 @@
 #pragma once
 
 #include "Halide.h"
-#include "operations/operation_descriptor.h"
 
 namespace CaptureMoment::Core {
 
@@ -17,7 +16,7 @@ namespace Operations {
 /**
  * @interface IOperationFusionLogic
  * @brief Interface for providing the Halide fusion logic of an operation.
- * 
+ *
  * Each operation that supports pipeline fusion should provide an implementation
  * of this interface. It allows the PipelineBuilder to combine multiple operations
  * into a single computational pass for improved performance.
@@ -45,8 +44,8 @@ public:
      *          in the fused pipeline to ensure coordinate consistency.
      * @param c The Halide variable for the channel dimension, shared across all operations
      *          in the fused pipeline to ensure coordinate consistency.
-     * @param params The configuration/settings for this operation, containing the
-     *               adjustment values and other relevant parameters.
+     * @param param A Halide parameter that can be used to pass operation-specific parameters
+     * 
      * @return A new Halide::Func representing the output of this operation,
      *         which can be used as input for the next operation in the fused pipeline.
      *         The returned function encapsulates the operation's logic,
@@ -57,7 +56,7 @@ public:
         const Halide::Var& x,
         const Halide::Var& y,
         const Halide::Var& c,
-        const OperationDescriptor& params
+        const Halide::Param<float>& param
     ) const = 0;
 };
 
