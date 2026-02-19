@@ -121,7 +121,7 @@ public:
      *
      * @param ops Vector of OperationDescriptors defining the adjustments.
      */
-    void applyOperations(const std::vector<Operations::OperationDescriptor>& ops);
+    void applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
      * @brief Gets the raw working image (Hardware Abstraction).

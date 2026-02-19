@@ -30,27 +30,27 @@ std::expected<void, ErrorHandling::CoreError> PhotoEngine::loadImage(std::string
     }
 
     // 1. Load the file into SourceManager
+    // Propagate error immediately if loading fails
     auto load_result = m_source_manager->loadFile(path);
     if (!load_result) {
         return std::unexpected(load_result.error());
     }
 
     // 2. Initialize StateImageManager with the path
+    // Check return value for validity
     if (!m_state_manager->setOriginalImageSource(std::string(path))) {
         spdlog::error("PhotoEngine::loadImage: Failed to set image source in StateImageManager.");
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
-    // 3. Perform initial update synchronously to ensure the image is ready
-    auto update_future = m_state_manager->requestUpdate();
-    bool update_success = update_future.get();
-
-    if (!update_success) {
-        spdlog::error("PhotoEngine::loadImage: Initial update failed.");
-        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+    // 3. Trigger initial processing (Reset to Original)
+    auto process_result = m_state_manager->resetToOriginal();
+    if (!process_result) {
+        // The error inside resetToOriginal was already logged, we just propagate it.
+        return std::unexpected(process_result.error());
     }
 
-    spdlog::info("PhotoEngine: Loaded image '{}'.", path);
+    spdlog::info("PhotoEngine: Loaded image '{}' successfully.", path);
     return {};
 }
 
@@ -111,18 +111,15 @@ int PhotoEngine::channels() const noexcept
     return m_source_manager ? m_source_manager->channels() : 0;
 }
 
-void PhotoEngine::applyOperations(const std::vector<Operations::OperationDescriptor>& ops)
+void PhotoEngine::applyOperations(std::vector<Operations::OperationDescriptor>&& ops)
 {
-       if (!m_state_manager) {
+    if (!m_state_manager) {
         spdlog::error("PhotoEngine::applyOperations: StateImageManager is null.");
         return;
     }
 
-    // 1. Update the active operations in StateImageManager
-    m_state_manager->setActiveOperations(ops);
-
-    // 2. Request an update to apply the new operations
-    (void) m_state_manager->requestUpdate();
+    spdlog::info("PhotoEngine::applyOperations: Received {} operations.", ops.size());
+    m_state_manager->applyOperations(std::move(ops));
 }
 
 std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const
