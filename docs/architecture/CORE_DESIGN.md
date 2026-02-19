@@ -1,7 +1,5 @@
 # Core Architecture Design Principles
-
 The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
-
 ---
 ## 1. Data-Centric Design: Plain Old Data (POD) / Value Types
 A fundamental principle of this architecture is the segregation of data storage from processing logic. Core data structures are kept simple and easy to handle:
@@ -110,6 +108,7 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Moved Dependencies:** Now owns `m_pipeline_builder` and `m_operation_factory` for better encapsulation.
 * **Fused Execution:** Uses `OperationPipelineBuilder` and `OperationPipelineExecutor` for optimal performance.
 * **Hardware Agnostic:** Automatically selects appropriate execution path based on configured backend.
+* **Coordinator Role:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
 ---
 ## 9. Pipeline Management and Execution Strategies
 Recent refactoring introduced a more structured approach to managing pipeline execution strategies.
@@ -130,7 +129,27 @@ Recent refactoring introduced a more structured approach to managing pipeline ex
 * **Encapsulation:** Handles the lifecycle and initialization of `OperationPipelineExecutor` based on the list of operations.
 * **Thread Safety:** Includes mutex protection for concurrent access during initialization and execution.
 ---
-## 10. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
+## 10. Asynchronous Processing Workers
+A new layer has been introduced to handle specific processing tasks asynchronously, further decoupling execution logic.
+### `CaptureMoment::Core::Workers::IWorkerRequest` (Abstract Interface)
+* **Responsibility:** Defines the contract for executing a specific task asynchronously.
+* **Contract:** Defines `execute(context, image)` returning a `std::future<bool>`.
+* **Pattern Explanation (Strategy):** `IWorkerRequest` defines the strategy for asynchronous execution. Concrete workers (e.g., `HalideOperationWorker`) implement this strategy for specific tasks.
+### `CaptureMoment::Core::Workers::WorkerType` (Enumeration)
+* **Responsibility:** Identifies specific worker implementations for the registry.
+### `CaptureMoment::Core::Workers::WorkerBuilder` (Registry Pattern)
+* **Responsibility:** Central registry for creating `IWorkerRequest` instances based on `WorkerType`.
+* **Pattern Explanation (Registry):** Similar to `PipelineBuilder`, uses a map to create worker instances dynamically.
+### `CaptureMoment::Core::Workers::WorkerRegistry`
+* **Responsibility:** Static helper to populate the `WorkerBuilder` registry.
+### `CaptureMoment::Core::Workers::WorkerContext`
+* **Responsibility:** Central container holding the `WorkerBuilder` and instances of `IWorkerRequest`.
+* **Pattern Explanation (Container/Service Locator):** Acts as a service locator for worker infrastructure.
+### `CaptureMoment::Core::Workers::HalideOperationWorker` (Concrete Worker)
+* **Responsibility:** Concrete implementation for executing Halide-based adjustments asynchronously.
+* **Pattern Explanation (Strategy):** Implements `IWorkerRequest` to execute the logic managed by `PipelineHalideOperationManager`.
+---
+## 11. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
 The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed as an **independent layer**, separate from the core image processing engine (`PhotoEngine`), to maximize modularity and flexibility.
 ### Components
 * **`CaptureMoment::Core::Serializer::IXmpProvider`:** An interface abstracting the low-level XMP packet read/write operations. This allows switching between different XMP libraries (e.g., Exiv2, Adobe XMP Toolkit) without changing dependent code.
@@ -154,7 +173,7 @@ The core library includes a flexible system for saving and loading the state of 
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
 * [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
 ---
-## 11. Utility Modules and Generic Conversion
+## 12. Utility Modules and Generic Conversion
 Generic utility functions, such as string conversion, are centralized to promote reusability and reduce code duplication across the core library.
 ### `CaptureMoment::Core::utils::toString`
 * **Purpose:** Provides a generic mechanism for converting primitive types (e.g., `int`, `float`, `double`, `bool`) and `std::string` to their string representation.
@@ -162,12 +181,13 @@ Generic utility functions, such as string conversion, are centralized to promote
 * **Location:** Implemented in `utils/to_string_utils.h`, placed directly in the `utils` folder without subdirectories for conversion or other purposes.
 * **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
 ---
-## 12. Namespace Organization
+## 13. Namespace Organization
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 - **`CaptureMoment::Core::Common`**: Contains fundamental data structures like `ImageRegion` and `PixelFormat`.
 - **`CaptureMoment::Core::Operations`**: Contains operation-related logic, including `IOperation`, `OperationDescriptor`, `OperationFactory`, `OperationPipeline`, and specific operation implementations (e.g., `OperationBrightness`).
 - **`CaptureMoment::Core::Pipeline`**: Contains pipeline fusion logic, including `IPipelineExecutor`, `OperationPipelineExecutor`, `PipelineBuilder`, `PipelineContext`, and `PipelineType`.
 - **`CaptureMoment::Core::Strategies`**: Contains high-level processing strategies, including `IPipelineManager` and `PipelineHalideOperationManager`.
+- **`CaptureMoment::Core::Workers`**: Contains asynchronous processing workers, including `IWorkerRequest`, `WorkerContext`, `WorkerBuilder`, and concrete workers like `HalideOperationWorker`.
 - **`CaptureMoment::Core::Managers`**: Contains managers responsible for resource handling, such as `ISourceManager` and `SourceManager`.
 - **`CaptureMoment::Core::Domain`**: Contains domain-specific interfaces, such as `IProcessingTask` and `IProcessingBackend`.
 - **`CaptureMoment::Core::Engine`**: Contains the core application logic orchestrators, such as `PhotoTask` and `PhotoEngine`.
@@ -177,7 +197,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 - **`CaptureMoment::Core::utils`**: Contains generic utility functions, such as `toString`.
 This organization clarifies the role of each component and prevents naming collisions.
 ---
-## 13. Recent Architectural Improvements
+## 14. Recent Architectural Improvements
 ### Pipeline Fusion Optimization
 - **Fused Execution**: Operations now support both sequential (`execute`) and fused (`appendToFusedPipeline`) execution patterns.
 - **Zero-Copy Processing**: `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::vector<float>` and `Halide::Buffer`.
@@ -195,6 +215,13 @@ This organization clarifies the role of each component and prevents naming colli
 - **Registry Pattern**: Introduced `PipelineBuilder` and `PipelineRegistry` for flexible executor creation.
 - **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager` for high-level strategy control.
 - **Pipeline Context**: Centralized infrastructure management via `PipelineContext`.
+### Asynchronous Worker System
+- **IWorkerRequest Interface**: Defined the contract for asynchronous processing tasks.
+- **Worker Context**: Centralized container for worker infrastructure.
+- **Registry Pattern**: Introduced `WorkerBuilder` and `WorkerRegistry` for flexible worker creation.
+- **Coordination**: `StateImageManager` acts as a coordinator, delegating execution to workers via `WorkerContext`.
+### Move Semantics Optimization
+- **Efficient Data Transfer**: `applyOperations` in `StateImageManager` and `PhotoEngine` now uses move semantics (`std::move`) for operation vectors, reducing unnecessary copies.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
