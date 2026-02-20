@@ -12,7 +12,11 @@
 namespace CaptureMoment::Core::Strategies {
 
 PipelineHalideOperationManager::PipelineHalideOperationManager(const Pipeline::PipelineBuilder& builder)
+    : m_operation_factory(std::make_unique<Operations::OperationFactory>())
 {
+    // Register all available operations (Concrete Creators)
+    Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
+    spdlog::debug("PipelineHalideOperationManager: Constructed with Pipeline and Worker contexts.");
 
     // builder.build return unique_ptr<IPipelineExecutor>
     // m_executor take unique_ptr<OperationPipelineExecutor>
@@ -38,9 +42,7 @@ PipelineHalideOperationManager::PipelineHalideOperationManager(const Pipeline::P
     m_executor.reset(concrete_ptr);
 }
 
-void PipelineHalideOperationManager::init(
-    std::vector<Operations::OperationDescriptor>&& operations,
-    const Operations::OperationFactory& factory)
+void PipelineHalideOperationManager::init(std::vector<Operations::OperationDescriptor>&& operations)
 {
     // 1. Detect structural changes (type, name, enabled) vs value changes (params)
     bool structure_changed = true;
@@ -69,7 +71,7 @@ void PipelineHalideOperationManager::init(
     if (structure_changed) {
         spdlog::info("PipelineHalideOperationManager::init: Structure changed. Recompiling pipeline.");
         // If the structure changed, we need to recompile the pipeline, which is more expensive. We call init() which will rebuild the graph and recompile.
-        m_executor->init(std::move(operations), factory);
+        m_executor->init(std::move(operations), *m_operation_factory);
     } else {
         spdlog::trace("PipelineHalideOperationManager::init: Values only. Updating runtime params.");
         // If only values changed, we can skip recompilation and just update the parameters in the existing pipeline. This is the fast path.

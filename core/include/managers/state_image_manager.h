@@ -207,11 +207,6 @@ private:
     bool m_is_updating{false};
 
     /**
-     * @brief Factory for creating concrete operation instances.
-     */
-    std::shared_ptr<Operations::OperationFactory> m_operation_factory;
-
-    /**
      * @brief Dependency to access original image tiles and metadata.
      */
     std::unique_ptr<Managers::SourceManager> m_source_manager;

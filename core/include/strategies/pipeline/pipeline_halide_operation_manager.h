@@ -69,19 +69,14 @@ public:
      * Uses the stored builder to create a new executor and swaps it atomically.
      *
      * @param operations The list of operation descriptors (moved).
-     * @param factory The operation factory reference.
      */
-    void init(
-        std::vector<Operations::OperationDescriptor>&& operations,
-        const Operations::OperationFactory& factory
-    );
+    void init(std::vector<Operations::OperationDescriptor>&& operations);
 
     /**
      * @brief Exposes the fast parameter update directly (Optional/Advanced).
      * Allows explicit control if the caller knows only values changed.
      */
     void updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations);
-
 
 private:
     /**
@@ -100,6 +95,11 @@ private:
      * @brief Cache of the previous operation list to detect structural changes.
      */
     std::vector<Operations::OperationDescriptor> m_last_operations;
+
+    /**
+     * @brief Factory for creating concrete operation instances.
+     */
+    std::unique_ptr<Operations::OperationFactory> m_operation_factory;
 };
 
 } // namespace Strategies

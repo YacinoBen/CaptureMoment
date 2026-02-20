@@ -22,17 +22,12 @@ namespace CaptureMoment::Core::Managers {
 StateImageManager::StateImageManager()
     : m_pipeline_context(std::make_unique<Pipeline::PipelineContext>())
     , m_worker_context(std::make_unique<Workers::WorkerContext>())
-    , m_operation_factory(std::make_shared<Operations::OperationFactory>())
     , m_source_manager(std::make_unique<Managers::SourceManager>())
 {
     if (!m_source_manager) {
         spdlog::critical("StateImageManager: Null dependency provided during construction.");
         throw std::invalid_argument("StateImageManager: Null dependency provided.");
     }
-
-    // Register all available operations (Concrete Creators)
-    Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
-    spdlog::debug("StateImageManager: Constructed with Pipeline and Worker contexts.");
 }
 
 StateImageManager::~StateImageManager()
@@ -188,7 +183,7 @@ std::future<bool> StateImageManager::applyOperations(std::vector<Operations::Ope
 
     // 4. Initialize the Manager with the Operations (Move Data Transfer).
     // This transfers ownership of `ops` to the manager.
-    halide_manager.init(std::move(ops), *m_operation_factory);
+    halide_manager.init(std::move(ops));
 
     // 5. Retrieve the specific Worker for Halide operations.
     auto worker = m_worker_context->getHalideOperationWorker();
