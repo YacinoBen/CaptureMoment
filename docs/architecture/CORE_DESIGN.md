@@ -102,7 +102,7 @@ The architecture now includes advanced pipeline fusion capabilities for optimal 
 The fused pipeline system works seamlessly across different hardware backends.
 ### `CaptureMoment::Core::ImageProcessing::WorkingImageHalide` (Base Class)
 * **Shared Infrastructure**: Base class providing common Halide buffer functionality for both CPU and GPU implementations.
-* **Memory Management**: Uses `std::vector<float>` as backing store for Halide buffers, enabling in-place modifications without unnecessary copies.
+* **Memory Management**: Uses `std::unique_ptr<float[]>` (allocated via `std::make_unique_for_overwrite`) as backing store for Halide buffers, enabling in-place modifications without unnecessary copies and avoiding zero-initialization overhead during allocation.
 * **Direct Buffer Access**: Provides `getHalideBuffer()` method for direct pipeline execution.
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
 * **Ownership of SourceManager:** Now owns `m_source_manager` exclusively, decoupling `PhotoEngine` from direct I/O concerns.
@@ -128,6 +128,7 @@ Recent refactoring introduced a more structured approach to managing pipeline ex
 * **Encapsulation:** Handles the lifecycle and initialization of `OperationPipelineExecutor` based on the list of operations.
 * **Thread Safety:** Includes mutex protection for concurrent access during initialization and execution.
 * **Performance Optimization:** Implements `updateRuntimeParams` and tracks `m_last_operations` to detect structural changes vs. value-only updates, enabling fast parameter adjustments without recompilation.
+* **Operation Factory Location:** Now owns the `OperationFactory` instance, centralizing operation creation logic.
 ---
 ## 10. Asynchronous Processing Workers
 A new layer has been introduced to handle specific processing tasks asynchronously, further decoupling execution logic.
@@ -200,7 +201,7 @@ This organization clarifies the role of each component and prevents naming colli
 ## 14. Recent Architectural Improvements
 ### Pipeline Fusion Optimization
 - **Fused Execution**: Operations now support both sequential (`execute`) and fused (`appendToFusedPipeline`) execution patterns.
-- **Zero-Copy Processing**: `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::vector<float>` and `Halide::Buffer`.
+- **Zero-Copy Processing**: `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::unique_ptr<float[]>` and `Halide::Buffer`.
 - **Hardware Agnostic**: Same fusion logic works for both CPU and GPU backends through the unified interface.
 - **Dynamic Binding Correction**: Fixed pipeline execution to correctly bind input buffers at runtime, resolving issues with static compilation.
 ### Simplified PhotoEngine Architecture
@@ -211,6 +212,7 @@ This organization clarifies the role of each component and prevents naming colli
 - **In-Place Processing**: Halide buffers operate directly on shared data vectors, eliminating redundant copies.
 - **Optimized Scheduling**: Pipeline fusion creates single computational passes instead of multiple sequential operations.
 - **Backend Selection**: Runtime benchmarking automatically determines optimal CPU/GPU usage.
+- **Memory Allocation**: `WorkingImageHalide` uses `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` to avoid zero-initialization overhead during large buffer allocation.
 ### Pipeline Management Refactoring
 - **Registry Pattern**: Introduced `PipelineBuilder` and `PipelineRegistry` for flexible executor creation.
 - **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager` for high-level strategy control.
@@ -230,6 +232,8 @@ This organization clarifies the role of each component and prevents naming colli
 ### StateImageManager as Central Coordinator
 - **Exclusive Source Management**: `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
 - **Simplified PhotoEngine**: `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
+### Operation Factory Relocation
+- **Centralized Ownership**: The `OperationFactory` is now owned by `PipelineHalideOperationManager` instead of `StateImageManager`, aligning responsibility with the entity that uses it for pipeline construction.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
