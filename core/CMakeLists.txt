@@ -67,7 +67,6 @@ set(CORE_SOURCES
 
     # Engine
     src/engine/photo_engine.cpp
-    src/engine/photo_task.cpp
 
     # Utils
     src/utils/image_conversion.cpp
