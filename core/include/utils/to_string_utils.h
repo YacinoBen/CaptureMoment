@@ -48,7 +48,7 @@ template<ToStringablePrimitive T>
  * @param value The boolean value to convert.
  * @return std::string "true" if value is true, "false" otherwise.
  */
-[[nodiscard]] std::string toString(bool value) {
+[[nodiscard]] inline std::string toString(bool value) {
     return value ? "true" : "false";
 }
 
@@ -61,7 +61,7 @@ template<ToStringablePrimitive T>
  * @param value The string value to convert.
  * @return std::string A copy of the input string.
  */
-[[nodiscard]] std::string toString(const std::string& value) {
+[[nodiscard]] inline std::string toString(const std::string& value) {
     return value;
 }
 
