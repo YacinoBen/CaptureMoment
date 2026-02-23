@@ -1,8 +1,8 @@
-# 🏗️ Building Halide 21 with Full GPU Support
+# 🏗️ Building Halide with Full GPU Support
 
 ## Overview
 
-This guide provides clear instructions for obtaining Halide 21.0.0 or newer with support for various GPU backends (CUDA, OpenCL, Vulkan, DirectX12) as well as CPU-only configurations.
+This guide provides clear instructions for obtaining Halide 18.0.0 or newer with support for various GPU backends (CUDA, OpenCL, Vulkan, DirectX12) as well as CPU-only configurations.
 
 ⚠️ **Important**: The official pre-built binaries do not include GPU support by default. To use GPU acceleration, you must either:
 - Use a package manager that explicitly enables GPU features, or
@@ -31,20 +31,16 @@ Compiling dependencies (especially LLVM via Halide) is resource-intensive.
 | Vulkan | Cross-platform | Vulkan SDK and compatible driver |
 | DirectX12 | Windows only | Windows 10/11, compatible GPU |
 
-### CPU Support
-- Always available; no additional dependencies required.
-- Recommended for development or when GPU drivers are unavailable.
 
-## Installation Method From Release (ONLY CPU)
+## Installation Method From Release repos quickly (ONLY CPU)
 * Download a release from here : https://github.com/halide/Halide/releases
 
-* And in your terminal execute :
+* And when you want to build the projet Capture Moment. You can just set the path by adding this argument.
 
 ```bash
-cmake --preset release-vcpkg-msvc -Ddesktop_ui="on" -DHALIDE_DIR="pathto/CaptureMoment/halide/lib/cmake/Halide"
+-DHALIDE_DIR="pathtohalide/lib/cmake/Halide"
 # Path to the cmake Halide
 ```
-You can see more details about the excetion in the corresponding files (BUILDING_xxx.md)
 
 ## Installation Methods From Dependecies Managers
 

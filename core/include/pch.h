@@ -8,7 +8,7 @@
 #pragma once
 
 // ============================================================
-// 1. C++ Standard Library
+// 1. C++ Standard Library (Foundational types and utilities)
 // ============================================================
 #include <cstddef>
 #include <cstdint>
@@ -20,46 +20,47 @@
 #include <vector>
 #include <algorithm>
 #include <utility>
+#include <functional>
+#include <unordered_map>
 
 // ============================================================
-// 2. External Libraries
+// 2. Third-Party Libraries (Can sometimes define global macros)
+//    Place Halide early if other headers might rely on its types/macros.
+//    spdlog is generally well-behaved regarding macros.
 // ============================================================
-#include <Halide.h>
-#include <spdlog/spdlog.h>
+#include "Halide.h"     // Halide library headers
+#include <spdlog/spdlog.h> // spdlog library headers
 
 // ============================================================
 // 3. Internal Core Modules (Umbrella Headers Only)
+//    Order might matter if one umbrella header includes another,
+//    but ideally, umbrella headers are self-contained.
+//    Common types/config often used by many others.
 // ============================================================
 
-// Core Image Processing (This is where image_processing.h goes)
-#include "image_processing/image_processing.h"
+// 3a. Common & Configuration (Often foundational)
+#include "common/types/memory_type.h" // Basic enums/types
+#include "config/app_config.h"        // Global config singleton
+#include "common/image_region.h"      // Core POD data structure
+#include "common/error_handling/core_error.h" // Error handling types
 
-// Managers
-#include "managers/managers.h"
+// 3b. Core Modules (Order might be less critical with umbrella headers)
+#include "common/common.h"            // Umbrella for common types/utils (if exists)
+#include "operations/operations.h"    // Operations and factories
+#include "image_processing/image_processing.h" // Hardware abstraction, factories, etc.
+#include "pipeline/pipeline.h"        // Pipeline executors, builders, etc.
+#include "strategies/strategies.h"    // Pipeline management strategies
+#include "managers/managers.h"        // Source, State managers
+#include "domain/domain.h"            // Task interfaces, etc.
+#include "engine/engine.h"           // Orchestrators like PhotoEngine
+#include "serializer/serializer.h"   // Serialization interfaces, providers, etc.
+#include "workers/workers.h"         // Worker interfaces, builders, registries, etc.
 
-// Core Engine Module
-#include "engine/engine.h"
-
-// Core Pipeline Module
-#include "pipeline/pipeline.h"
-
-// Core Common & Error Handling
-#include "common/error_handling/core_error.h"
-
-// Core Operations Module
-#include "operations/operations.h"
-
-
-// Core Domain Module
-#include "domain/domain.h"
-
-// Serializer Module
-#include "serializer/serializer.h"
 
 // ============================================================
-// 4. Internal Core - Common & Config
+// 4. Utility Headers (Could be included by internal modules)
+//    Placed here if not part of an umbrella header.
+//    Ensure utilities don't depend on other core modules.
 // ============================================================
-#include "common/types/memory_type.h"
-#include "config/app_config.h"
-#include "common/image_region.h"
-
+#include "utils/to_string_utils.h"   // Generic string conversion utilities
+#include "utils/image_conversion.h"  // Image format conversion utilities

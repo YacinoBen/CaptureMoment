@@ -19,6 +19,7 @@
 #include "common/image_region.h"
 #include "common/error_handling/core_error.h"
 
+#include <string>
 #include <string_view>
 #include <memory>
 #include <optional>

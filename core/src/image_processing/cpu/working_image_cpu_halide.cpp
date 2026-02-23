@@ -42,8 +42,8 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
         cpu_image_copy->m_channels = static_cast<int>(m_halide_buffer.channels());
         cpu_image_copy->m_format = Common::PixelFormat::RGBA_F32; // Assuming F32 for now
 
-        // Deep copy of data from Halide buffer (which points to m_data) to the new ImageRegion
-        cpu_image_copy->m_data = m_data;
+        // Deep copy from unique_ptr back to ImageRegion's vector
+        cpu_image_copy->m_data.assign(m_data.get(), m_data.get() + m_data_size);
 
         if (!cpu_image_copy->isValid()) {
             return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
@@ -72,22 +72,29 @@ WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
-    try {
-        // Standard copy assignment
-        m_data = cpu_image.m_data;
+     try {
+        // Calculate required size
+        size_t required_size = static_cast<size_t>(cpu_image.m_width) *
+                               cpu_image.m_height *
+                               cpu_image.m_channels;
 
-        if (m_data.empty()) {
-            spdlog::error("WorkingImageCPU_Halide::updateFromCPU: Data vector is empty after copy");
-            return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
+        // Check allocation size and use No-Init allocation
+        if (!m_data || m_data_size != required_size) {
+            // make_unique_for_overwrite allocates memory WITHOUT zero-initialization.
+            // This saves the time spent writing 0s to the buffer before copying real data.
+            m_data = std::make_unique_for_overwrite<float[]>(required_size);
+            m_data_size = required_size;
+
+            spdlog::trace("WorkingImageCPU_Halide::updateFromCPU: Reallocated internal buffer to {} elements (No-Init).", required_size);
         }
 
+        // Fast memory copy
+        std::memcpy(m_data.get(), cpu_image.m_data.data(), required_size * sizeof(float));
+
         spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Copied {} elements from ImageRegion to internal storage",
-                      m_data.size());
+                      required_size);
 
         initializeHalide(cpu_image);
-
-        spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Created Halide::Buffer pointing to internal data ({}x{}, {} ch)",
-                      m_halide_buffer.width(), m_halide_buffer.height(), m_halide_buffer.channels());
 
         return {}; // Success
 
@@ -108,27 +115,29 @@ std::expected<void, ErrorHandling::CoreError> WorkingImageCPU_Halide::updateFrom
     }
 
     try {
-        // PERFORMANCE: Steal the data pointer from the source.
-        m_data = std::move(cpu_image.m_data);
+        // Calculate required size
+        size_t required_size = static_cast<size_t>(cpu_image.m_width) *
+                               cpu_image.m_height *
+                               cpu_image.m_channels;
 
-        if (m_data.empty()) {
-            spdlog::error("WorkingImageCPU_Halide::updateFromCPU: Data vector is empty after move");
-            return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
+        // we cannot steal the memory directly into a unique_ptr (different allocators/types).
+        // We still benefit from the No-Init reallocation logic if sizes differ.
+        if (!m_data || m_data_size != required_size) {
+            m_data = std::make_unique_for_overwrite<float[]>(required_size);
+            m_data_size = required_size;
         }
 
-        spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: MOVED {} elements from ImageRegion to internal storage",
-                      m_data.size());
+        // Copy data (Fastest way to move from vector to unique_ptr)
+        std::memcpy(m_data.get(), cpu_image.m_data.data(), required_size * sizeof(float));
 
-        // Initialize Halide view to point to the now-owned data
+        spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Moved/Copied {} elements from ImageRegion to internal storage",
+                      required_size);
+
         initializeHalide(cpu_image);
-
-        spdlog::debug("WorkingImageCPU_Halide::updateFromCPU: Created Halide::Buffer pointing to internal data ({}x{}, {} ch)",
-                      m_halide_buffer.width(), m_halide_buffer.height(), m_halide_buffer.channels());
 
         return {}; // Success
 
     } catch (const std::bad_alloc& e) {
-        // Note: Move assignment usually doesn't throw bad_alloc, but initializeHalide or resize might.
         spdlog::critical("WorkingImageCPU_Halide::updateFromCPU: Allocation failed during init: {}", e.what());
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     } catch (const std::exception& e) {

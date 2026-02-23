@@ -105,7 +105,7 @@ public:
         const Halide::Var& x,
         const Halide::Var& y,
         const Halide::Var& c,
-        const OperationDescriptor& params
+        const Halide::Param<float>& param
         ) const override;
 
 

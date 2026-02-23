@@ -16,76 +16,43 @@
 namespace CaptureMoment::Core::Engine {
 
 PhotoEngine::PhotoEngine()
-    : m_source_manager(std::make_shared<Managers::SourceManager>())
-    , m_state_manager(std::make_unique<Managers::StateImageManager>(m_source_manager))
+    : m_state_manager(std::make_unique<Managers::StateImageManager>())
 {
     spdlog::debug("PhotoEngine: Constructed with StateImageManager.");
 }
 
 std::expected<void, ErrorHandling::CoreError> PhotoEngine::loadImage(std::string_view path)
 {
-    if (!m_source_manager) {
-        spdlog::error("PhotoEngine::loadImage: SourceManager is null.");
+       if (!m_state_manager) {
+        spdlog::error("PhotoEngine::loadImage: StateImageManager is null.");
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 
-    // 1. Load the file into SourceManager
-    auto load_result = m_source_manager->loadFile(path);
-    if (!load_result) {
-        return std::unexpected(load_result.error());
+    // 1. Load the image via StateImageManager (which internally uses SourceManager)
+    // This also updates the internal state and prepares the working image.
+    // The StateImageManager::loadImage method returns a boolean, so we check for success.
+    if (!m_state_manager->loadImage(path)) {
+        spdlog::error("PhotoEngine::loadImage: Failed to load image '{}'.", path);
+        return std::unexpected(ErrorHandling::CoreError::IOError);
     }
 
-    // 2. Initialize StateImageManager with the path
-    if (!m_state_manager->setOriginalImageSource(std::string(path))) {
-        spdlog::error("PhotoEngine::loadImage: Failed to set image source in StateImageManager.");
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+    // 2. Trigger initial processing (Reset to Original) to have a ready-to-display image.
+    auto process_result = m_state_manager->resetToOriginal();
+
+    if (!process_result) {
+        return std::unexpected(process_result.error());
     }
 
-    // 3. Perform initial update synchronously to ensure the image is ready
-    auto update_future = m_state_manager->requestUpdate();
-    bool update_success = update_future.get();
-
-    if (!update_success) {
-        spdlog::error("PhotoEngine::loadImage: Initial update failed.");
-        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
-    }
-
-    spdlog::info("PhotoEngine: Loaded image '{}'.", path);
+    spdlog::info("PhotoEngine: Loaded image '{}' successfully.", path);
     return {};
 }
 
 std::expected<void, ErrorHandling::CoreError> PhotoEngine::commitWorkingImageToSource()
 {
-    if (!m_source_manager || !m_state_manager) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: Managers are null.");
+    if (!m_state_manager) {
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
-
-    // 1. Retrieve the current working image
-    auto working_image_hw = m_state_manager->getWorkingImage();
-    if (!working_image_hw) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: No working image available.");
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    // 2. Export to CPU memory
-    auto cpu_copy_result = working_image_hw->exportToCPUCopy();
-    if (!cpu_copy_result) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: CPU export failed: {}",
-                       ErrorHandling::to_string(cpu_copy_result.error()));
-        return std::unexpected(cpu_copy_result.error());
-    }
-
-    std::unique_ptr<Common::ImageRegion> cpu_copy = std::move(cpu_copy_result.value());
-
-    // 3. Write back to SourceManager
-    if (!m_source_manager->setTile(*cpu_copy)) {
-        spdlog::error("PhotoEngine::commitWorkingImageToSource: Write to source failed.");
-        return std::unexpected(ErrorHandling::CoreError::IOError);
-    }
-
-    spdlog::info("PhotoEngine: Changes committed to source.");
-    return {};
+    return m_state_manager->commitWorkingImageToSource();
 }
 
 void PhotoEngine::resetWorkingImage()
@@ -98,37 +65,28 @@ void PhotoEngine::resetWorkingImage()
 
 int PhotoEngine::width() const noexcept
 {
-    return m_source_manager ? m_source_manager->width() : 0;
+    return m_state_manager->getSourceWidth();
 }
 
 int PhotoEngine::height() const noexcept
 {
-    return m_source_manager ? m_source_manager->height() : 0;
+    return m_state_manager->getSourceHeight();
 }
 
 int PhotoEngine::channels() const noexcept
 {
-    return m_source_manager ? m_source_manager->channels() : 0;
+    return m_state_manager->getSourceChannels();
 }
 
-void PhotoEngine::applyOperations(const std::vector<Operations::OperationDescriptor>& ops)
+std::future<bool> PhotoEngine::applyOperations(std::vector<Operations::OperationDescriptor>&& ops)
 {
     if (!m_state_manager) {
         spdlog::error("PhotoEngine::applyOperations: StateImageManager is null.");
-        return;
+        return std::async(std::launch::deferred, []() { return false; });
     }
 
-    spdlog::debug("PhotoEngine: Applying {} operations.", ops.size());
-
-    // Replace current state with the new list
-    // Note: resetToOriginal clears the list, then we add new ops.
-    (void) m_state_manager->resetToOriginal();
-    for (const auto& op : ops) {
-        (void) m_state_manager->addOperation(op);
-    }
-
-    // Trigger asynchronous processing
-     (void) m_state_manager->requestUpdate();
+    spdlog::info("PhotoEngine::applyOperations: Received {} operations.", ops.size());
+    return m_state_manager->applyOperations(std::move(ops));
 }
 
 std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const

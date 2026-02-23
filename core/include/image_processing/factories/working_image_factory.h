@@ -41,6 +41,38 @@ public:
      */
     using CreatorFunction = std::function<std::unique_ptr<IWorkingImageHardware>(const Common::ImageRegion&)>;
 
+
+    /**
+     * @brief Creates a working image using the application's global configuration.
+     *
+     * @details
+     * This is the convenience method. It queries the global App Configuration
+     * to determine the preferred backend (CPU or GPU) and delegates to the
+     * specific create method.
+     *
+     * @param source_image The source image data.
+     * @return A unique pointer to the created object.
+     */
+    [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
+        const Common::ImageRegion& source_image
+        );
+
+    /**
+     * @brief Creates a working image forcing a specific backend.
+     *
+     * @details
+     * Use this when you want to override the global config (e.g., for thumbnails,
+     * specific effects, or debugging).
+     *
+     * @param backend The hardware backend to force.
+     * @param source_image The source image data.
+     * @return A unique pointer to the created object.
+     */
+    [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
+        const Common::ImageRegion& source_image,
+        Common::MemoryType backend
+        );
+
     /**
      * @brief Creates a new IWorkingImageHardware instance using registered creators.
      *

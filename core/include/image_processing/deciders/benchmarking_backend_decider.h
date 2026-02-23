@@ -17,6 +17,8 @@
 #include <chrono>
 #include <optional>
 
+#include "Halide.h"
+
 namespace CaptureMoment::Core {
 
 namespace ImageProcessing {
