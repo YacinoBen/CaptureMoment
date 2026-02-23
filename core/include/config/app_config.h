@@ -14,7 +14,7 @@
 #pragma once
 
 #include "common/types/memory_type.h"
-#include <Halide.h>
+#include "Halide.h"
 
 namespace CaptureMoment::Core {
 

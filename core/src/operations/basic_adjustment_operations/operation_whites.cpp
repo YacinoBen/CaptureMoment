@@ -21,7 +21,7 @@ namespace CaptureMoment::Core::Operations {
 template<typename InputType>
 Halide::Func applyWhitesAdjustment(
     const InputType& input,
-    float whites_value,
+    const Halide::Param<float>& param_whites,
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
@@ -48,10 +48,18 @@ Halide::Func applyWhitesAdjustment(
         (luminance_func(x, y) - low_threshold) / (high_threshold - low_threshold)
         );
 
+    
+    // Safety: Clamp the input parameter to the operation's defined valid range.
+    Halide::Expr safe_val = Halide::clamp(
+        param_whites, 
+        OperationWhites::MIN_WHITES_VALUE, 
+        OperationWhites::MAX_WHITES_VALUE
+    );
+
     // Apply Adjustment
     whites_func(x, y, c) = Halide::select(
         c < 3,
-        input(x, y, c) + whites_value * mask_func(x, y),
+        input(x, y, c) + safe_val * mask_func(x, y),
         input(x, y, c) // Alpha unchanged
         );
 
@@ -114,7 +122,10 @@ std::expected<void, ErrorHandling::CoreError> OperationWhites::execute(
             static_cast<int>(cpu_region_ptr->m_channels)
             );
 
-        auto whites_func = applyWhitesAdjustment(input_buf, whites_value, x, y, c);
+        Halide::Param<float> temp_param;
+        temp_param.set(whites_value);
+
+        auto whites_func = applyWhitesAdjustment(input_buf, temp_param, x, y, c);
         whites_func.compute_root().parallel(y).vectorize(x, 8);
         whites_func.realize(input_buf);
 
@@ -141,18 +152,12 @@ Halide::Func OperationWhites::appendToFusedPipeline(
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
-    const OperationDescriptor& params
+    const Halide::Param<float>& param
     ) const
 {
-    auto value_res = params.getParam<float>("value");
-    float whites_value = value_res.value_or(OperationWhites::DEFAULT_WHITES_VALUE);
-
-    if (std::abs(whites_value - OperationWhites::DEFAULT_WHITES_VALUE) < std::numeric_limits<float>::epsilon()) {
-        return input_func;
-    }
-
-    whites_value = std::clamp(whites_value, OperationWhites::MIN_WHITES_VALUE, OperationWhites::MAX_WHITES_VALUE);
-    return applyWhitesAdjustment(input_func, whites_value, x, y, c);
+    // Halide's constant folding will optimize away additions by zero.
+    spdlog::trace("OperationWhites::appendToFusedPipeline: Fusing with Halide Param (In-Graph Clamped)");
+    return applyWhitesAdjustment(input_func, param, x, y, c);
 }
 
 // ============================================================================

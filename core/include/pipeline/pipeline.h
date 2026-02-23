@@ -51,11 +51,33 @@
 #include "pipeline/fallback_pipeline_executor.h"
 
 // ============================================================
-// 3. Builders
+// 3. Core Infrastructure (The "Factory")
 // ============================================================
 
 /**
- * @brief Factory/Builder for constructing fused adjustment pipelines.
- * Takes a list of operations and creates an IPipelineExecutor instance.
+ * @brief Central registry and factory for creating pipeline executors.
+ * Allows registration of different backends (Halide, etc.).
  */
-#include "pipeline/operation_pipeline_builder.h"
+#include "pipeline/pipeline_builder.h"
+
+/**
+ * @brief Static helper to populate the PipelineBuilder registry.
+ * Should be called once at application startup.
+ */
+#include "pipeline/pipeline_registry.h"
+
+/**
+ * @brief The central container managing the pipeline builder and active strategies.
+ * This is the primary class that the application (e.g., StateImageManager) should interact with.
+ */
+#include "pipeline/pipeline_context.h"
+
+// ============================================================
+// 4. Common Types
+// ============================================================
+
+/**
+ * @brief Enumeration defining supported pipeline types (Halide, OpenCV, AI, etc.).
+ * Used as a key in the registry.
+ */
+#include "pipeline/pipeline_type.h"

@@ -32,4 +32,17 @@ namespace CaptureMoment::Core {
  */
 void initialize();
 
+/*
+ * @brief Sets the log level for the Core library.
+ *
+ * @param level_str A string representing the desired log level (e.g., "trace", "debug", "info", "warn", "error", "critical", "off").
+ *
+ * @details
+ * This function allows dynamic adjustment of the logging verbosity for the Core library.
+ * It can be called at any time after initialization to change the log level on-the-fly.
+ *
+ * @note The log level string is case-insensitive. If an invalid string is provided, it defaults to "info".
+ */
+void set_log_level(const char* level_str);
+
 } // namespace CaptureMoment::Core

@@ -8,6 +8,7 @@
 #pragma once
 
 #include <vector>
+#include <cstddef>
 
 #include "common/image_region.h"
 
@@ -52,15 +53,18 @@ protected:
     Halide::Buffer<float> m_halide_buffer;
 
     /**
-     * @brief Internal storage for image data to be shared between operations.
-     *
-     * This vector holds the actual pixel data in float format that can be accessed
-     * by both Halide operations and CPU-based processing. It serves as the backing
-     * store for the Halide::Buffer, allowing efficient in-place modifications
-     * without unnecessary data copying between operations.
-     * The vector is managed internally and updated through updateFromCPU operations.
+     * @brief Internal storage for image data to be shared between operations..
+     * Using unique_ptr<float[]> instead of std::vector<float>.
+     * This allows using make_unique_for_overwrite to skip zero-initialization,
+     * significantly reducing allocation time for large buffers (e.g., 400MB images).
      */
-    std::vector<float> m_data;
+    std::unique_ptr<float[]> m_data;
+
+    /**
+     * @brief Tracks the number of elements stored in m_data.
+     * Required because unique_ptr does not store size information.
+     */
+    size_t m_data_size{0};
 
     /**
      * @brief Protected constructor to prevent direct instantiation.

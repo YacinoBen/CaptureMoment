@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "operations/interfaces/i_operation.h"
 #include "pipeline/interfaces/i_pipeline_executor.h"
 #include "operations/operation_descriptor.h"
 #include "operations/operation_factory.h"

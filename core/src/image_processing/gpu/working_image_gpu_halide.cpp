@@ -54,24 +54,29 @@ WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
 
     try
     {
-        // Retrieve the configured Halide Target (e.g. CUDA, Metal, Vulkan)
-        // This is where we use the result of IBackendDecider
+        // 1. Use the configured target provided by IBackendDecider
         Halide::Target target = Config::AppConfig::getHalideTarget();
 
-        // Copy data from ImageRegion to internal storage
-        m_data = cpu_image.m_data;
+        // 2. Calculate required size and allocate staging buffer if needed
+        size_t required_size = static_cast<size_t>(cpu_image.m_width) *
+                               cpu_image.m_height *
+                               cpu_image.m_channels;
 
-        if (m_data.empty())
-        {
-            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+        // We use make_unique_for_overwrite to avoid zero-initialization overhead for large buffers.
+        if (!m_data || m_data_size != required_size) {
+            m_data = std::make_unique_for_overwrite<float[]>(required_size);
+            m_data_size = required_size;
         }
 
-        spdlog::debug("[WorkingImageGPU_Halide] Copied {} elements to internal storage", m_data.size());
+        // 3. Copy from CPU ImageRegion to internal staging buffer (host memory)
+        std::memcpy(m_data.get(), cpu_image.m_data.data(), required_size * sizeof(float));
 
-        // Initialize Halide buffer (CPU view)
+        spdlog::debug("[WorkingImageGPU_Halide] Copied {} elements to host staging buffer", required_size);
+
+        // 4. Initialize Halide buffer (CPU view)
         initializeHalide(cpu_image);
 
-        // Mark host data as dirty and copy to GPU device
+        // 5. Transfer to GPU device
         m_halide_buffer.set_host_dirty();
         int result = m_halide_buffer.copy_to_device(target);
         if (result != 0)
@@ -104,25 +109,32 @@ WorkingImageGPU_Halide::updateFromCPU(Common::ImageRegion&& cpu_image)
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
-    try
+     try
     {
-        // Use the configured target provided by IBackendDecider
+        // 1. Use the configured target provided by IBackendDecider
         Halide::Target target = Config::AppConfig::getHalideTarget();
 
-        // PERFORMANCE: Move data pointer (no CPU copy)
-        m_data = std::move(cpu_image.m_data);
+        // 2. Calculate required size and allocate staging buffer if needed
+        size_t required_size = static_cast<size_t>(cpu_image.m_width) *
+                               cpu_image.m_height *
+                               cpu_image.m_channels;
 
-        if (m_data.empty())
-        {
-            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+        // We use make_unique_for_overwrite to avoid zero-initialization overhead for large buffers.
+        if (!m_data || m_data_size != required_size) {
+            m_data = std::make_unique_for_overwrite<float[]>(required_size);
+            m_data_size = required_size;
         }
 
-        spdlog::debug("[WorkingImageGPU_Halide] MOVED {} elements to internal storage", m_data.size());
+        // 3. Copy from CPU ImageRegion to internal staging buffer (host memory)
+        // Note: Even with rvalue input, we must copy into the unique_ptr array.
+        std::memcpy(m_data.get(), cpu_image.m_data.data(), required_size * sizeof(float));
 
-        // Initialize Halide buffer (CPU view)
+        spdlog::debug("[WorkingImageGPU_Halide] Copied {} elements to host staging buffer", required_size);
+
+        // 4. Initialize Halide buffer (CPU view)
         initializeHalide(cpu_image);
 
-        // Transfer to GPU
+        // 5. Transfer to GPU device
         m_halide_buffer.set_host_dirty();
         int result = m_halide_buffer.copy_to_device(target);
         if (result != 0)

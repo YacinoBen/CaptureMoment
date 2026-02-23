@@ -21,7 +21,7 @@ namespace CaptureMoment::Core::Operations {
 template<typename InputType>
 Halide::Func applyShadowsAdjustment(
     const InputType& input,
-    float shadows_value,
+    const Halide::Param<float>& param_shadows,
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
@@ -46,10 +46,17 @@ Halide::Func applyShadowsAdjustment(
         (high_threshold - luminance_func(x, y)) / (high_threshold - low_threshold)
         );
 
+    // Safety: Clamp the input parameter to the operation's defined valid range.
+    Halide::Expr safe_val = Halide::clamp(
+        param_shadows, 
+        OperationShadows::MIN_SHADOWS_VALUE, 
+        OperationShadows::MAX_SHADOWS_VALUE
+    );
+
     // Apply Adjustment
     shadows_func(x, y, c) = Halide::select(
         c < 3,
-        input(x, y, c) + shadows_value * mask_func(x, y),
+        input(x, y, c) + safe_val * mask_func(x, y),
         input(x, y, c) // Alpha unchanged
         );
 
@@ -112,7 +119,10 @@ std::expected<void, ErrorHandling::CoreError> OperationShadows::execute(
             static_cast<int>(cpu_region_ptr->m_channels)
             );
 
-        auto shadows_func = applyShadowsAdjustment(input_buf, shadows_value, x, y, c);
+        Halide::Param<float> temp_param;
+        temp_param.set(shadows_value);
+
+        auto shadows_func = applyShadowsAdjustment(input_buf, temp_param, x, y, c);
         shadows_func.compute_root().parallel(y).vectorize(x, 8);
         shadows_func.realize(input_buf);
 
@@ -139,18 +149,12 @@ Halide::Func OperationShadows::appendToFusedPipeline(
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
-    const OperationDescriptor& params
+    const Halide::Param<float>& param
     ) const
 {
-    auto value_res = params.getParam<float>("value");
-    float shadows_value = value_res.value_or(OperationShadows::DEFAULT_SHADOWS_VALUE);
-
-    if (std::abs(shadows_value - OperationShadows::DEFAULT_SHADOWS_VALUE) < std::numeric_limits<float>::epsilon()) {
-        return input_func;
-    }
-
-    shadows_value = std::clamp(shadows_value, OperationShadows::MIN_SHADOWS_VALUE, OperationShadows::MAX_SHADOWS_VALUE);
-    return applyShadowsAdjustment(input_func, shadows_value, x, y, c);
+    // Zero adjustments are optimized out by Halide internally.
+    spdlog::trace("OperationShadows::appendToFusedPipeline: Fusing with Halide Param (In-Graph Clamped)");
+    return applyShadowsAdjustment(input_func, param, x, y, c);
 }
 
 // ============================================================================

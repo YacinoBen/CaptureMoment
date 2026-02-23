@@ -12,6 +12,7 @@
 #include <memory>
 #include <unordered_map>
 #include <functional>
+#include <expected>
 
 namespace CaptureMoment::Core {
 

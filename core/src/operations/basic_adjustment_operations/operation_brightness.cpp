@@ -21,17 +21,25 @@ namespace CaptureMoment::Core::Operations {
 template<typename InputType>
 Halide::Func applyBrightnessAdjustment(
     const InputType& input,
-    float brightness_value,
+    const Halide::Param<float>& param_brightness,
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c)
 {
     Halide::Func brightness_func("brightness_op");
 
+    // Safety: Clamp the input parameter to the operation's defined valid range.
+    // This ensures robustness even if the cache passes an unexpected value.
+    Halide::Expr safe_brightness = Halide::clamp(
+        param_brightness, 
+        OperationBrightness::MIN_BRIGHTNESS_VALUE, 
+        OperationBrightness::MAX_BRIGHTNESS_VALUE
+    );
+
     // Additive brightness adjustment
     brightness_func(x, y, c) = Halide::select(
         c < 3, // R, G, B
-        Halide::clamp(input(x, y, c) + brightness_value, 0.0f, 1.0f),
+        Halide::clamp(input(x, y, c) + safe_brightness, 0.0f, 1.0f),
         input(x, y, c) // Alpha unchanged
         );
 
@@ -94,7 +102,10 @@ std::expected<void, ErrorHandling::CoreError> OperationBrightness::execute(
             static_cast<int>(cpu_region_ptr->m_channels)
             );
 
-        auto brightness_func = applyBrightnessAdjustment(input_buf, brightness_value, x, y, c);
+        Halide::Param<float> temp_param;
+        temp_param.set(brightness_value);
+
+        auto brightness_func = applyBrightnessAdjustment(input_buf, temp_param, x, y, c);
         brightness_func.compute_root().parallel(y).vectorize(x, 8);
         brightness_func.realize(input_buf);
 
@@ -121,18 +132,13 @@ Halide::Func OperationBrightness::appendToFusedPipeline(
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
-    const OperationDescriptor& params
+    const Halide::Param<float>& param
     ) const
 {
-    auto value_res = params.getParam<float>("value");
-    float brightness_value = value_res.value_or(OperationBrightness::DEFAULT_BRIGHTNESS_VALUE);
-
-    if (std::abs(brightness_value - OperationBrightness::DEFAULT_BRIGHTNESS_VALUE) < std::numeric_limits<float>::epsilon()) {
-        return input_func;
-    }
-
-    brightness_value = std::clamp(brightness_value, OperationBrightness::MIN_BRIGHTNESS_VALUE, OperationBrightness::MAX_BRIGHTNESS_VALUE);
-    return applyBrightnessAdjustment(input_func, brightness_value, x, y, c);
+    // to allow dynamic updates via the cache without recompilation.
+    // Halide's optimizer (Constant Folding) will handle the math if the value is 0.
+    spdlog::trace("OperationBrightness::appendToFusedPipeline: Fusing with Halide Param (In-Graph Clamped)");
+    return applyBrightnessAdjustment(input_func, param, x, y, c);
 }
 
 // ============================================================================

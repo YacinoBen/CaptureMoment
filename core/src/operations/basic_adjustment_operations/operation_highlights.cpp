@@ -21,7 +21,7 @@ namespace CaptureMoment::Core::Operations {
 template<typename InputType>
 Halide::Func applyHighlightsAdjustment(
     const InputType& input,
-    float highlights_value,
+    const Halide::Param<float>& param_highlights,
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
@@ -46,10 +46,17 @@ Halide::Func applyHighlightsAdjustment(
         (luminance_func(x, y) - low_threshold) / (high_threshold - low_threshold)
         );
 
+    // Safety: Clamp the input parameter to the operation's defined valid range.
+    Halide::Expr safe_val = Halide::clamp(
+        param_highlights, 
+        OperationHighlights::MIN_HIGHLIGHTS_VALUE, 
+        OperationHighlights::MAX_HIGHLIGHTS_VALUE
+    );
+
     // Apply Adjustment
     highlights_func(x, y, c) = Halide::select(
         c < 3,
-        input(x, y, c) + highlights_value * mask_func(x, y),
+        input(x, y, c) + safe_val * mask_func(x, y),
         input(x, y, c) // Alpha unchanged
         );
 
@@ -112,7 +119,10 @@ std::expected<void, ErrorHandling::CoreError> OperationHighlights::execute(
             static_cast<int>(cpu_region_ptr->m_channels)
             );
 
-        auto highlights_func = applyHighlightsAdjustment(input_buf, highlights_value, x, y, c);
+        Halide::Param<float> temp_param;
+        temp_param.set(highlights_value);
+
+        auto highlights_func = applyHighlightsAdjustment(input_buf, temp_param, x, y, c);
         highlights_func.compute_root().parallel(y).vectorize(x, 8);
         highlights_func.realize(input_buf);
 
@@ -139,18 +149,14 @@ Halide::Func OperationHighlights::appendToFusedPipeline(
     const Halide::Var& x,
     const Halide::Var& y,
     const Halide::Var& c,
-    const OperationDescriptor& params
+    const Halide::Param<float>& param
     ) const
 {
-    auto value_res = params.getParam<float>("value");
-    float highlights_value = value_res.value_or(OperationHighlights::DEFAULT_HIGHLIGHTS_VALUE);
+const Halide::Param<float>& param_highlights = param;
 
-    if (std::abs(highlights_value - OperationHighlights::DEFAULT_HIGHLIGHTS_VALUE) < std::numeric_limits<float>::epsilon()) {
-        return input_func;
-    }
-
-    highlights_value = std::clamp(highlights_value, OperationHighlights::MIN_HIGHLIGHTS_VALUE, OperationHighlights::MAX_HIGHLIGHTS_VALUE);
-    return applyHighlightsAdjustment(input_func, highlights_value, x, y, c);
+    // Halide's optimizer will simplify the math if the highlights adjustment is effectively zero.
+    spdlog::trace("OperationHighlights::appendToFusedPipeline: Fusing with Halide Param (In-Graph Clamped)");
+    return applyHighlightsAdjustment(input_func, param_highlights, x, y, c);
 }
 
 // ============================================================================

@@ -116,10 +116,12 @@ public:
 
     /**
      * @brief Perform actual operations (runs on worker thread).
+     * @details
      * This method contains the common logic for applying operations and updating the display.
-     * @param operations Vector of operation descriptors to apply.
+     * Takes ownership of the operations to allow zero-copy transfer to the engine.
+     * @param operations Vector of operation descriptors (moved)
      */
-    void doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations);
+    void doApplyOperations(std::vector<Core::Operations::OperationDescriptor>&& operations);
 
     /**
      * @brief Loads an image from a QUrl (typically from QML FileDialog).
@@ -173,9 +175,14 @@ public slots:
 
     /**
      * @brief Apply operation with parameters (non-blocking)
+     * Note: This slot is designed to be called from QML or other UI components when the user changes an operation parameter (e.g., moves a slider).
+     * 1. It takes a vector of OperationDescriptors representing the current state of all active operations.
+     * 2. The vector is passed by value to ensure compatibility with Qt's signal/slot system and to allow for move semantics.
+     * 3. The method then schedules the actual processing on the worker thread to avoid blocking the UI.
+     *
      * @param operations Vector of operation descriptors
      */
-    void applyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations);
+    void applyOperations(std::vector<Core::Operations::OperationDescriptor> operations);
 
     /**
      * @brief Internal: Handle load image result

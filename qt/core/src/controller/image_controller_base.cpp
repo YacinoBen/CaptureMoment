@@ -114,7 +114,7 @@ void ImageControllerBase::loadImageFromUrl(const QUrl& file_url)
     loadImage(native_path);
 }
 
-void ImageControllerBase::applyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
+void ImageControllerBase::applyOperations(std::vector<Core::Operations::OperationDescriptor> operations)
 {
     if (!m_engine)
     {
@@ -134,13 +134,9 @@ void ImageControllerBase::applyOperations(const std::vector<Core::Operations::Op
 
     if (m_operation_state_manager)
     {
-        auto active_ops = m_operation_state_manager->getActiveOperations();
-        spdlog::debug("ImageControllerBase::applyOperations: Retrieved {} active operations", active_ops.size());
-
-        // Run on worker thread to avoid blocking UI
-        QMetaObject::invokeMethod(this, [this, active_ops]() { // Capture by value to ensure validity in worker thread
-            doApplyOperations(active_ops);
-        }, Qt::QueuedConnection);
+   QMetaObject::invokeMethod(this, [this, ops = std::move(operations)]() mutable {
+        doApplyOperations(std::move(ops));
+    }, Qt::QueuedConnection);
     } else {
         spdlog::error("ImageControllerBase::applyOperations: OperationStateManager is null during legacy applyOperations call!");
         emit operationFailed("Internal error: OperationStateManager not initialized");
@@ -204,7 +200,7 @@ void ImageControllerBase::doLoadImage(const QString& file_path)
     onImageLoadResult(true, "");
 }
 
-void ImageControllerBase::doApplyOperations(const std::vector<Core::Operations::OperationDescriptor>& operations)
+void ImageControllerBase::doApplyOperations(std::vector<Core::Operations::OperationDescriptor>&& operations)
 {
     spdlog::debug("ImageControllerBase::doApplyOperations: Starting operation processing with {} operations", operations.size());
 
@@ -214,12 +210,22 @@ void ImageControllerBase::doApplyOperations(const std::vector<Core::Operations::
         return;
     }
 
-    // 1. Trigger Core Processing (Async inside engine)
+    // 1. Trigger Core Processing and wait for completion
+    // The core uses a deferred future: the continuation that updates the working image
+    // and clears the "update in progress" flag only runs when .get() is called.
     spdlog::debug("ImageControllerBase::doApplyOperations: Applying operations via PhotoEngine");
-    m_engine->applyOperations(operations);
+    auto apply_future = m_engine->applyOperations(std::move(operations));
+    if (!apply_future.valid()) {
+        onOperationResult(false, "Failed to start operation");
+        return;
+    }
+    bool apply_ok = apply_future.get();
+    if (!apply_ok) {
+        onOperationResult(false, "Operation processing failed");
+        return;
+    }
 
     // 2. Retrieve Updated Image
-    // Note: PhotoEngine return std::expected<std::unique_ptr<...>>
     auto unique_img_region_result = m_engine->getWorkingImageAsRegion();
 
     if (!unique_img_region_result)
@@ -244,7 +250,7 @@ void ImageControllerBase::doApplyOperations(const std::vector<Core::Operations::
         m_display_manager->updateDisplayTile(shared_updated_image);
         spdlog::info("ImageControllerBase::doApplyOperations: DisplayManager updated with new working image result");
     } else {
-        spdlog::warn("ImageControllerBase::doApplyOperations: No DisplayManager set, cannot update display.");
+        spdlog::warn("ImageControllerBase:connectModelsToStateManager():doApplyOperations: No DisplayManager set, cannot update display.");
     }
 
     onOperationResult(true, "");
@@ -310,14 +316,11 @@ void ImageControllerBase::connectModelsToStateManager()
                                  }
 
                                  // 2. Retrieve the full list of active operations from OperationStateManager
-                                 auto active_ops = m_operation_state_manager->getActiveOperations();
+                                auto active_ops = m_operation_state_manager->getActiveOperations();
 
-                                 // 3. Schedule the update to PhotoEngine on the worker thread
-                                 // Run on worker thread to avoid blocking UI
-                                 QMetaObject::invokeMethod(this, [this, active_ops]() { // Capture active_ops by value
-                                     spdlog::debug("ImageControllerBase: Applying {} operations to PhotoEngine from valueChanged signal.", active_ops.size());
-                                     doApplyOperations(active_ops);
-                                 }, Qt::QueuedConnection);
+                                 // 3. Trigger the applyOperations workflow with the full list of active operations (Move semantics)
+                                applyOperations(std::move(active_ops));
+
 
                              });
             spdlog::debug("ImageControllerBase::connectModelsToStateManager: Connected model {}", model->name().toStdString());

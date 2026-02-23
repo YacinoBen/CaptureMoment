@@ -41,11 +41,21 @@ set(CORE_SOURCES
     src/serializer/file_serializer_reader.cpp
     src/serializer/operation_serialization.cpp
 
-
     # Pipeline
     src/pipeline/operation_pipeline_executor.cpp
-    src/pipeline/operation_pipeline_builder.cpp
+    src/pipeline/pipeline_builder.cpp
     src/pipeline/fallback_pipeline_executor.cpp
+    src/pipeline/pipeline_registry.cpp
+    src/pipeline/pipeline_context.cpp
+
+    # Workers
+    src/workers/worker_context.cpp
+    src/workers/worker_builder.cpp
+    src/workers/worker_registry.cpp
+    src/workers/halide/halide_operation_worker.cpp
+    
+    # Strategies
+    src/strategies/pipeline/pipeline_halide_operation_manager.cpp
 
     # List Operations base adjustment
     src/operations/basic_adjustment_operations/operation_brightness.cpp
@@ -57,7 +67,6 @@ set(CORE_SOURCES
 
     # Engine
     src/engine/photo_engine.cpp
-    src/engine/photo_task.cpp
 
     # Utils
     src/utils/image_conversion.cpp

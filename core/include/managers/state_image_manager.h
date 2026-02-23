@@ -3,14 +3,15 @@
  * @brief Declaration of StateImageManager class
  *
  * @details
- * This class manages the asynchronous state of the image being edited. It orchestrates
- * the application of active operations to the original image using a fused Halide pipeline.
+ * This class manages the asynchronous processing state of the image being edited.
+ * It acts as a coordinator between the image source, the infrastructure contexts
+ * (Pipeline & Workers), and the working image memory.
  *
  * **Key Architectural Features:**
- * - **Fused Pipeline Execution:** Uses `OperationPipelineBuilder` to construct a single
- *   optimized computation graph for all active operations.
- * - **Asynchronous Updates:** Heavy processing occurs on a worker thread via `std::async(std::launch::async)`.
- * - **Thread-Safe State Access:** Uses `std::mutex` to protect access to `m_working_image` and other shared state.
+ * - **Contexts:** Owns `PipelineContext` (Strategies) and `WorkerContext` (Executors).
+ * - **Move Semantics:** All data processing methods accept ownership of data via `std::move`.
+ * - **Thread-Safe:** Uses mutexes to protect the working image and status flags.
+ * - **Stateless Processing:** Does not store operation lists; it receives, processes, and discards.
  *
  * @author CaptureMoment Team
  * @date 2026
@@ -19,7 +20,6 @@
 #pragma once
 
 #include "operations/operation_descriptor.h"
-#include "pipeline/operation_pipeline_builder.h"
 #include "managers/source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
 #include "operations/operation_factory.h"
@@ -29,7 +29,6 @@
 #include <mutex>
 #include <functional>
 #include <future>
-#include <optional>
 #include <string_view>
 #include <string>
 
@@ -37,33 +36,36 @@
 
 namespace CaptureMoment::Core {
 
+// Forward declarations to avoid circular dependencies
+namespace Pipeline {
+    class PipelineContext;
+}
+
+namespace Workers {
+    class WorkerContext;
+}
+
 namespace Managers {
 
 /**
  * @class StateImageManager
- * @brief Manages the working image state by applying a sequence of active operations.
+ * @brief Manages the working image lifecycle and coordinates asynchronous processing.
  *
- * This class acts as a bridge between the high-level operation list and the low-level
- * execution engine.
+ * This class receives processing requests (e.g., apply operations) from the engine,
+ * prepares the working memory, delegates execution to workers via the WorkerContext,
+ * and updates the final result.
  */
 class StateImageManager {
 public:
     /**
-     * @brief Callback type for reporting update completion.
-     * @details Uses standard `std::function` for portability across compilers.
-     *
-     * @param success True if the update and processing were successful, false otherwise.
-     */
-    using UpdateCallback = std::function<void(bool success)>;
-
-    /**
      * @brief Constructs a StateImageManager.
      *
-     * @param source_manager Shared pointer to the SourceManager for accessing original image data.
+     * @details
+     * Initializes the PipelineContext and WorkerContext.
+     *
      * @throws std::invalid_argument if source_manager is null.
      */
-    explicit StateImageManager(
-        std::shared_ptr<Managers::SourceManager> source_manager);
+    explicit StateImageManager();
 
     /**
      * @brief Destructor.
@@ -75,55 +77,51 @@ public:
     StateImageManager& operator=(const StateImageManager&) = delete;
 
     /**
-     * @brief Sets the original image source path.
-     *
-     * Uses `std::string_view` to accept temporary strings or string literals without allocation.
-     * Internally, the path is copied to `std::string` for storage and async use.
-     *
-     * @param path Path of the loaded image file.
-     * @return true if the source was set successfully and image is valid.
+     * @brief Loads an image file into the internal SourceManager.
+     * @param path Path to the image file.
+     * @return true if successful.
      */
-    [[nodiscard]] bool setOriginalImageSource(std::string_view path);
+    [[nodiscard]] bool loadImage(std::string_view path);
 
     /**
-     * @brief Adds a new operation to the active sequence.
+     * @brief Commits the current working image (with applied operations) back to the SourceManager.
      *
-     * @param descriptor The operation descriptor (parameters, type, etc.).
-     * @return true if added successfully.
+     * @details
+     * This effectively overwrites the original image data with the processed version.
+     * Future resets or reloads will use this new "original" data.
+     *
+     * @return std::expected with void or error.
      */
-    [[nodiscard]] bool addOperation(const Operations::OperationDescriptor& descriptor);
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> commitWorkingImageToSource();
 
     /**
-     * @brief Modifies an existing operation in the active sequence.
+     * @brief Resets the image to its original state (synchronous).
      *
-     * @param index Index of the operation to modify.
-     * @param new_descriptor The new operation descriptor.
-     * @return true if modified successfully, false if index is invalid.
+     * @details
+     * This method applies an empty list of operations (reset) and waits for completion.
+     * It is used by `PhotoEngine::loadImage` to ensure the image is ready immediately.
+     *
+     * @return `std::expected<void, CoreError>` indicating success or failure.
      */
-    [[nodiscard]] bool modifyOperation(size_t index, const Operations::OperationDescriptor& new_descriptor);
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> resetToOriginal();
 
     /**
-     * @brief Removes an operation from the active sequence.
+     * @brief Applies a list of operations to the current image using move semantics.
      *
-     * @param index Index of the operation to remove.
-     * @return true if removed successfully, false if index is invalid.
-     */
-    [[nodiscard]] bool removeOperation(size_t index);
-
-    /**
-     * @brief Clears all active operations.
+     * @details
+     * This method is the primary entry point for image processing. It takes ownership
+     * of the provided operation descriptors via `std::move` to avoid unnecessary copies.
      *
-     * @return true if reset was initiated successfully.
-     */
-    [[nodiscard]] bool resetToOriginal();
-
-    /**
-     * @brief Requests an asynchronous update of the working image.
+     * **Workflow:**
+     * 1. Creates a new working image from the source.
+     * 2. Initializes the Halide strategy from the context, transferring the operation data.
+     * 3. Creates a worker and executes the pipeline asynchronously.
+     * 4. Updates the internal working image state upon successful completion.
      *
-     * @param callback Optional callback executed on the worker thread upon completion.
-     * @return `std::future<bool>` representing the asynchronous task.
+     * @param ops The list of operation descriptors to apply (moved into the method).
+     * @return `std::future<bool>` representing the asynchronous result.
      */
-    [[nodiscard]] std::future<bool> requestUpdate(std::optional<UpdateCallback> callback = std::nullopt);
+    [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
      * @brief Gets the current working image (Thread-Safe).
@@ -146,28 +144,46 @@ public:
      */
     [[nodiscard]] std::string getOriginalImageSourcePath() const;
 
-    /**
-     * @brief Gets a snapshot of the current active operations.
+    /*
+    * @brief Gets the width of the original source image.
+    *
+    * These methods query the SourceManager for the original image properties.
+    */
+    [[nodiscard]] int getSourceWidth() const;
+
+    /*
+    * @brief Gets the height of the original source image.
+    *
+    * These methods query the SourceManager for the original image properties.
+    */
+    [[nodiscard]] int getSourceHeight() const;
+
+    /*
+     * @brief Gets the number of channels of the original source image.
      *
-     * @return A copy of the vector of `OperationDescriptor`s.
+     * These methods query the SourceManager for the original image properties.
      */
-    [[nodiscard]] std::vector<Operations::OperationDescriptor> getActiveOperations() const;
+    [[nodiscard]] int getSourceChannels() const;
 
 private:
     /**
-     * @brief Mutex protecting access to `m_active_operations`, `m_original_image_path`, and `m_working_image`.
+     * @brief Mutex protecting access to `m_working_image` and `m_original_image_path`.
      */
     mutable std::mutex m_state_mutex;
 
     /**
-     * @brief The ordered list of operations to apply.
+     * @brief The Pipeline Context infrastructure.
+     * @details
+     * Owns the Builder and the Strategy Managers (Halide, Sky, etc.).
      */
-    std::vector<Operations::OperationDescriptor> m_active_operations;
+    std::unique_ptr<Pipeline::PipelineContext> m_pipeline_context;
 
     /**
-     * @brief The builder responsible for constructing the fused Halide pipeline.
+     * @brief The Worker Context infrastructure.
+     * @details
+     * Owns the logic to create and retrieve processing workers.
      */
-    std::shared_ptr<Pipeline::OperationPipelineBuilder> m_pipeline_builder;
+    std::unique_ptr<Workers::WorkerContext> m_worker_context;
 
     /**
      * @brief The current processed image buffer.
@@ -177,7 +193,6 @@ private:
 
     /**
      * @brief File path of the original source image.
-     * Kept as `std::string` because ownership is required for async lambda captures.
      */
     std::string m_original_image_path;
 
@@ -188,33 +203,13 @@ private:
 
     /**
      * @brief Flag preventing multiple concurrent update requests.
-     * Protected by `m_flag_mutex` for thread-safe access.
      */
     bool m_is_updating{false};
 
     /**
-     * @brief Factory for creating concrete operation instances.
+     * @brief Dependency to access original image tiles and metadata.
      */
-    std::shared_ptr<Operations::OperationFactory> m_operation_factory;
-
-    /**
-     * @brief Dependency to access original image tiles.
-     */
-    std::shared_ptr<Managers::SourceManager> m_source_manager;
-
-    /**
-     * @brief Performs the actual image processing on the worker thread.
-     *
-     * @param ops_to_apply Copy of the operations list (captured by move).
-     * @param original_path Copy of the image path (captured by move).
-     * @param callback Optional callback to execute on completion.
-     * @return true if processing succeeded, false otherwise.
-     */
-    [[nodiscard]] bool performUpdate(
-        std::vector<Operations::OperationDescriptor> ops_to_apply,
-        std::string original_path,
-        std::optional<UpdateCallback> callback
-        );
+    std::unique_ptr<Managers::SourceManager> m_source_manager;
 };
 
 } // namespace Managers
