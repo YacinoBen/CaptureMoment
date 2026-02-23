@@ -26,6 +26,7 @@
 #include <string_view>
 #include <vector>
 #include <expected>
+#include <future>
 
 namespace CaptureMoment::Core {
 
@@ -119,8 +120,10 @@ public:
      * the result when ready.
      *
      * @param ops Vector of OperationDescriptors defining the adjustments.
+     * @return std::future<bool> Caller must call .get() to wait for completion and to allow
+     *         the internal working image and update flag to be updated; otherwise the result is never applied.
      */
-    void applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
+    [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
      * @brief Gets the raw working image (Hardware Abstraction).

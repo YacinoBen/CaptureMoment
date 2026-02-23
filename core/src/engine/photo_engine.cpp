@@ -78,15 +78,15 @@ int PhotoEngine::channels() const noexcept
     return m_state_manager->getSourceChannels();
 }
 
-void PhotoEngine::applyOperations(std::vector<Operations::OperationDescriptor>&& ops)
+std::future<bool> PhotoEngine::applyOperations(std::vector<Operations::OperationDescriptor>&& ops)
 {
     if (!m_state_manager) {
         spdlog::error("PhotoEngine::applyOperations: StateImageManager is null.");
-        return;
+        return std::async(std::launch::deferred, []() { return false; });
     }
 
     spdlog::info("PhotoEngine::applyOperations: Received {} operations.", ops.size());
-    m_state_manager->applyOperations(std::move(ops));
+    return m_state_manager->applyOperations(std::move(ops));
 }
 
 std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const

@@ -210,12 +210,22 @@ void ImageControllerBase::doApplyOperations(std::vector<Core::Operations::Operat
         return;
     }
 
-    // 1. Trigger Core Processing (Async inside engine)
+    // 1. Trigger Core Processing and wait for completion
+    // The core uses a deferred future: the continuation that updates the working image
+    // and clears the "update in progress" flag only runs when .get() is called.
     spdlog::debug("ImageControllerBase::doApplyOperations: Applying operations via PhotoEngine");
-    m_engine->applyOperations(std::move(operations));
+    auto apply_future = m_engine->applyOperations(std::move(operations));
+    if (!apply_future.valid()) {
+        onOperationResult(false, "Failed to start operation");
+        return;
+    }
+    bool apply_ok = apply_future.get();
+    if (!apply_ok) {
+        onOperationResult(false, "Operation processing failed");
+        return;
+    }
 
     // 2. Retrieve Updated Image
-    // Note: PhotoEngine return std::expected<std::unique_ptr<...>>
     auto unique_img_region_result = m_engine->getWorkingImageAsRegion();
 
     if (!unique_img_region_result)
