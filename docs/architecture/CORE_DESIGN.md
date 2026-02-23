@@ -150,7 +150,18 @@ A new layer has been introduced to handle specific processing tasks asynchronous
 * **Responsibility:** Concrete implementation for executing Halide-based adjustments asynchronously.
 * **Pattern Explanation (Strategy):** Implements `IWorkerRequest` to execute the logic managed by `PipelineHalideOperationManager`.
 ---
-## 11. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
+## 11. Synchronized Operation Execution
+A critical improvement has been made to ensure UI responsiveness and visual consistency during interactive adjustments.
+### `CaptureMoment::Core::Engine::PhotoEngine` (Updated Contract)
+* **Method Change:** The `applyOperations` method now returns a `std::future<bool>` instead of `void`.
+* **Responsibility:** The caller (e.g., `ImageControllerBase`) is now responsible for calling `.get()` on the returned future to wait for the operation to complete. This ensures the internal working image state and the update flag in `StateImageManager` are properly synchronized before proceeding.
+* **Benefit:** Prevents "Update already in progress" scenarios from causing stale display updates, ensuring the displayed image reflects the most recently applied operations.
+### `CaptureMoment::Core::UI::ImageControllerBase` (Updated Behavior)
+* **Method Change:** `doApplyOperations` now calls `m_engine->applyOperations(...)` and waits for the returned future using `.get()`.
+* **Responsibility:** Ensures that the display update (`DisplayManager`) only occurs *after* the core image processing (`StateImageManager`) has fully finished and its state is updated.
+* **Benefit:** Guarantees visual consistency between the UI controls and the rendered image.
+---
+## 12. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
 The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed as an **independent layer**, separate from the core image processing engine (`PhotoEngine`), to maximize modularity and flexibility.
 ### Components
 * **`CaptureMoment::Core::Serializer::IXmpProvider`:** An interface abstracting the low-level XMP packet read/write operations. This allows switching between different XMP libraries (e.g., Exiv2, Adobe XMP Toolkit) without changing dependent code.
@@ -174,7 +185,7 @@ The core library includes a flexible system for saving and loading the state of 
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
 * [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
 ---
-## 12. Utility Modules and Generic Conversion
+## 13. Utility Modules and Generic Conversion
 Generic utility functions, such as string conversion, are centralized to promote reusability and reduce code duplication across the core library.
 ### `CaptureMoment::Core::utils::toString`
 * **Purpose:** Provides a generic mechanism for converting primitive types (e.g., `int`, `float`, `double`, `bool`) and `std::string` to their string representation.
@@ -182,7 +193,7 @@ Generic utility functions, such as string conversion, are centralized to promote
 * **Location:** Implemented in `utils/to_string_utils.h`, placed directly in the `utils` folder without subdirectories for conversion or other purposes.
 * **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
 ---
-## 13. Namespace Organization
+## 14. Namespace Organization
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 - **`CaptureMoment::Core::Common`**: Contains fundamental data structures like `ImageRegion` and `PixelFormat`.
 - **`CaptureMoment::Core::Operations`**: Contains operation-related logic, including `IOperation`, `OperationDescriptor`, `OperationFactory`, `OperationPipeline`, and specific operation implementations (e.g., `OperationBrightness`).
@@ -198,7 +209,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 - **`CaptureMoment::Core::utils`**: Contains generic utility functions, such as `toString`.
 This organization clarifies the role of each component and prevents naming collisions.
 ---
-## 14. Recent Architectural Improvements
+## 15. Recent Architectural Improvements
 ### Pipeline Fusion Optimization
 - **Fused Execution**: Operations now support both sequential (`execute`) and fused (`appendToFusedPipeline`) execution patterns.
 - **Zero-Copy Processing**: `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::unique_ptr<float[]>` and `Halide::Buffer`.
@@ -234,6 +245,9 @@ This organization clarifies the role of each component and prevents naming colli
 - **Simplified PhotoEngine**: `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
 ### Operation Factory Relocation
 - **Centralized Ownership**: The `OperationFactory` is now owned by `PipelineHalideOperationManager` instead of `StateImageManager`, aligning responsibility with the entity that uses it for pipeline construction.
+### Synchronized Operation Execution
+- **Future-based Contract**: `PhotoEngine::applyOperations` now returns a `std::future<bool>`.
+- **Caller Waits**: `ImageControllerBase` waits for the future to complete before updating the display, ensuring visual consistency and preventing stale updates.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
