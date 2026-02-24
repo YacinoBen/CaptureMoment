@@ -1,5 +1,6 @@
 # Core Architecture Design Principles
 The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
+
 ---
 ## 1. Data-Centric Design: Plain Old Data (POD) / Value Types
 A fundamental principle of this architecture is the segregation of data storage from processing logic. Core data structures are kept simple and easy to handle:
