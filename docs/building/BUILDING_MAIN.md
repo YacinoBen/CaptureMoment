@@ -48,8 +48,8 @@ First of all you need to build Halide
 * [**HALIDE**](./BUILDING_HALIDE.md).
 
 ### Qt-UI (not mandatory)
-If you want to use UI, you need to build Qt.
-You can download directly from the official website. Or just install the packages. Choose the **6.10** version
+If you want to use UI, you need to use Qt.
+You can download directly from the official website (better). Or just install the packages. Choose the **6.10.x** version
 
 ### 🌍 Choose Your Platform
 Click the link for your OS for detailed instructions:
