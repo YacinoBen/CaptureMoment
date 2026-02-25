@@ -42,7 +42,6 @@ set(CORE_SOURCES
     src/display/display_manager.cpp
 
     # Rendering
-    src/rendering/rhi_image_node.cpp
     src/rendering/rhi_image_item.cpp
     src/rendering/rhi_image_item_renderer.cpp
     src/rendering/sgs_image_item.cpp
@@ -65,7 +64,6 @@ set(CORE_SOURCES
 set(QOBJECT_HEADERS
     # Rendering
     include/rendering/i_rendering_item_base.h
-    include/rendering/rhi_image_node.h
     include/rendering/rhi_image_item.h
     include/rendering/rhi_image_item_renderer.h
     include/rendering/sgs_image_item.h
@@ -129,7 +127,6 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             # Rendering
             rendering/i_rendering_item_base.h
             rendering/base_image_item.h
-            rendering/rhi_image_node.h
             rendering/rhi_image_item.h
             rendering/rhi_image_item_renderer.h
             rendering/sgs_image_item.h
