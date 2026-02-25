@@ -145,7 +145,6 @@ function(find_magic_enum_package)
     endif()
 
     if(magic_enum_FOUND)
-        message(STATUS "magic_enum found and target magic_enum::magic_enum created/configured.")
         # Export the FOUND status to the parent scope
         set(magic_enum_FOUND TRUE PARENT_SCOPE)
         # No need to export the target name if using it explicitly in target_link_libraries
@@ -168,7 +167,6 @@ function(find_exiv2_package)
 
     # The imported target name according to the documentation is Exiv2::exiv2lib
     if(TARGET Exiv2::exiv2lib)
-        message(STATUS "Exiv2 found: ${exiv2_DIR} (version: ${exiv2_VERSION}) - Target: Exiv2::exiv2lib")
         set(Exiv2_FOUND TRUE PARENT_SCOPE)
         set(exiv2_VERSION "${exiv2_VERSION}" PARENT_SCOPE)
     else()
