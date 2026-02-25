@@ -184,5 +184,4 @@ install(DIRECTORY include/
 
 message(STATUS "CaptureMoment Qt Core Library configured successfully.")
 message(STATUS "   - Target: ${CAPTUREMOMENT_QT_CORE_LIB}")
-message(STATUS "   - Qt Version: ${Qt6_VERSION}")
 message(STATUS "")
