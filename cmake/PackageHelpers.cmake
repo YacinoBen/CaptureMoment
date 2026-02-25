@@ -43,7 +43,7 @@ function(find_spdlog_package)
     
     if(spdlog_FOUND)
         set(spdlog_FOUND TRUE PARENT_SCOPE)
-        set(spdlog_VERSION "${spdlog_VERSION}" PARENT_SCOPE)
+        set(spdlog_VERSION ${spdlog_VERSION} PARENT_SCOPE)
     else()
         message(FATAL_ERROR "spdlog not found. Please install it via your package manager or vcpkg/conan.")
     endif()
@@ -66,7 +66,7 @@ function(find_openimageio_package)
     
     if(OpenImageIO_FOUND)
         set(OpenImageIO_FOUND TRUE PARENT_SCOPE)
-        set(OpenImageIO_VERSION "${OpenImageIO_VERSION}" PARENT_SCOPE)
+        set(OpenImageIO_VERSION ${OpenImageIO_VERSION} PARENT_SCOPE)
     else()
         message(FATAL_ERROR "OpenImageIO not found. Please install it via your package manager or vcpkg/conan.")
     endif()
@@ -80,15 +80,15 @@ function(find_halide_package)
     
     if(HALIDE_DIR)
     # Path to cmake Halide. -DHALIDE_DIR=/path/to/halide
-    find_package(Halide CONFIG REQUIRED HINTS "${HALIDE_DIR}" )
-    message(STATUS "Halide Found in this dir : "${HALIDE_DIR}"")
+    find_package(Halide CONFIG REQUIRED HINTS ${HALIDE_DIR})
+    message(STATUS "Halide Found in this dir : ${HALIDE_DIR}")
     else()
     find_package(Halide CONFIG QUIET)
     endif()
     
     if(Halide_FOUND)        
         set(Halide_FOUND TRUE PARENT_SCOPE)
-        set(Halide_VERSION "${Halide_VERSION}" PARENT_SCOPE)
+        set(Halide_VERSION ${Halide_VERSION} PARENT_SCOPE)
     else()
         message(FATAL_ERROR "Halide not found. Please install it via your package manager or vcpkg/conan.")
     endif()
@@ -119,9 +119,6 @@ function(warn_halide_requirements)
     message(STATUS "")
 endfunction()
 
-# ============================================================
-# Find magic_enum
-# ============================================================
 # ============================================================
 # Find magic_enum
 # ============================================================
