@@ -4,42 +4,6 @@ project(CaptureMomentQtCore LANGUAGES CXX)
 
 message(STATUS "Configuring CaptureMoment Qt Core Library...")
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui GuiPrivate ShaderTools)
-
-if(TARGET Qt6::Core)
-    message(STATUS "Qt6 found Core")
-else()
-    message(FATAL_ERROR "Core not found.")
-endif()
-
-if(TARGET Qt6::Quick)
-    message(STATUS "Qt6 found Quick")
-else()
-    message(FATAL_ERROR "Quick not found.")
-endif()
-
-if(TARGET Qt6::Gui)
-    message(STATUS "Qt6 found Gui")
-else()
-    message(FATAL_ERROR "Gui not found.")
-endif()
-
-if(TARGET Qt6::GuiPrivate)
-    message(STATUS "Qt6 found Gui Private")
-else()
-    message(FATAL_ERROR "Gui Private not found.")
-endif()
-
-if(TARGET Qt6::ShaderTools)
-    message(STATUS "Qt6 found ShaderTools")
-else()
-    message(FATAL_ERROR "ShaderTools not found.")
-endif()
-
-message(STATUS "Qt6 found : ${Qt6_VERSION}")
-
-qt_standard_project_setup(REQUIRES 6.9.3)
-
 set(CAPTUREMOMENT_QT_CORE_LIB capturemoment_qt_core_lib)
 
 # --- Creation of the library ---

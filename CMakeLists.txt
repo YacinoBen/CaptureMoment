@@ -55,6 +55,16 @@ if(examples)
 endif()
 
 # ============================================================
+# Configuration Qt file generation
+# ============================================================
+if(BUILD_DESKTOP_UI OR BUILD_MOBILE_UI)
+    # We will find Qt in the subdirectories (qt/core and qt/desktop) to ensure we get the correct components for each part of the project. However, we can set a global minimum version requirement here if needed.
+    find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui GuiPrivate ShaderTools Qml)
+    message(STATUS "Qt6 found : ${Qt6_VERSION}")
+    qt_standard_project_setup(REQUIRES 6.10.0)
+endif()
+
+# ============================================================
 # Configure vcpkg (if detected)
 # ============================================================
 configure_vcpkg_if_present() # From VcpkgHelpers.cmake

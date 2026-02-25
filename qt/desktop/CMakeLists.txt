@@ -3,17 +3,6 @@
 project(CaptureMomentUIDesktop LANGUAGES CXX)
 
 message(STATUS "Configuring CaptureMoment Desktop UI...")
-find_package(Qt6 REQUIRED COMPONENTS Qml)
-
-# We have already packages installed with qt/core/CMakeLists.txt
-
-if(TARGET Qt6::Qml)
-    message(STATUS "Qt6 found: ${Qt6_VERSION} (Qml)")
-else()
-    message(FATAL_ERROR "Qt6 Qml not found. Please install Qt6 with the component.")
-endif()
- 
-qt_standard_project_setup(REQUIRES 6.9.3)
 
 set(CAPTUREMOMENT_DESKTOP_TARGET capturemoment_desktop)
 
