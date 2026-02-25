@@ -10,14 +10,14 @@
 #include <QQuickRhiItemRenderer>
 #include <rhi/qrhi.h>
 #include <memory>
-#include <QMutex> // For thread-safe access to shared data from RHIImageItem
+#include <QMutex>
 
-#include "common/image_region.h" // Assuming ImageRegion is in common
+#include "common/image_region.h"
 
 namespace CaptureMoment::UI {
 
 namespace Rendering {
-class RHIImageItem; // Forward declaration
+class RHIImageItem;
 
 /**
  * @class RHIImageItemRenderer
