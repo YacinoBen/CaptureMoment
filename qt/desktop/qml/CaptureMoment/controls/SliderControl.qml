@@ -39,7 +39,7 @@ Control {
             onMoved: {
                 sliderControl.value = value
             }
-            
+
             background: Rectangle {
                 x: slider.leftPadding
                 y: slider.topPadding + slider.availableHeight / 2 - height / 2
@@ -48,21 +48,23 @@ Control {
                 width: slider.availableWidth
                 height: implicitHeight
                 radius: 2
-              //  color: Material.midlight  // Define color here
-                
+                // color: Material.midlight
+
                 // Progress bar
                 Rectangle {
                     height: parent.height
                     radius: 2
                     color: Material.accent
-                    
+
                     // Progress from center (0) to left or right
                     x: {
                         const midPoint = parent.width / 2
                         const range = sliderControl.to - sliderControl.from
+                        if (range === 0) return 0
+
                         const normalizedValue = (sliderControl.value - sliderControl.from) / range
                         const progress = normalizedValue * parent.width
-                        
+
                         if (sliderControl.value >= 0) {
                             // Value is positive: progress from middle to right
                             return midPoint
@@ -71,24 +73,26 @@ Control {
                             return progress
                         }
                     }
-                    
+
                     width: {
                         const midPoint = parent.width / 2
                         const range = sliderControl.to - sliderControl.from
+                         if (range === 0) return 0
+
                         const normalizedValue = (sliderControl.value - sliderControl.from) / range
                         const progress = normalizedValue * parent.width
-                        
+
                         if (sliderControl.value >= 0) {
                             // Positive: width from middle to current value
-                            return progress - midPoint
+                            return Math.max(0, progress - midPoint)
                         } else {
                             // Negative: width from current value to middle
-                            return midPoint - progress
+                            return Math.max(0, midPoint - progress)
                         }
                     }
                 }
             }
-            
+
             handle: Rectangle {
                 x: slider.leftPadding + slider.visualPosition * slider.availableWidth - width / 2
                 y: slider.topPadding + slider.availableHeight / 2 - height / 2
@@ -127,7 +131,7 @@ Control {
                 return Math.round(Number.fromLocaleString(locale, text) * decimalFactor)
             }
 
-            onValueChanged: {
+            onValueModified: {
                 sliderControl.value = value / decimalFactor
             }
         }
