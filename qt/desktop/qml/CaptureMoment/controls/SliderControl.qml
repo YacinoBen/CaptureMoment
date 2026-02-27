@@ -60,7 +60,6 @@ Control {
                     x: {
                         const midPoint = parent.width / 2
                         const range = sliderControl.to - sliderControl.from
-                        // Évite la division par zéro
                         if (range === 0) return 0
 
                         const normalizedValue = (sliderControl.value - sliderControl.from) / range
