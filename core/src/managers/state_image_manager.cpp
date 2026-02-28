@@ -11,6 +11,7 @@
 #include "operations/operation_registry.h"
 #include "pipeline/pipeline_context.h"
 #include "workers/worker_context.h"
+#include "managers/source_manager.h"
 
 #include <spdlog/spdlog.h>
 #include <thread>
