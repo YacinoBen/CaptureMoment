@@ -37,14 +37,8 @@ class PipelineHalideOperationManager final : public IPipelineManager {
 public:
     /**
      * @brief Constructor with Dependency Injection.
-     *
-     * @details
-     * Requires a reference to the `PipelineBuilder` to be able to instantiate
-     * `OperationPipelineExecutor` objects during `init` calls.
-     *
-     * @param builder Reference to the pipeline builder instance.
      */
-    explicit PipelineHalideOperationManager(const Pipeline::PipelineBuilder& builder);
+    explicit PipelineHalideOperationManager();
 
     virtual ~PipelineHalideOperationManager() = default;
 
