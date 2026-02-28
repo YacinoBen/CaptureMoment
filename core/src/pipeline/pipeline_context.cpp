@@ -16,14 +16,11 @@ PipelineContext::PipelineContext()
 {
     spdlog::info("PipelineContext::PipelineContext: Initializing Context...");
 
-    // 1. Create the unique instance of the Builder
-    m_builder = std::make_unique<PipelineBuilder>();
+    // Register all available pipeline types
+    PipelineRegistry::registerAll();
 
-    // 2. Register all available pipeline types in this builder
-    PipelineRegistry::registerAll(*m_builder);
-
-    // 3. Instantiate concrete managers (Halide only for now)
-    m_halide_manager = std::make_unique<Strategies::PipelineHalideOperationManager>(*m_builder);
+    // Instantiate concrete managers (Halide only for now)
+    m_halide_manager = std::make_unique<Strategies::PipelineHalideOperationManager>();
 
     if (!m_halide_manager) {
         spdlog::error("PipelineContext::PipelineContext: Failed to build Halide Manager.");

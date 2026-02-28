@@ -85,13 +85,6 @@ public:
 
 private:
     /**
-     * @brief The single global builder instance.
-     * @details
-     * Shared by all internal managers to create executors.
-     */
-    std::unique_ptr<PipelineBuilder> m_builder;
-
-    /**
      * @brief The specific manager for Halide adjustments.
      */
     std::unique_ptr<Strategies::PipelineHalideOperationManager> m_halide_manager;

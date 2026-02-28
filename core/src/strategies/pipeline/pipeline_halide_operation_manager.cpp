@@ -11,18 +11,14 @@
 
 namespace CaptureMoment::Core::Strategies {
 
-PipelineHalideOperationManager::PipelineHalideOperationManager(const Pipeline::PipelineBuilder& builder)
+PipelineHalideOperationManager::PipelineHalideOperationManager()
     : m_operation_factory(std::make_unique<Operations::OperationFactory>())
 {
     // Register all available operations (Concrete Creators)
     Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
     spdlog::debug("PipelineHalideOperationManager: Constructed with Pipeline and Worker contexts.");
-
-    // builder.build return unique_ptr<IPipelineExecutor>
-    // m_executor take unique_ptr<OperationPipelineExecutor>
-    // We need to downcast the pointer from IPipelineExecutor to OperationPipelineExecutor
     
-    auto base_executor = builder.build(Pipeline::PipelineType::HalideOperation);
+    auto base_executor = Pipeline::PipelineBuilder::build(Pipeline::PipelineType::HalideOperation);
 
     if (!base_executor) {
         spdlog::error("PipelineHalideOperationManager::PipelineHalideOperationManager: Builder returned null.");
