@@ -17,7 +17,7 @@
 namespace CaptureMoment::Core::Pipeline {
 
 OperationPipelineExecutor::OperationPipelineExecutor()
-    // Initialize base class member m_input with the app standard: Float32, 4 channels (RGBA)
+
     : IHalidePipelineExecutor(),
       m_factory(nullptr),
       m_backend(Config::AppConfig::instance().getProcessingBackend()),
