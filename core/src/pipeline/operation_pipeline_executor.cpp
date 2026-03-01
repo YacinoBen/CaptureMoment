@@ -5,7 +5,6 @@
  * @date 2026
  */
 
-#include "operations/interfaces/i_operation.h"
 #include "pipeline/operation_pipeline_executor.h"
 #include "operations/operation_factory.h"
 #include "image_processing/halide/working_image_halide.h"
@@ -17,14 +16,14 @@
 
 namespace CaptureMoment::Core::Pipeline {
 
-OperationPipelineExecutor::OperationPipelineExecutor() 
+OperationPipelineExecutor::OperationPipelineExecutor()
     // Initialize base class member m_input with the app standard: Float32, 4 channels (RGBA)
     : IHalidePipelineExecutor(),
+      m_factory(nullptr),
       m_backend(Config::AppConfig::instance().getProcessingBackend()),
-      m_chain_built(false),
-      m_factory(nullptr)
+      m_chain_built(false)
 {
-    spdlog::debug("OperationPipelineExecutor: Constructed. Input set to Float(32), 3 dimensions. Backend: {}", 
+    spdlog::debug("OperationPipelineExecutor: Constructed. Input set to Float(32), 3 dimensions. Backend: {}",
                   static_cast<int>(m_backend));
 }
 
@@ -48,12 +47,11 @@ void OperationPipelineExecutor::init(
 
 void OperationPipelineExecutor::updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations)
 {
-    // Move the input vector into the member variable. This updates our internal state 
+    // Move the input vector into the member variable. This updates our internal state
     // with the latest values without any memory allocation or copying of the data structure.
     m_operations = std::move(operations);
 
     // FAST PATH: Iterate over the updated operations and sync the Halide Parameters.
-    // This loop is extremely fast as it only updates float values in the compiled pipeline.
     for (const auto& desc : m_operations) {
         if (!desc.enabled) continue;
 
@@ -83,7 +81,7 @@ void OperationPipelineExecutor::buildOperationChain()
     // IMPORTANT: Use local variables for Func and Vars to avoid crashes from reusing stale Halide objects.
     // The 'm_pipeline' member stores the compiled result, but the construction uses fresh objects.
     Halide::Var x("x"), y("y"), c("c");
-    Halide::Func output_func;
+    Halide::Func output_func("fused_pipeline");
 
     // Reset the parameter cache
     m_pipeline_params.clear();
@@ -132,16 +130,29 @@ void OperationPipelineExecutor::buildOperationChain()
     // Apply scheduling (CPU or GPU)
     applyScheduling(output_func, x, y, c);
 
-    // Compile the pipeline (JIT)
-    // This is the heavy step. It happens here so execute() is fast.
+    // Use compile_jit(target), otherwise the pipeline defaults to CPU
+    // even if gpu_tile() was applied. We must compile for the actual target.
+
+    Halide::Target target = Config::AppConfig::getHalideTarget();
+    spdlog::info("OperationPipelineExecutor::buildOperationChain: Compiling for target: {}", target.to_string());
+
     try {
+        // Compile JIT with the GPU target (e.g., Vulkan)
+        // This generates GPU kernels, not CPU code
+        output_func.compile_jit(target);
+
+        // Now create the Pipeline from the compiled function
         m_pipeline = Halide::Pipeline(output_func);
         m_chain_built = true;
-        spdlog::info("OperationPipelineExecutor::buildOperationChain: Pipeline compiled successfully with {} cached parameters.", m_pipeline_params.size());
-    } catch (const Halide::CompileError& e) {
+
+        spdlog::info("OperationPipelineExecutor::buildOperationChain: Pipeline compiled successfully with {} cached parameters.",
+                     m_pipeline_params.size());
+    }
+    catch (const Halide::CompileError& e) {
         spdlog::critical("OperationPipelineExecutor::buildOperationChain: Halide Compile Error: {}", e.what());
         m_chain_built = false;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         spdlog::critical("OperationPipelineExecutor::buildOperationChain: Exception during compilation: {}", e.what());
         m_chain_built = false;
     }
@@ -163,7 +174,6 @@ void OperationPipelineExecutor::applyScheduling(Halide::Func& pipeline, Halide::
 bool OperationPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& working_image)
 {
     if (!m_chain_built) {
-        // Nothing to do
         return true;
     }
 
@@ -197,11 +207,17 @@ bool OperationPipelineExecutor::executeOnHalideBuffer(Halide::Buffer<float>& buf
         // 1. Bind the actual C++ buffer memory to the Halide ImageParam
         // This is extremely fast (pointer copy), no data duplication.
         m_input.set(buffer);
+        // 2. Get the target for execution
+        // CRITICAL: For GPU execution, realize() MUST receive the target parameter
+        Halide::Target target = Config::AppConfig::getHalideTarget();
 
-        // 2. Execute the pre-compiled pipeline
-        // Realize writes the output back into the buffer (in-place)
-        m_pipeline.realize(buffer);
+        spdlog::debug("OperationPipelineExecutor::executeOnHalideBuffer: Halide Target Architecture: {}",
+                     target.to_string());
 
+        // 3. Execute the pipeline on the correct device (CPU or GPU)
+        // For GPU: buffer must already be on device (done in WorkingImageGPU_Halide::updateFromCPU)
+        // realize() will execute the GPU kernel
+        m_pipeline.realize(buffer, target);
         return true;
     }
     catch (const Halide::RuntimeError& e) {
@@ -231,7 +247,7 @@ bool OperationPipelineExecutor::executeWithConcreteHalide(ConcreteImage& concret
         return false;
     }
 
-    // Get the raw buffer
+    // Get the raw buffer - cast to WorkingImageHalide (common base class)
     auto& halide_part = static_cast<const ImageProcessing::WorkingImageHalide&>(concrete_image);
     Halide::Buffer<float> working_buffer = halide_part.getHalideBuffer();
 
