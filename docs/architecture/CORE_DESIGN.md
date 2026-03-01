@@ -105,10 +105,12 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Shared Infrastructure**: Base class providing common Halide buffer functionality for both CPU and GPU implementations.
 * **Memory Management**: Uses `std::unique_ptr<float[]>` (allocated via `std::make_unique_for_overwrite`) as backing store for Halide buffers, enabling in-place modifications without unnecessary copies and avoiding zero-initialization overhead during allocation.
 * **Direct Buffer Access**: Provides `getHalideBuffer()` method for direct pipeline execution.
+* **Interaction with Pipeline Executor**: The `OperationPipelineExecutor` interacts with `WorkingImageHalide` by calling its `getHalideBuffer()` method to obtain the `Halide::Buffer<float>` and then executing the pipeline on it via `executeOnHalideBuffer`.
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
 * **Ownership of SourceManager:** Now owns `m_source_manager` exclusively, decoupling `PhotoEngine` from direct I/O concerns.
 * **Delegated Responsibilities:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
 * **Enhanced Interface:** Provides methods like `loadImage`, `commitWorkingImageToSource`, and getters for source image properties (`width`, `height`, `channels`).
+* **Operation Coalescing:** Implements a coalescing strategy for incoming `applyOperations` requests. If an operation is already in progress (`isUpdatePending` is true), subsequent requests overwrite any previously pending request, optimizing for the most recent state during rapid UI interactions (e.g., dragging a slider).
 ---
 ## 9. Pipeline Management and Execution Strategies
 Recent refactoring introduced a more structured approach to managing pipeline execution strategies.
@@ -252,6 +254,9 @@ This organization clarifies the role of each component and prevents naming colli
 ### Synchronized Operation Execution
 - **Future-based Contract**: `PhotoEngine::applyOperations` now returns a `std::future<bool>`.
 - **Caller Waits**: `ImageControllerBase` waits for the future to complete before updating the display, ensuring visual consistency and preventing stale updates.
+### Operation Coalescing in StateImageManager
+- **Coalescing Strategy**: `StateImageManager::applyOperations` now implements a coalescing strategy. If an operation is already pending, new requests overwrite the previous pending request, optimizing for the most recent state during rapid UI interactions.
+- **Promise Handling**: The `std::future` returned by `applyOperations` resolves only when the *final* operation in the potential chain (including any coalesced ones) completes.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
