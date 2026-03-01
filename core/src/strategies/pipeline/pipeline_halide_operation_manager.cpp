@@ -43,18 +43,26 @@ void PipelineHalideOperationManager::init(std::vector<Operations::OperationDescr
     // 1. Detect structural changes (type, name, enabled) vs value changes (params)
     bool structure_changed = true;
 
+    spdlog::debug("[PipelineHalideOperationManager::init]: m_last_operations.size() = {}, operations.size() = {}",
+                  m_last_operations.size(), operations.size());
+
     if (m_last_operations.size() == operations.size()) {
         structure_changed = false;
         for (size_t i = 0; i < operations.size(); ++i) {
+
             // Compare type, name, enabled. Ignore params for this check.
-            if (operations[i].type != m_last_operations[i].type || 
-                operations[i].name != m_last_operations[i].name ||
+            spdlog::debug("[PipelineHalideOperationManager::init]: Op[{}]: | last=({},{}) | new=({},{})",
+                          i,m_last_operations[i].name, m_last_operations[i].enabled, operations[i].name, operations[i].enabled);
+
+            if (operations[i].type != m_last_operations[i].type ||
                 operations[i].enabled != m_last_operations[i].enabled) {
                 structure_changed = true;
+                spdlog::debug("[PipelineHalideOperationManager::init]: Structure change detected at index {}", i);
                 break;
             }
         }
     }
+    spdlog::debug("[PipelineHalideOperationManager::init]: structure_changed = {}", structure_changed);
 
     // 2. Update the cache with the new operations (for future structural change detection)
     // This should be done before the lock to minimize time spent in critical section, as it's just a vector copy.
@@ -65,24 +73,12 @@ void PipelineHalideOperationManager::init(std::vector<Operations::OperationDescr
     std::lock_guard lock(m_mutex);
 
     if (structure_changed) {
-        spdlog::info("PipelineHalideOperationManager::init: Structure changed. Recompiling pipeline.");
+        spdlog::info("[PipelineHalideOperationManager::init]: Structure changed. Recompiling pipeline.");
         // If the structure changed, we need to recompile the pipeline, which is more expensive. We call init() which will rebuild the graph and recompile.
         m_executor->init(std::move(operations), *m_operation_factory);
     } else {
-        spdlog::trace("PipelineHalideOperationManager::init: Values only. Updating runtime params.");
+        spdlog::trace("[PipelineHalideOperationManager::init]: Values only. Updating runtime params.");
         // If only values changed, we can skip recompilation and just update the parameters in the existing pipeline. This is the fast path.
-        m_executor->updateRuntimeParams(std::move(operations));
-    }
-}
-
-void PipelineHalideOperationManager::updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations)
-{
-    std::lock_guard lock(m_mutex);
-    
-    // Update the cache with the new operations (for future structural change detection)
-    m_last_operations = operations;
-    
-    if (m_executor) {
         m_executor->updateRuntimeParams(std::move(operations));
     }
 }
@@ -92,9 +88,11 @@ bool PipelineHalideOperationManager::execute(ImageProcessing::IWorkingImageHardw
     std::lock_guard lock(m_mutex);
 
     if (!m_executor) {
+        spdlog::debug("[PipelineHalideOperationManager::execute]: error call m_executor->execute");
         return false;
     }
 
+    spdlog::debug("[PipelineHalideOperationManager::execute]: call m_executor->execute");
     return m_executor->execute(working_image);
 }
 
