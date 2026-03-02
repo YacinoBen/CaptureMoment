@@ -1,5 +1,6 @@
 # Core Architecture Design Principles
 The CaptureMoment core library is designed with modularity, high performance, and future extensibility in mind, which is essential for a modern, tile-based image processing engine. This document outlines the key architectural decisions, focusing on how we separate data from behavior and use established design patterns.
+
 ---
 ## 1. Data-Centric Design: Plain Old Data (POD) / Value Types
 A fundamental principle of this architecture is the segregation of data storage from processing logic. Core data structures are kept simple and easy to handle:
@@ -111,14 +112,15 @@ The fused pipeline system works seamlessly across different hardware backends.
 ---
 ## 9. Pipeline Management and Execution Strategies
 Recent refactoring introduced a more structured approach to managing pipeline execution strategies.
-### `CaptureMoment::Core::Pipeline::PipelineBuilder` (Registry Pattern)
+### `CaptureMoment::Core::Pipeline::PipelineBuilder` (Registry Pattern - Global)
 * **Responsibility:** Central registry for creating `IPipelineExecutor` instances based on `PipelineType` (e.g., HalideOperation).
-* **Pattern Explanation (Registry):** Similar to the `WorkingImageFactory`, this uses a static map to associate a `PipelineType` with a creator function. This allows new pipeline types (e.g., AI-based, OpenCV-based) to be registered at startup without modifying existing managers like `StateImageManager`. It decouples the high-level orchestrator from the specific executor creation logic.
+* **Global Instance:** The `PipelineBuilder` registry is now initialized once globally via `PipelineRegistry::registerAll()` during application startup (often triggered by `PipelineContext` construction).
+* **Pattern Explanation (Registry):** This uses a static map (managed by `PipelineRegistry`) to associate a `PipelineType` with a creator function. This allows new pipeline types (e.g., AI-based, OpenCV-based) to be registered at startup without modifying existing managers like `StateImageManager`. It decouples the high-level orchestrator from the specific executor creation logic. Executors are created via the **static method** `PipelineBuilder::build()`.
 ### `CaptureMoment::Core::Pipeline::PipelineRegistry`
-* **Responsibility:** Static helper to populate the `PipelineBuilder` registry at startup.
+* **Responsibility:** Static helper to populate the global `PipelineBuilder` registry at startup.
 ### `CaptureMoment::Core::Pipeline::PipelineContext`
-* **Responsibility:** Central container holding the `PipelineBuilder` and instances of `IPipelineManager`.
-* **Pattern Explanation (Container/Service Locator):** `PipelineContext` acts as a service locator for the pipeline infrastructure, holding the `PipelineBuilder` and the active `IPipelineManager` instances. This simplifies dependency injection into `StateImageManager`.
+* **Responsibility:** Central container holding instances of `IPipelineManager`. It triggers the global registration of pipeline types via `PipelineRegistry::registerAll()` upon construction.
+* **Pattern Explanation (Container/Service Locator):** `PipelineContext` acts as a service locator for the pipeline infrastructure, holding the active `IPipelineManager` instances. It does **not** hold a `PipelineBuilder` instance itself, relying instead on the global registry.
 ### `CaptureMoment::Core::Strategies::IPipelineManager` (Abstract Interface)
 * **Responsibility:** High-level interface for managing a specific category of image processing (e.g., Halide adjustments).
 * **Contract:** Defines `init(operations, factory)` and `execute(working_image)` methods.
@@ -129,6 +131,7 @@ Recent refactoring introduced a more structured approach to managing pipeline ex
 * **Thread Safety:** Includes mutex protection for concurrent access during initialization and execution.
 * **Performance Optimization:** Implements `updateRuntimeParams` and tracks `m_last_operations` to detect structural changes vs. value-only updates, enabling fast parameter adjustments without recompilation.
 * **Operation Factory Location:** Now owns the `OperationFactory` instance, centralizing operation creation logic.
+* **Executor Creation:** Instantiates its required `OperationPipelineExecutor` by calling the **static** `PipelineBuilder::build()` method.
 ---
 ## 10. Asynchronous Processing Workers
 A new layer has been introduced to handle specific processing tasks asynchronously, further decoupling execution logic.
@@ -225,9 +228,9 @@ This organization clarifies the role of each component and prevents naming colli
 - **Backend Selection**: Runtime benchmarking automatically determines optimal CPU/GPU usage.
 - **Memory Allocation**: `WorkingImageHalide` uses `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` to avoid zero-initialization overhead during large buffer allocation.
 ### Pipeline Management Refactoring
-- **Registry Pattern**: Introduced `PipelineBuilder` and `PipelineRegistry` for flexible executor creation.
+- **Global Registry Pattern**: Introduced `PipelineBuilder` (global registry) and `PipelineRegistry` for flexible executor creation. `PipelineContext` triggers global registration.
 - **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager` for high-level strategy control.
-- **Pipeline Context**: Centralized infrastructure management via `PipelineContext`.
+- **Pipeline Context**: Centralized infrastructure management via `PipelineContext` (holds managers, triggers global builder registration).
 ### Asynchronous Worker System
 - **IWorkerRequest Interface**: Defined the contract for asynchronous processing tasks.
 - **Worker Context**: Centralized container for worker infrastructure.
@@ -240,6 +243,7 @@ This organization clarifies the role of each component and prevents naming colli
 ### Operation Manager Optimization
 - **Runtime Parameter Updates**: `PipelineHalideOperationManager` implements `updateRuntimeParams` to update pipeline parameters quickly without recompilation if only values change.
 - **Structural Change Detection**: Uses `m_last_operations` to detect structural changes (add/remove/modify type/enable) versus value-only changes.
+- **Global Builder Usage**: `PipelineHalideOperationManager` retrieves its executor via the **static** `PipelineBuilder::build()` method.
 ### StateImageManager as Central Coordinator
 - **Exclusive Source Management**: `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
 - **Simplified PhotoEngine**: `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.

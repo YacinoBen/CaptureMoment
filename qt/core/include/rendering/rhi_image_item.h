@@ -1,6 +1,6 @@
 /**
  * @file rhi_image_item.h
- * @brief Modern RHI-based image display (Qt 6 - Vulkan/Metal/DX12 compatible) using QQuickRhiItem.
+ * @brief Modern RHI-based image display (Qt6 - Vulkan/Metal/DX12 compatible) using QQuickRhiItem.
  * @author CaptureMoment Team
  * @date 2025
  */
@@ -23,7 +23,7 @@ namespace CaptureMoment::UI {
  */
 namespace Rendering {
 
-class RHIImageItemRenderer; // Forward declaration
+class RHIImageItemRenderer;
 
 /**
  * @class RHIImageItem
@@ -40,7 +40,7 @@ class RHIImageItemRenderer; // Forward declaration
  *
  * This class inherits from QQuickRhiItem for RHI integration and BaseImageItem for common state
  */
-class RHIImageItem : public QQuickRhiItem, public BaseImageItem { // Hérite de QQuickRhiItem et BaseImageItem
+class RHIImageItem : public QQuickRhiItem, public BaseImageItem {
     Q_OBJECT
 
 private:

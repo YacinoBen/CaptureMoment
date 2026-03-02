@@ -43,7 +43,7 @@ function(find_spdlog_package)
     
     if(spdlog_FOUND)
         set(spdlog_FOUND TRUE PARENT_SCOPE)
-        set(spdlog_VERSION "${spdlog_VERSION}" PARENT_SCOPE)
+        set(spdlog_VERSION ${spdlog_VERSION} PARENT_SCOPE)
     else()
         message(FATAL_ERROR "spdlog not found. Please install it via your package manager or vcpkg/conan.")
     endif()
@@ -66,7 +66,7 @@ function(find_openimageio_package)
     
     if(OpenImageIO_FOUND)
         set(OpenImageIO_FOUND TRUE PARENT_SCOPE)
-        set(OpenImageIO_VERSION "${OpenImageIO_VERSION}" PARENT_SCOPE)
+        set(OpenImageIO_VERSION ${OpenImageIO_VERSION} PARENT_SCOPE)
     else()
         message(FATAL_ERROR "OpenImageIO not found. Please install it via your package manager or vcpkg/conan.")
     endif()
@@ -80,15 +80,15 @@ function(find_halide_package)
     
     if(HALIDE_DIR)
     # Path to cmake Halide. -DHALIDE_DIR=/path/to/halide
-    find_package(Halide CONFIG REQUIRED HINTS "${HALIDE_DIR}" )
-    message(STATUS "Halide Found in this dir : "${HALIDE_DIR}"")
+    find_package(Halide CONFIG REQUIRED HINTS ${HALIDE_DIR})
+    message(STATUS "Halide Found in this dir : ${HALIDE_DIR}")
     else()
     find_package(Halide CONFIG QUIET)
     endif()
     
     if(Halide_FOUND)        
         set(Halide_FOUND TRUE PARENT_SCOPE)
-        set(Halide_VERSION "${Halide_VERSION}" PARENT_SCOPE)
+        set(Halide_VERSION ${Halide_VERSION} PARENT_SCOPE)
     else()
         message(FATAL_ERROR "Halide not found. Please install it via your package manager or vcpkg/conan.")
     endif()
@@ -98,30 +98,16 @@ endfunction()
 # Warning about Halide requirements
 # ============================================================
 function(warn_halide_requirements)
-  message(STATUS "╔════════════════════════════════════════════════════════════╗")
+    message(STATUS "╔════════════════════════════════════════════════════════════╗")
     message(STATUS "║    Warning: Halide requires LLVM                           ║")
     message(STATUS "╠════════════════════════════════════════════════════════════╣")
-    message(STATUS "║  If building from source (vcpkg):                          ║")
-    message(STATUS "║  - LLVM download: ~50 GB                                   ║")
-    message(STATUS "║  - Disk space needed: 100 GB                               ║")
-    message(STATUS "║  - RAM required: 16 GB minimum (32 GB recommended)         ║")
-    message(STATUS "║  - Build time: 30-120 minutes (depending on hardware)      ║")
-    message(STATUS "╠════════════════════════════════════════════════════════════╣")
-    message(STATUS "║     RECOMMENDATIONS:                                       ║")
-    message(STATUS "║                                                            ║")
-    message(STATUS "║  Linux/macOS: Use system package manager                   ║")
-    message(STATUS "║    → apt/dnf/brew have prebuilt Halide                     ║")
-    message(STATUS "║                                                            ║")
-    message(STATUS "║  Windows: Use vcpkg binary cache                           ║")
-    message(STATUS "║    → vcpkg install halide --binarysource=...               ║")
-    message(STATUS "║    → Or download prebuilt from GitHub Releases             ║")
+    message(STATUS "║  If building from source (for GPU Support)                 ║")
+    message(STATUS "║  - Space needed: 30-100 GB (debug or release)              ║")
+    message(STATUS "║  - Build time: 30-240 minutes (depending on hardware)      ║")
     message(STATUS "╚════════════════════════════════════════════════════════════╝")
     message(STATUS "")
 endfunction()
 
-# ============================================================
-# Find magic_enum
-# ============================================================
 # ============================================================
 # Find magic_enum
 # ============================================================
@@ -159,7 +145,6 @@ function(find_magic_enum_package)
     endif()
 
     if(magic_enum_FOUND)
-        message(STATUS "magic_enum found and target magic_enum::magic_enum created/configured.")
         # Export the FOUND status to the parent scope
         set(magic_enum_FOUND TRUE PARENT_SCOPE)
         # No need to export the target name if using it explicitly in target_link_libraries
@@ -182,7 +167,6 @@ function(find_exiv2_package)
 
     # The imported target name according to the documentation is Exiv2::exiv2lib
     if(TARGET Exiv2::exiv2lib)
-        message(STATUS "Exiv2 found: ${exiv2_DIR} (version: ${exiv2_VERSION}) - Target: Exiv2::exiv2lib")
         set(Exiv2_FOUND TRUE PARENT_SCOPE)
         set(exiv2_VERSION "${exiv2_VERSION}" PARENT_SCOPE)
     else()

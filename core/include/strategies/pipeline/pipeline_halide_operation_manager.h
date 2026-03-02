@@ -5,10 +5,6 @@
  * @details
  * This class implements `IPipelineManager` to handle standard pixel adjustments
  *
- * **Architecture:**
- * - Constructor Injection: The `PipelineBuilder` is required at creation time.
- * - Thread-Safe: Uses a mutex to protect the executor swap.
- *
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -16,9 +12,7 @@
 #pragma once
 
 #include "strategies/pipeline/interfaces/i_pipeline_manager.h"
-#include "pipeline/pipeline_builder.h"
 #include "pipeline/operation_pipeline_executor.h"
-#include "pipeline/pipeline_type.h"
 #include "operations/operation_factory.h"
 #include "operations/operation_descriptor.h"
 
@@ -37,14 +31,8 @@ class PipelineHalideOperationManager final : public IPipelineManager {
 public:
     /**
      * @brief Constructor with Dependency Injection.
-     *
-     * @details
-     * Requires a reference to the `PipelineBuilder` to be able to instantiate
-     * `OperationPipelineExecutor` objects during `init` calls.
-     *
-     * @param builder Reference to the pipeline builder instance.
      */
-    explicit PipelineHalideOperationManager(const Pipeline::PipelineBuilder& builder);
+    explicit PipelineHalideOperationManager();
 
     virtual ~PipelineHalideOperationManager() = default;
 
@@ -71,12 +59,6 @@ public:
      * @param operations The list of operation descriptors (moved).
      */
     void init(std::vector<Operations::OperationDescriptor>&& operations);
-
-    /**
-     * @brief Exposes the fast parameter update directly (Optional/Advanced).
-     * Allows explicit control if the caller knows only values changed.
-     */
-    void updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations);
 
 private:
     /**

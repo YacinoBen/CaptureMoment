@@ -130,11 +130,9 @@ set_target_properties(capturemoment_core PROPERTIES
 # ============================================================
 message(STATUS "")
 message(STATUS "╔════════════════════════════════════════════════════════════╗")
-message(STATUS "║  [core] capturemoment_core configured                       ║")
+message(STATUS "║  [core] capturemoment_core configured                      ║")
 message(STATUS "╠════════════════════════════════════════════════════════════╣")
 message(STATUS "║  Type              : Static Library (STATIC)")
-message(STATUS "║  Source Files      : ${CORE_SOURCES}")
-message(STATUS "║  Header Files      : ${HEADER_FILES}")
 message(STATUS "║  Output Directory  : ${CMAKE_BINARY_DIR}/lib")
 message(STATUS "╚════════════════════════════════════════════════════════════╝")
 message(STATUS "")

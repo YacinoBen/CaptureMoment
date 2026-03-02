@@ -20,7 +20,7 @@
 #pragma once
 
 #include "operations/operation_descriptor.h"
-#include "managers/source_manager.h"
+#include "managers/i_source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
 #include "operations/operation_factory.h"
 
@@ -209,7 +209,7 @@ private:
     /**
      * @brief Dependency to access original image tiles and metadata.
      */
-    std::unique_ptr<Managers::SourceManager> m_source_manager;
+    std::unique_ptr<Managers::ISourceManager> m_source_manager;
 };
 
 } // namespace Managers

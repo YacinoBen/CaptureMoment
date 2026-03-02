@@ -4,42 +4,6 @@ project(CaptureMomentQtCore LANGUAGES CXX)
 
 message(STATUS "Configuring CaptureMoment Qt Core Library...")
 
-find_package(Qt6 REQUIRED COMPONENTS Core Quick Gui GuiPrivate ShaderTools)
-
-if(TARGET Qt6::Core)
-    message(STATUS "Qt6 found Core")
-else()
-    message(FATAL_ERROR "Core not found.")
-endif()
-
-if(TARGET Qt6::Quick)
-    message(STATUS "Qt6 found Quick")
-else()
-    message(FATAL_ERROR "Quick not found.")
-endif()
-
-if(TARGET Qt6::Gui)
-    message(STATUS "Qt6 found Gui")
-else()
-    message(FATAL_ERROR "Gui not found.")
-endif()
-
-if(TARGET Qt6::GuiPrivate)
-    message(STATUS "Qt6 found Gui Private")
-else()
-    message(FATAL_ERROR "Gui Private not found.")
-endif()
-
-if(TARGET Qt6::ShaderTools)
-    message(STATUS "Qt6 found ShaderTools")
-else()
-    message(FATAL_ERROR "ShaderTools not found.")
-endif()
-
-message(STATUS "Qt6 found : ${Qt6_VERSION}")
-
-qt_standard_project_setup(REQUIRES 6.9.3)
-
 set(CAPTUREMOMENT_QT_CORE_LIB capturemoment_qt_core_lib)
 
 # --- Creation of the library ---
@@ -78,7 +42,6 @@ set(CORE_SOURCES
     src/display/display_manager.cpp
 
     # Rendering
-    src/rendering/rhi_image_node.cpp
     src/rendering/rhi_image_item.cpp
     src/rendering/rhi_image_item_renderer.cpp
     src/rendering/sgs_image_item.cpp
@@ -101,7 +64,6 @@ set(CORE_SOURCES
 set(QOBJECT_HEADERS
     # Rendering
     include/rendering/i_rendering_item_base.h
-    include/rendering/rhi_image_node.h
     include/rendering/rhi_image_item.h
     include/rendering/rhi_image_item_renderer.h
     include/rendering/sgs_image_item.h
@@ -165,7 +127,6 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
             # Rendering
             rendering/i_rendering_item_base.h
             rendering/base_image_item.h
-            rendering/rhi_image_node.h
             rendering/rhi_image_item.h
             rendering/rhi_image_item_renderer.h
             rendering/sgs_image_item.h
@@ -223,5 +184,4 @@ install(DIRECTORY include/
 
 message(STATUS "CaptureMoment Qt Core Library configured successfully.")
 message(STATUS "   - Target: ${CAPTUREMOMENT_QT_CORE_LIB}")
-message(STATUS "   - Qt Version: ${Qt6_VERSION}")
 message(STATUS "")

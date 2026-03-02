@@ -13,6 +13,8 @@
  * 2. Build an instance: `auto executor = PipelineBuilder::build(Type);`
  * 3. Initialize the instance: `executor->initialize(ops, factory);`
  *
+ * @note This is a static-only class. It cannot be instantiated, copied, or moved.
+ *
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -33,6 +35,10 @@ namespace Pipeline {
 /**
  * @class PipelineBuilder
  * @brief Static registry for creating `IPipelineExecutor` instances based on type.
+ *
+ * @details
+ * This class is designed as a static utility class with no instance state.
+ * All methods are static and operate on a shared global registry.
  */
 class PipelineBuilder {
 public:
@@ -44,6 +50,50 @@ public:
      * of the concrete implementation.
      */
     using CreatorFunc = std::function<std::unique_ptr<IPipelineExecutor>()>;
+
+    // ============================================================
+    // Deleted constructors and assignment operators (static-only class)
+    // ============================================================
+
+    /**
+     * @brief Deleted default constructor.
+     * @details This class is static-only and cannot be instantiated.
+     */
+    PipelineBuilder() = delete;
+
+    /**
+     * @brief Deleted destructor.
+     * @details This class is static-only and cannot be instantiated.
+     */
+    ~PipelineBuilder() = delete;
+
+    /**
+     * @brief Deleted copy constructor.
+     * @details This class is static-only and cannot be copied.
+     */
+    PipelineBuilder(const PipelineBuilder&) = delete;
+
+    /**
+     * @brief Deleted copy assignment operator.
+     * @details This class is static-only and cannot be copied.
+     */
+    PipelineBuilder& operator=(const PipelineBuilder&) = delete;
+
+    /**
+     * @brief Deleted move constructor.
+     * @details This class is static-only and cannot be moved.
+     */
+    PipelineBuilder(PipelineBuilder&&) = delete;
+
+    /**
+     * @brief Deleted move assignment operator.
+     * @details This class is static-only and cannot be moved.
+     */
+    PipelineBuilder& operator=(PipelineBuilder&&) = delete;
+
+    // ============================================================
+    // Static Methods
+    // ============================================================
 
     /**
      * @brief Retrieves an instance of the executor for the specified type.

@@ -7,35 +7,36 @@
 
 #include "pipeline/pipeline_registry.h"
 #include "pipeline/operation_pipeline_executor.h"
+#include "pipeline/pipeline_builder.h"
 
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Pipeline {
 
-void PipelineRegistry::registerAll(PipelineBuilder& builder) {
+void PipelineRegistry::registerAll() {
     spdlog::info("PipelineRegistry: Registering all pipeline executors");
 
-    registerHalideExecutors(builder);
+    registerHalideExecutors();
     // registerAIExecutors(builder); // TODO: Enable when AI manager is ready
 
     spdlog::info("PipelineRegistry: All pipeline executors registered");
 }
 
-void PipelineRegistry::registerHalideExecutors(PipelineBuilder& builder) {
+void PipelineRegistry::registerHalideExecutors() {
     spdlog::debug("PipelineRegistry: Registering Halide operation executors");
 
     // Halide Fused Operations
-    builder.registerCreator(PipelineType::HalideOperation, []() {
+     PipelineBuilder::registerCreator(PipelineType::HalideOperation, []() {
         return std::make_unique<OperationPipelineExecutor>();
     });
     spdlog::trace("PipelineRegistry: Registered HalideOperation Executor");
 }
 
-void PipelineRegistry::registerAIExecutors(PipelineBuilder& builder) {
+void PipelineRegistry::registerAIExecutors() {
     spdlog::debug("PipelineRegistry: Registering AI/Computer Vision executors");
 
     // Exemple: Sky Replacement
-    // builder.registerCreator(PipelineType::SkyAI, []() {
+    // PipelineBuilder::registerCreator(PipelineType::SkyAI, []() {
     //     return std::make_unique<SkyPipelineExecutor>();
     // });
     // spdlog::trace("PipelineRegistry: Registered SkyAI Executor");

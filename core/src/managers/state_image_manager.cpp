@@ -8,13 +8,11 @@
 #include "managers/state_image_manager.h"
 
 #include "image_processing/factories/working_image_factory.h"
-#include "operations/operation_registry.h"
 #include "pipeline/pipeline_context.h"
 #include "workers/worker_context.h"
+#include "managers/source_manager.h"
 
 #include <spdlog/spdlog.h>
-#include <thread>
-#include <format>
 #include <utility>
 
 namespace CaptureMoment::Core::Managers {
