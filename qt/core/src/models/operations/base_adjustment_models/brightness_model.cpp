@@ -20,6 +20,7 @@ BrightnessModel::BrightnessModel(QObject* parent)
 Core::Operations::OperationDescriptor BrightnessModel::getDescriptor() const
 {
     Core::Operations::OperationDescriptor descriptor;
+    descriptor.id = m_operation_id;
     descriptor.type = Core::Operations::OperationType::Brightness;
     descriptor.name = "Brightness (" + std::to_string(static_cast<int>(m_params.value * 100)) + "%)";
     descriptor.enabled = true;
