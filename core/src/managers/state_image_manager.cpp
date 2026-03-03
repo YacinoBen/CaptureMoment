@@ -193,7 +193,9 @@ void StateImageManager::launchProcessing(
     m_is_updating.store(true, std::memory_order_release);
 
     // 1. Retrieve the original image data from the SourceManager.
-    auto original_tile = m_source_manager->getTile(0, 0, m_source_manager->width(), m_source_manager->height());
+    const size_t source_width = m_source_manager->width();
+    const size_t source_height = m_source_manager->height();
+    auto original_tile = m_source_manager->getTile(0, 0, source_width, source_height);
 
     if (!original_tile)
     {
@@ -202,39 +204,67 @@ void StateImageManager::launchProcessing(
         return;
     }
 
-    // 2. Create the Working Image (The execution target).
-    auto unique_new_image = ImageProcessing::WorkingImageFactory::create(*original_tile.value());
+    // 2. Get or Create the Working Image (reuse optimization)
+    std::shared_ptr<ImageProcessing::IWorkingImageHardware> working_image_to_use;
 
-    if (!unique_new_image) {
-        spdlog::error("[StateImageManager::launchProcessing]: Failed to create working image.");
-        onProcessingComplete(false);
-        return;
+    {
+        std::lock_guard lock(m_state_mutex);
+
+        // Check if we can reuse the existing working image
+        bool can_reuse = false;
+
+        if (m_working_image && m_working_image->isValid()) {
+            auto [current_width, current_height] = m_working_image->getSize();
+
+            if (current_width == source_width && current_height == source_height) {
+                // Same size - try to update in place
+                auto update_result = m_working_image->updateFromCPU(*original_tile.value());
+
+                if (update_result) {
+                    can_reuse = true;
+                    working_image_to_use = m_working_image;
+                    spdlog::debug("[StateImageManager::launchProcessing]: Reused existing working image (updated from CPU).");
+                } else {
+                    spdlog::warn("[StateImageManager::launchProcessing]: updateFromCPU failed, will recreate.");
+                }
+            }
+        }
+
+        // Create new if we couldn't reuse
+        if (!can_reuse) {
+            auto unique_new_image = ImageProcessing::WorkingImageFactory::create(*original_tile.value());
+
+            if (!unique_new_image) {
+                spdlog::error("[StateImageManager::launchProcessing]: Failed to create working image.");
+                onProcessingComplete(false);
+                return;
+            }
+
+            working_image_to_use = std::move(unique_new_image);
+            m_working_image = working_image_to_use;  // Store for future reuse
+            spdlog::debug("[StateImageManager::launchProcessing]: Created new working image.");
+        }
     }
 
     // 3. Retrieve the Halide Manager from the Pipeline Context.
     auto& halide_manager = m_pipeline_context->getHalideManager();
 
     // 4. Initialize the Manager with the Operations (Move Data Transfer).
-    // This transfers ownership of `ops` to the manager.
     halide_manager.init(std::move(ops));
 
     // 5. Retrieve the specific Worker for Halide operations.
     auto worker = m_worker_context->getHalideOperationWorker();
 
     // 6. Execute the processing asynchronously.
-    // Pass the Context (infrastructure) and the Image (data).
-    auto worker_future = worker.execute(*m_pipeline_context, *unique_new_image);
+    // Note: We pass a raw reference since working_image_to_use is kept alive by m_working_image
+    auto worker_future = worker.execute(*m_pipeline_context, *working_image_to_use);
 
     // 7. Launch async continuation to handle completion
-    std::thread([this, worker_future = std::move(worker_future),
-                 working_image = std::move(unique_new_image)]() mutable {
+    std::thread([this, worker_future = std::move(worker_future)]() mutable {
         // Wait for worker to complete
         bool success = worker_future.get();
 
-        // Update working image on success
         if (success) {
-            std::lock_guard lock(m_state_mutex);
-            m_working_image = std::move(working_image);
             spdlog::info("[StateImageManager::launchProcessing]: Processing completed.");
         } else {
             spdlog::error("[StateImageManager::launchProcessing]: Processing failed.");
