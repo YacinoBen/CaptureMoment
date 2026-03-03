@@ -52,9 +52,9 @@ void PipelineHalideOperationManager::init(std::vector<Operations::OperationDescr
 
             // Compare type, name, enabled. Ignore params for this check.
             spdlog::debug("[PipelineHalideOperationManager::init]: Op[{}]: | last=({},{}) | new=({},{})",
-                          i,m_last_operations[i].name, m_last_operations[i].enabled, operations[i].name, operations[i].enabled);
+                          operations[i].id,m_last_operations[i].name, m_last_operations[i].enabled, operations[i].name, operations[i].enabled);
 
-            if (operations[i].type != m_last_operations[i].type ||
+            if (operations[i].id != m_last_operations[i].id &&
                 operations[i].enabled != m_last_operations[i].enabled) {
                 structure_changed = true;
                 spdlog::debug("[PipelineHalideOperationManager::init]: Structure change detected at index {}", i);
