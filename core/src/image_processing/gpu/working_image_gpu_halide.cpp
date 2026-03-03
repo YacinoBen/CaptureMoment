@@ -217,6 +217,46 @@ WorkingImageGPU_Halide::exportToCPUCopy()
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 }
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+WorkingImageCPU_Halide::exportToCPUMove()
+{
+    if (!isValid()) {
+        spdlog::warn("WorkingImageCPU_Halide::exportToCPUMove: Current buffer is invalid, cannot move");
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+    }
+
+    try {
+        // Create vector and copy data from unique_ptr buffer
+        std::vector<float> moved_data(m_data_size);
+        std::memcpy(moved_data.data(), m_data.get(), m_data_size * sizeof(float));
+
+        // Use move constructor for zero-copy ImageRegion creation
+        auto cpu_image = std::make_unique<Common::ImageRegion>(
+            std::move(moved_data),
+            static_cast<int>(m_halide_buffer.width()),
+            static_cast<int>(m_halide_buffer.height()),
+            static_cast<int>(m_halide_buffer.channels())
+            );
+        cpu_image->m_format = Common::PixelFormat::RGBA_F32;
+
+        // Invalidate this WorkingImage
+        m_data.reset();
+        m_data_size = 0;
+
+        spdlog::debug("WorkingImageCPU_Halide::exportToCPUMove: Moved {} elements to ImageRegion (buffer invalidated)",
+                      cpu_image->m_data.size());
+
+        return cpu_image;
+    }
+    catch (const std::bad_alloc& e) {
+        spdlog::critical("WorkingImageCPU_Halide::exportToCPUMove: Allocation failed: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+    }
+    catch (const std::exception& e) {
+        spdlog::critical("WorkingImageCPU_Halide::exportToCPUMove: Exception: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
+    }
+}
 
 std::pair<size_t, size_t> WorkingImageGPU_Halide::getSize() const
 {
