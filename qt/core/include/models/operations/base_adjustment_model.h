@@ -72,6 +72,11 @@ protected:
      */
     Domain::RelativeAdjustmentParams m_params;
 
+    /**
+     * @brief id for operations
+     */
+    uint64_t m_operation_id{Core::Operations::OperationDescriptor::generateId()};
+
 public:
     /**
      * @brief Constructs a BaseAdjustmentModel.
