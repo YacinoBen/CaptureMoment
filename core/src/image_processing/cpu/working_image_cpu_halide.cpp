@@ -157,6 +157,64 @@ WorkingImageCPU_Halide::exportToCPUCopy()
     return convertHalideToImageRegion();
 }
 
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+WorkingImageGPU_Halide::exportToCPUMove()
+{
+    if (!isValid()) {
+        spdlog::warn("[WorkingImageGPU_Halide] exportToCPUMove called on invalid image");
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+    }
+
+    try {
+        // Step 1: Sync GPU data to host memory
+        // This is the unavoidable GPU→CPU transfer when using GPU memory.
+        // The data ends up in m_halide_buffer (which points to m_data).
+        int result = m_halide_buffer.copy_to_host();
+        if (result != 0) {
+            spdlog::critical("[WorkingImageGPU_Halide] copy_to_host failed in exportToCPUMove: {}", result);
+            return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+        }
+
+        // Step 2: Create vector and copy data
+        // We create a new vector and copy into it - this is the single memcpy
+        // that we cannot avoid when transferring from unique_ptr to vector.
+        std::vector<float> moved_data(m_data_size);
+        std::memcpy(moved_data.data(), m_data.get(), m_data_size * sizeof(float));
+
+        // Step 3: Use move constructor for zero-copy ImageRegion creation
+        // The vector is moved into the ImageRegion without copying.
+        auto cpu_image = std::make_unique<Common::ImageRegion>(
+            std::move(moved_data),
+            static_cast<int>(m_cached_width),
+            static_cast<int>(m_cached_height),
+            static_cast<int>(m_cached_channels)
+            );
+        cpu_image->m_format = Common::PixelFormat::RGBA_F32;
+
+        // Step 4: Invalidate this WorkingImage
+        // Reset all state to prevent accidental reuse after data transfer.
+        m_data.reset();
+        m_data_size = 0;
+        m_metadata_valid = false;
+        m_cached_width = 0;
+        m_cached_height = 0;
+        m_cached_channels = 0;
+
+        spdlog::debug("[WorkingImageGPU_Halide] Moved {} elements to ImageRegion (buffer invalidated)",
+                      cpu_image->m_data.size());
+
+        return cpu_image;
+    }
+    catch (const std::bad_alloc& e) {
+        spdlog::critical("[WorkingImageGPU_Halide] Allocation failed in exportToCPUMove: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+    }
+    catch (const std::exception& e) {
+        spdlog::critical("[WorkingImageGPU_Halide] Exception in exportToCPUMove: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
+    }
+}
+
 std::pair<size_t, size_t> WorkingImageCPU_Halide::getSize() const
 {
     if (!isValid()) {

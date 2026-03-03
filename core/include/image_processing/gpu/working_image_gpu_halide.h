@@ -76,8 +76,24 @@ public:
      *
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
      */
-    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    [[maybe_unused]] [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     exportToCPUCopy() override;
+
+    /**
+     * @brief Transfers ownership of GPU image data to a CPU ImageRegion (Zero-Copy Move).
+     *
+     * @details
+     * Performs an optimized transfer with minimal overhead. After this call,
+     * the WorkingImage is invalidated and must be re-initialized.
+     *
+     * @return std::expected with ImageRegion on success, error on failure.
+     *
+     * @warning Destructive operation - WorkingImage becomes invalid.
+     *
+     * @see IWorkingImageHardware::exportToCPUMove() for interface documentation.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    exportToCPUMove() override;
 
     /**
      * @brief Gets the dimensions (width, height) of the internal GPU image data.

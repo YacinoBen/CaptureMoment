@@ -56,17 +56,47 @@ public:
     updateFromCPU(const Common::ImageRegion& cpu_image) = 0;
 
     /**
-     * @brief Exports current internal image data to a new CPU-based ImageRegion.
+     * @brief Exports current internal image data to a new CPU-based ImageRegion (Deep Copy).
      *
      * @details
-     * Transfers ownership of the newly created ImageRegion to the caller.
-     * The internal buffer remains valid for further operations.
+     * Creates a deep copy of the internal buffer and returns it as a new ImageRegion.
+     * The internal buffer remains valid and unchanged after this operation.
+     *
+     * **Performance Note:**
+     * This method involves memory allocation and data copying. For large images,
+     * prefer `exportToCPUMove()` when the working image data is no longer needed.
      *
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
      *         Unique pointer to copied data on success.
+     *
+     * @see exportToCPUMove() For zero-copy transfer when working image can be invalidated.
+     */
+    [[maybe_unused]] [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    exportToCPUCopy() = 0;
+
+    /**
+     * @brief Transfers ownership of internal image data to a CPU-based ImageRegion (Zero-Copy Move).
+     *
+     * @details
+     * This method transfers ownership of the internal buffer to the returned ImageRegion
+     * without performing a deep copy. After this call, the working image is invalidated
+     * and must be re-initialized before further use.
+     *
+     * **Post-Condition:**
+     * After calling this method:
+     * - `isValid()` returns false
+     * - `getSize()` returns {0, 0}
+     * - Internal buffer is deallocated
+     *
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
+     *         Unique pointer to moved data on success.
+     *         Returns error if working image is invalid.
+     *
+     * @warning The working image becomes invalid after this call.
+     * @see exportToCPUCopy() For copying when working image must remain valid.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUCopy() = 0;
+    exportToCPUMove() = 0;
 
     /**
      * @brief Gets dimensions (width, height) of image data.
