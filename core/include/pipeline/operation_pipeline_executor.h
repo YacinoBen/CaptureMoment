@@ -145,10 +145,10 @@ private:
     /**
      * @brief Cache of dynamic parameters for the current pipeline.
      * @details
-     * Key: Operation Name (e.g., "blacks").
+     * Key: Operation id
      * Value: The Halide::Param<float> object used in the compiled graph.
      */
-    std::unordered_map<std::string, Halide::Param<float>> m_pipeline_params;
+    std::unordered_map<uint64_t, Halide::Param<float>> m_pipeline_params;
 
     /**
      * @brief Cached backend type (CPU/GPU) from AppConfig.
