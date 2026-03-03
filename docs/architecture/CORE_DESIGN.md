@@ -14,9 +14,9 @@ A fundamental principle of this architecture is the segregation of data storage 
 The core functionality is split into specialized components: Managers handle resources and external concerns, while the Engine handles orchestration.
 ### `CaptureMoment::Core::Managers::ISourceManager` & `CaptureMoment::Core::Managers::SourceManager` (Strategy Pattern)
 The `ISourceManager` defines the contract for handling the image source, namely, the crucial READ (`getTile`) and WRITE (`setTile`) operations.
-* **Responsibility:** Encapsulate file I/O, caching, and physical pixel access.
+* **Responsibility:** Encapsulate file I/O, caching access.
 * **Decoupling:** By using the `ISourceManager` interface, the core logic (the `OperationPipeline`) is entirely agnostic to the underlying I/O technology.
-* **Implementation (`SourceManager`):** The concrete implementation uses industry-standard tools like OpenImageIO (OIIO) to handle diverse file formats and efficient caching via `OIIO::ImageBuf` and `OIIO::ImageCache`. This shields the rest of the application from OIIO's specific complexities.
+* **Implementation (`SourceManager`):** The concrete implementation uses industry-standard tools like OpenImageIO (OIIO) to handle diverse file formats and efficient caching via `OIIO::ImageBuf` and `OIIO::ImageCache rest of the application from OIIO's specific complexities.
 * **Pattern Explanation (Strategy):** The `ISourceManager` interface defines a family of algorithms (different I/O methods). `SourceManager` provides a concrete implementation. This allows switching between different I/O strategies (e.g., OIIO, native filesystem, network) without changing the code that depends on `ISourceManager`, promoting flexibility and maintainability.
 ---
 ## 3. Hardware-Agnostic Processing Architecture
@@ -78,7 +78,7 @@ This pattern remains crucial for creating operation instances within the process
 * **`CaptureMoment::Core::Operations::OperationFactory` (formerly `OperationFactory`):** This component is responsible for knowing how to construct concrete implementations of `IOperation` based on an `OperationType` defined in the `OperationDescriptor`.
 * **Benefit:** Adding a new operation (e.g., `OperationSaturation`) only requires defining the new class and registering it in the factory setup, without modifying the `OperationPipeline`'s core logic. This promotes high maintainability and scalability.
 * **Pattern Explanation (Factory):** The `OperationFactory` centralizes the creation of `IOperation` subclasses. It maps an `OperationType` to a specific creation routine. This removes the need for `OperationPipeline` to have `if/else` or `switch` statements for every possible operation type, making it easy to add new operations without touching existing code.
-* [**See more**](core/OPERATIONS.md).
+* [🟦 **SEE OPERATIONS.md**](core/OPERATIONS.md).
 ---
 ## 7. Pipeline Fusion Architecture
 The architecture now includes advanced pipeline fusion capabilities for optimal performance.
@@ -105,7 +105,7 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Shared Infrastructure**: Base class providing common Halide buffer functionality for both CPU and GPU implementations.
 * **Memory Management**: Uses `std::unique_ptr<float[]>` (allocated via `std::make_unique_for_overwrite`) as backing store for Halide buffers, enabling in-place modifications without unnecessary copies and avoiding zero-initialization overhead during allocation.
 * **Direct Buffer Access**: Provides `getHalideBuffer()` method for direct pipeline execution.
-* **Interaction with Pipeline Executor**: The `OperationPipelineExecutor` interacts with `WorkingImageHalide` by calling its `getHalideBuffer()` method to obtain the `Halide::Buffer<float>` and then executing the pipeline on it via `executeOnHalideBuffer`.
+* **Interaction with Pipeline Executor**: The `OperationPipelineExecutor` interacts with `WorkingImageHalide` by calling its `getHalideBuffer()` `Halide::Buffer<float>` and then executing the pipeline on it via `executeOnHalideBuffer`.
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
 * **Ownership of SourceManager:** Now owns `m_source_manager` exclusively, decoupling `PhotoEngine` from direct I/O concerns.
 * **Delegated Responsibilities:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
@@ -114,8 +114,7 @@ The fused pipeline system works seamlessly across different hardware backends.
 ---
 ## 9. Pipeline Management and Execution Strategies
 Recent refactoring introduced a more structured approach to managing pipeline execution strategies.
-### `CaptureMoment::Core::Pipeline::PipelineBuilder` (Registry Pattern - Global)
-* **Responsibility:** Central registry for creating `IPipelineExecutor` instances based on `PipelineType` (e.g., HalideOperation).
+### `CaptureMoment::Core::Pipeline::PipelineBuilder* **Responsibility:** Central registry for creating `IPipelineExecutor` instances based on `PipelineType` (e.g., HalideOperation).
 * **Global Instance:** The `PipelineBuilder` registry is now initialized once globally via `PipelineRegistry::registerAll()` during application startup (often triggered by `PipelineContext` construction).
 * **Pattern Explanation (Registry):** This uses a static map (managed by `PipelineRegistry`) to associate a `PipelineType` with a creator function. This allows new pipeline types (e.g., AI-based, OpenCV-based) to be registered at startup without modifying existing managers like `StateImageManager`. It decouples the high-level orchestrator from the specific executor creation logic. Executors are created via the **static method** `PipelineBuilder::build()`.
 ### `CaptureMoment::Core::Pipeline::PipelineRegistry`
@@ -156,8 +155,7 @@ A new layer has been introduced to handle specific processing tasks asynchronous
 * **Pattern Explanation (Strategy):** Implements `IWorkerRequest` to execute the logic managed by `PipelineHalideOperationManager`.
 ---
 ## 11. Synchronized Operation Execution
-A critical improvement has been made to ensure UI responsiveness and visual consistency during interactive adjustments.
-### `CaptureMoment::Core::Engine::PhotoEngine` (Updated Contract)
+A critical improvement has been made to ensure UI responsiveness and visual consistency### `CaptureMoment::Core::Engine::PhotoEngine` (Updated Contract)
 * **Method Change:** The `applyOperations` method now returns a `std::future<bool>` instead of `void`.
 * **Responsibility:** The caller (e.g., `ImageControllerBase`) is now responsible for calling `.get()` on the returned future to wait for the operation to complete. This ensures the internal working image state and the update flag in `StateImageManager` are properly synchronized before proceeding.
 * **Benefit:** Prevents "Update already in progress" scenarios from causing stale display updates, ensuring the displayed image reflects the most recently applied operations.
@@ -231,7 +229,7 @@ This organization clarifies the role of each component and prevents naming colli
 - **Memory Allocation**: `WorkingImageHalide` uses `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` to avoid zero-initialization overhead during large buffer allocation.
 ### Pipeline Management Refactoring
 - **Global Registry Pattern**: Introduced `PipelineBuilder` (global registry) and `PipelineRegistry` for flexible executor creation. `PipelineContext` triggers global registration.
-- **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager` for high-level strategy control.
+- **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager strategy control.
 - **Pipeline Context**: Centralized infrastructure management via `PipelineContext` (holds managers, triggers global builder registration).
 ### Asynchronous Worker System
 - **IWorkerRequest Interface**: Defined the contract for asynchronous processing tasks.
@@ -242,6 +240,11 @@ This organization clarifies the role of each component and prevents naming colli
 - **Efficient Data Transfer**: `applyOperations` in `StateImageManager` and `PhotoEngine` now uses move semantics (`std::move`) for operation vectors, reducing unnecessary copies.
 ### Operation Fusion Logic Update
 - **Halide Parameters**: Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates.
+### Operation Descriptor Enhancement
+- **Unique Identifier**: `OperationDescriptor` now includes a `uint64_t id` field, generated atomically using `OperationDescriptor::generateId()`. This provides a stable, unique key for each operation instance.
+- **Cache Key**: The `OperationPipelineExecutor` now uses this `id` as the key for its` cache (replacing the previous use of `name`).
+- **Structure Detection**: `PipelineHalideOperationManager` now uses the `id` for precise structural change detection in its `init` method, comparing `operations[i].id` with `m_last_operations[i].id`.
+- **Improved Robustness**: This change makes the pipeline update logic more robust by relying on a truly unique and stable identifier instead of potentially changing names or types.
 ### Operation Manager Optimization
 - **Runtime Parameter Updates**: `PipelineHalideOperationManager` implements `updateRuntimeParams` to update pipeline parameters quickly without recompilation if only values change.
 - **Structural Change Detection**: Uses `m_last_operations` to detect structural changes (add/remove/modify type/enable) versus value-only changes.
