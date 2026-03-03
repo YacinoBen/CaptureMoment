@@ -20,6 +20,7 @@ ShadowsModel::ShadowsModel(QObject* parent)
 Core::Operations::OperationDescriptor ShadowsModel::getDescriptor() const
 {
     Core::Operations::OperationDescriptor descriptor;
+    descriptor.id = m_operation_id;
     descriptor.type = Core::Operations::OperationType::Shadows;
     descriptor.name = "Shadows (" + std::to_string(static_cast<int>(m_params.value * 100)) + "%)";
     descriptor.enabled = true;
