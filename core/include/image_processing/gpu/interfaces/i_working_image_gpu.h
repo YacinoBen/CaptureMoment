@@ -8,6 +8,7 @@
 #pragma once
 
 #include "image_processing/interfaces/i_working_image_hardware.h"
+#include "image_processing/common/working_image_data.h"
 
 #include <memory>
 #include <cstddef>
@@ -25,7 +26,7 @@ namespace ImageProcessing {
  * It ensures that all GPU-based implementations provide the core functionality
  * defined by IWorkingImageHardware.
  */
-class IWorkingImageGPU : public IWorkingImageHardware {
+class IWorkingImageGPU : public IWorkingImageHardware, public WorkingImageData {
 public:
     /**
      * @brief Virtual destructor for safe inheritance and polymorphic deletion.
