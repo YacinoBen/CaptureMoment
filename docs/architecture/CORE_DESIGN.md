@@ -28,10 +28,16 @@ This interface represents an image used as a working buffer, abstracting its har
 * `updateFromCPU(const ImageRegion&)`: Updates the working buffer from CPU data.
 * `isValid()`: Checks if the buffer is valid.
 * `getSize()`, `getChannels()`, `getDataSize()`: Query buffer dimensions.
+* `downsample(size_t target_width, size_t target_height)`: Exports a downscaled version of the image directly from the hardware buffer, optimizing for display purposes. This method replaces the previous destructive `exportToCPUMove()` and is preferred for UI updates.
 * **Pattern Explanation (Interface/Abstraction):** The interface `IWorkingImageHardware` defines the contract for interacting with an image buffer, regardless of its physical location. Concrete implementations (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) provide the specific logic for CPU or GPU memory. This allows the rest of the application (like `OperationPipelineExecutor`) to work with the abstract interface, promoting hardware independence and easier testing.
+### Base Classes and Hierarchies
+* **`WorkingImageData`**: Base class providing raw pixel data storage (`std::unique_ptr<float[]>`) and metadata (width, height, channels, validity state `m_valid`) for all working image implementations. Introduces `initializeData` for buffer setup and `getDataSpan` for safe access.
+* **`WorkingImageHalide`**: Base class providing shared Halide buffer (`Halide::Buffer<float>`) logic. Offers methods to initialize the buffer view (`initializeHalide` taking a `std::span`), and specific getters for dimensions/channels based on the Halide buffer (`getSizeByHalide`, `getChannelsByHalide`, etc.).
+* **`WorkingImageCPU`**: Class extending `IWorkingImageHardware` and `WorkingImageData`. Specific CPU implementations (like `WorkingImageCPU_Halide`) inherit from this interface.
+* **`IWorkingImageGPU`**: Abstract interface extending `IWorkingImageHardware` and `WorkingImageData`. Specific GPU implementations (like `WorkingImageGPU_Halide`) inherit from this interface.
 ### Concrete Implementations
-* **`WorkingImageCPU_Halide`:** Uses Halide buffers for CPU processing.
-* **`WorkingImageGPU_Halide`:** Uses Halide buffers with GPU scheduling for GPU processing.
+* **`WorkingImageCPU_Halide`**: Concrete implementation inheriting from `IWorkingImageCPU` and `WorkingImageHalide`. Combines CPU-specific logic, raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`).
+* **`WorkingImageGPU_Halide`**: Concrete implementation inheriting from `IWorkingImageGPU` and `WorkingImageHalide`. Combines GPU-specific logic (device transfers), raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`).
 ### `CaptureMoment::Core::ImageProcessing::WorkingImageFactory` (Factory & Registry Pattern)
 This factory encapsulates the logic for creating the appropriate `IWorkingImageHardware` implementation based on the configured backend.
 * **Responsibility:** Centralize creation logic to avoid duplication in `StateImageManager` and `PhotoTask`.
@@ -54,9 +60,9 @@ The **`IProcessingTask`** interface defines a unit of work encapsulating the pro
 ### `CaptureMoment::Core::Domain::IProcessingBackend` & `CaptureMoment::Core::Engine::PhotoEngine` (Orchestrator / Facade)
 The **`IProcessingBackend`** interface defines the contract for creating and submitting **`IProcessingTasks`**.
 * **Responsibility:** Orchestrate the overall processing flow. This includes managing the state of the loaded image (`SourceManager`), maintaining the list of active operations, creating **`IProcessingTasks`** via `createTask`, and handling their execution via `submit`. It also manages committing the final result back to the source via `commitResult`.
-* **Implementation (`PhotoEngine`):** The main concrete orchestrator. It uses the `SourceManager` to load images and provide initial data (`tiles`). It executes tasks (synchronously in v1 via `submit`) and provides methods like `getWorkingImageAsRegion()` to export the hardware buffer to CPU for display purposes.
+* **Implementation (`PhotoEngine`):** The main concrete orchestrator. It uses the `SourceManager` to load images and provide initial data (`tiles`). It executes tasks (synchronously in v1 via provides methods like `getWorkingImageAsRegion()` to export the hardware buffer to CPU for display purposes.
 * **Pattern Explanation (Facade):** `PhotoEngine` acts as a facade, providing a simplified interface to the complex subsystem of `SourceManager`, `StateImageManager`, `OperationPipeline`, and task execution. It hides the intricate details of how these components interact, making it easier for the UI layer to initiate processing.
-* **Benefit:** This centralizes the high-level logic (when to process, what operations are active, how to handle results, managing the working state) away from the low-level pipeline execution and resource management.
+* **Benefit:** This centralizes the high-level logic (when to process, what operations are active, how to handle results, managing the working state) away pipeline execution and resource management.
 ---
 ## 5. Low-Level Pipeline Execution: Statelessness and Utility
 The core logic for applying a sequence of operations to a data unit is encapsulated in a stateless utility located within the `operation` directory.
@@ -106,6 +112,11 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Memory Management**: Uses `std::unique_ptr<float[]>` (allocated via `std::make_unique_for_overwrite`) as backing store for Halide buffers, enabling in-place modifications without unnecessary copies and avoiding zero-initialization overhead during allocation.
 * **Direct Buffer Access**: Provides `getHalideBuffer()` method for direct pipeline execution.
 * **Interaction with Pipeline Executor**: The `OperationPipelineExecutor` interacts with `WorkingImageHalide` by calling its `getHalideBuffer()` `Halide::Buffer<float>` and then executing the pipeline on it via `executeOnHalideBuffer`.
+* **Initialization & Dimension Access**: `WorkingImageHalide` now provides methods like `initializeHalide(std::span<float>, ...)` and dimension getters (`getSizeByHalide`, `getChannelsByHalide`) that are used by its derived classes (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) to initialize the Halide buffer view and query its properties.
+### `CaptureMoment::Core::ImageProcessing::WorkingImageData` (Base Class)
+* **Raw Data Storage**: Provides the underlying `std::unique_ptr<float[]>` (`m_data`) and metadata (`m_width`, `m_height`, `m_channels`, `m_valid`) for CPU and GPU implementations.
+* **Initialization Logic**: Contains the `initializeData` method, which handles the allocation and copying of pixel data from an `ImageRegion`, and sets the metadata.
+* **State Management**: The `m_valid` flag is managed here and used by derived classes to determine the overall validity state.
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
 * **Ownership of SourceManager:** Now owns `m_source_manager` exclusively, decoupling `PhotoEngine` from direct I/O concerns.
 * **Delegated Responsibilities:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
@@ -182,7 +193,7 @@ The core library includes a flexible system for saving and loading the state of 
 * **Pattern Explanation (Namespace/Utilities):** A namespace groups related utility functions. **Note:** The use of `std::any` for operation parameters is planned to be replaced by `std::variant` for better type safety and performance.
 * **`CaptureMoment::Core::Serializer::Exiv2Initializer`:** A utility class ensuring the Exiv2 library is initialized before any operations are performed.
 ### Benefits of Independence
-* **Modularity:** `PhotoEngine` focuses purely on image processing orchestration. The serialization logic is completely separate.
+* **Modularity:** `PhotoEngine` focuses purely on image processing orchestration. completely separate.
 * **Flexibility:** The serialization layer (`FileSerializerManager`) can be managed and invoked independently by the UI layer (e.g., via `UISerializerManager` in the Qt module) without requiring `PhotoEngine` to hold a reference to it.
 * **Maintainability:** Changes to serialization mechanisms or strategies do not impact the core processing engine.
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
@@ -219,15 +230,21 @@ This organization clarifies the role of each component and prevents naming colli
 - **Hardware Agnostic**: Same fusion logic works for both CPU and GPU backends through the unified interface.
 - **Dynamic Binding Correction**: Fixed pipeline execution to correctly bind input buffers at runtime, resolving issues with static compilation.
 ### Simplified PhotoEngine Architecture
-- **Reduced Coupling**: `PhotoEngine` constructor now has zero parameters, with internal managers handling their own dependencies. It no longer directly owns `SourceManager`.
-- **Centralized Management**: `StateImageManager` now owns `m_source_manager`, `m_pipeline_builder`, and `m_operation_factory` for better encapsulation and clearer responsibilities.
-- **Automatic Registration**: Operation factory registration happens internally within `StateImageManager`.
+- **Reduced Coupling:** `PhotoEngine` constructor now has zero parameters, with internal managers handling their own dependencies. It no longer directly owns `SourceManager`.
+- **Centralized Management:** `StateImageManager` now owns `m_source_manager`, `m_pipeline_builder`, and `m_operation_factory` for better encapsulation and clearer responsibilities.
+- **Automatic Registration:** Operation factory registration happens internally within `StateImageManager`.
 ### Enhanced Performance
-- **In-Place Processing**: Halide buffers operate directly on shared data vectors, eliminating redundant copies.
-- **Optimized Scheduling**: Pipeline fusion creates single computational passes instead of multiple sequential operations.
-- **Backend Selection**: Runtime benchmarking automatically determines optimal CPU/GPU usage.
-- **Memory Allocation**: `WorkingImageHalide` uses `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` to avoid zero-initialization overhead during large buffer allocation.
-### Pipeline Management Refactoring
+- **In-Place Processing:** Halide buffers operate directly on shared data vectors, eliminating redundant copies.
+- **Optimized Scheduling:** Pipeline fusion creates single computational passes instead of multiple sequential operations.
+- **Backend Selection:** Runtime benchmarking automatically determines optimal CPU/GPU usage.
+- **Memory Allocation:** `WorkingImageHalide` uses `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` to avoid zero-initialization overhead during large buffer allocation.
+### WorkingImage Refactoring
+- **New Base Classes:** Introduced `WorkingImageData` (for raw data and metadata) and `WorkingImageHalide` (for shared Halide logic).
+- **Hierarchical Structure:** Concrete implementations like `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide` now inherit from specific base interfaces (`IWorkingImageCPU`/`IWorkingImageGPU`) which themselves inherit from `IWorkingImageHardware` and `WorkingImageData`. They also inherit from `WorkingImageHalide`.
+- **Unified Buffer Initialization:** `WorkingImageHalide::initializeHalide` now accepts a `std::span<float>` for safer and more flexible buffer view creation.
+- **Delegated Accessors:** Concrete implementations (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) delegate dimension and channel queries to methods defined in `WorkingImageHalide` (e.g., `getSizeByHalide`).
+- **Validity Check Refined:** The `isValid()` method in concrete implementations now combines state from `WorkingImageData` (`m_valid`) and `WorkingImageHalide` (`m_halide_buffer.defined()`).
+- **`exportToCPUMove` Removed:** The destructive `exportToCPUMove` method was removed from the interface and implementations. A new `downsample` method was introduced on `IWorkingImageHardware` and implemented in the concrete classes for optimized Pipeline Management Refactoring
 - **Global Registry Pattern**: Introduced `PipelineBuilder` (global registry) and `PipelineRegistry` for flexible executor creation. `PipelineContext` triggers global registration.
 - **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager strategy control.
 - **Pipeline Context**: Centralized infrastructure management via `PipelineContext` (holds managers, triggers global builder registration).
@@ -235,31 +252,31 @@ This organization clarifies the role of each component and prevents naming colli
 - **IWorkerRequest Interface**: Defined the contract for asynchronous processing tasks.
 - **Worker Context**: Centralized container for worker infrastructure.
 - **Registry Pattern**: Introduced `WorkerBuilder` and `WorkerRegistry` for flexible worker creation.
-- **Coordination**: `StateImageManager` acts as a coordinator, delegating execution to workers via `WorkerContext`.
+- **Coordination:** `StateImageManager` acts as a coordinator, delegating execution to workers via `WorkerContext`.
 ### Move Semantics Optimization
-- **Efficient Data Transfer**: `applyOperations` in `StateImageManager` and `PhotoEngine` now uses move semantics (`std::move`) for operation vectors, reducing unnecessary copies.
+- **Efficient Data Transfer:** `applyOperations` in `StateImageManager` and `PhotoEngine` now uses move semantics (`std::move`) for operation vectors, reducing unnecessary copies.
 ### Operation Fusion Logic Update
-- **Halide Parameters**: Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates.
+- **Halide Parameters:** Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates.
 ### Operation Descriptor Enhancement
-- **Unique Identifier**: `OperationDescriptor` now includes a `uint64_t id` field, generated atomically using `OperationDescriptor::generateId()`. This provides a stable, unique key for each operation instance.
-- **Cache Key**: The `OperationPipelineExecutor` now uses this `id` as the key for its` cache (replacing the previous use of `name`).
-- **Structure Detection**: `PipelineHalideOperationManager` now uses the `id` for precise structural change detection in its `init` method, comparing `operations[i].id` with `m_last_operations[i].id`.
-- **Improved Robustness**: This change makes the pipeline update logic more robust by relying on a truly unique and stable identifier instead of potentially changing names or types.
+- **Unique Identifier:** `OperationDescriptor` now includes a `uint64_t id` field, generated atomically using `OperationDescriptor::generateId()`. This provides a stable, unique key for each operation instance.
+- **Cache Key:** The `OperationPipelineExecutor` now uses this `id` as the key for its` cache (replacing the previous use of `name`).
+- **Structure Detection:** `PipelineHalideOperationManager` now uses the `id` for precise structural change detection in its `init` method, comparing `operations[i].id` with `m_last_operations[i].id`.
+- **Improved Robustness:** This change makes the pipeline update logic more robust by relying on a truly unique and stable identifier instead of potentially changing names or types.
 ### Operation Manager Optimization
-- **Runtime Parameter Updates**: `PipelineHalideOperationManager` implements `updateRuntimeParams` to update pipeline parameters quickly without recompilation if only values change.
-- **Structural Change Detection**: Uses `m_last_operations` to detect structural changes (add/remove/modify type/enable) versus value-only changes.
-- **Global Builder Usage**: `PipelineHalideOperationManager` retrieves its executor via the **static** `PipelineBuilder::build()` method.
+- **Runtime Parameter Updates:** `PipelineHalideOperationManager` implements `updateRuntimeParams` to update pipeline parameters quickly without recompilation if only values change.
+- **Structural Change Detection:** Uses `m_last_operations` to detect structural changes (add/remove/modify type/enable) versus value-only changes.
+- **Global Builder Usage:** `PipelineHalideOperationManager` retrieves its executor via the **static** `PipelineBuilder::build()` method.
 ### StateImageManager as Central Coordinator
-- **Exclusive Source Management**: `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
-- **Simplified PhotoEngine**: `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
+- **Exclusive Source Management:** `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
+- **Simplified PhotoEngine:** `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
 ### Operation Factory Relocation
-- **Centralized Ownership**: The `OperationFactory` is now owned by `PipelineHalideOperationManager` instead of `StateImageManager`, aligning responsibility with the entity that uses it for pipeline construction.
+- **Centralized Ownership:** The `OperationFactory` is now owned by `PipelineHalideOperationManager` instead of `StateImageManager`, aligning responsibility with the entity that uses it for pipeline construction.
 ### Synchronized Operation Execution
-- **Future-based Contract**: `PhotoEngine::applyOperations` now returns a `std::future<bool>`.
-- **Caller Waits**: `ImageControllerBase` waits for the future to complete before updating the display, ensuring visual consistency and preventing stale updates.
+- **Future-based Contract:** `PhotoEngine::applyOperations` now returns a `std::future<bool>`.
+- **Caller Waits:** `ImageControllerBase` waits for the future to complete before updating the display, ensuring visual consistency and preventing stale updates.
 ### Operation Coalescing in StateImageManager
-- **Coalescing Strategy**: `StateImageManager::applyOperations` now implements a coalescing strategy. If an operation is already pending, new requests overwrite the previous pending request, optimizing for the most recent state during rapid UI interactions.
-- **Promise Handling**: The `std::future` returned by `applyOperations` resolves only when the *final* operation in the potential chain (including any coalesced ones) completes.
+- **Coalescing Strategy:** `StateImageManager::applyOperations` now implements a coalescing strategy. If an operation is already pending, new requests overwrite the previous pending request, optimizing for the most recent state during rapid UI interactions.
+- **Promise Handling:** The `std::future` returned by `applyOperations` resolves only when the *final* operation in the potential chain (including any coalesced ones) completes.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
