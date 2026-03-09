@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include "image_processing/cpu/interfaces/i_working_image_cpu.h"
+#include "image_processing/cpu/working_image_cpu.h"
 #include "common/error_handling/core_error.h"
 #include <memory>
 #include <expected>
@@ -41,7 +41,7 @@ namespace ImageProcessing {
  * This backend is typically used as a fallback, for simple operations,
  * or when specific hardware optimizations are not required or available.
  */
-class WorkingImageCPU_Default final : public IWorkingImageCPU {
+class WorkingImageCPU_Default final : public WorkingImageCPU {
 public:
     /**
      * @brief Constructs a WorkingImageCPU_Default object.
