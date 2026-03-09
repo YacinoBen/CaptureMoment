@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <cstddef>
+#include <span>
 
 #include "common/image_region.h"
 
@@ -53,38 +54,60 @@ protected:
     Halide::Buffer<float> m_halide_buffer;
 
     /**
-     * @brief Internal storage for image data to be shared between operations..
-     * Using unique_ptr<float[]> instead of std::vector<float>.
-     * This allows using make_unique_for_overwrite to skip zero-initialization,
-     * significantly reducing allocation time for large buffers (e.g., 400MB images).
-     */
-    std::unique_ptr<float[]> m_data;
-
-    /**
-     * @brief Tracks the number of elements stored in m_data.
-     * Required because unique_ptr does not store size information.
-     */
-    size_t m_data_size{0};
-
-    /**
      * @brief Protected constructor to prevent direct instantiation.
      */
     WorkingImageHalide() = default;
 
     /**
-     * @brief Initializes the internal Halide buffer to reference the current m_data vector.
+     * @brief Creates a Halide buffer view over existing pixel data.
      *
-     * This private helper method creates a Halide::Buffer<float> that points to
-     * the internal m_data vector, establishing the connection between the managed
-     * data storage and the Halide processing engine. The buffer shares the same
-     * memory as m_data, enabling in-place modifications during pipeline execution.
-     * This method should only be called after m_data has been properly populated
-     * via updateFromCPU operations to ensure the buffer points to valid data.
+     * @details
+     * Creates a zero-copy Halide::Buffer that references the provided
+     * pixel data span. This method should be called by derived classes after
+     * they have allocated and populated their data buffer.
      *
-     * @param cpu_image The ImageRegion containing the dimensional metadata (width, height, channels)
-     * that defines the buffer layout. The actual pixel data comes from m_data.
+     * **Safety:**
+     * Uses `std::span<float>` instead of raw pointer for bounds safety
+     * and compatibility with any contiguous container.
+     *
+     * @param data Span over pixel data (must remain valid during buffer lifetime).
+     * @param width Image width in pixels.
+     * @param height Image height in pixels.
+     * @param channels Number of color channels.
+     *
+     * @pre !data.empty()
+     * @post m_halide_buffer references the provided data
      */
-    void initializeHalide(const Common::ImageRegion& working_image);
+    void initializeHalide(std::span<float> data, std::int32_t width, std::int32_t height, std::int32_t channels);
+
+    /**
+     * @brief
+     * @return {width, height} in pixels, or {0, 0} if buffer undefined. */
+    [[nodiscard]] std::pair<size_t, size_t> getSizeByHalide() const noexcept;
+
+    /**
+     * @brief Gets the number of color channels from the Halide buffer.
+     * @return Channel count (e.g., 3 for RGB, 4 for RGBA), or 0 if buffer undefined.
+     */
+    [[nodiscard]] size_t getChannelsByHalide() const noexcept;
+
+    /**
+     * @brief Gets the total pixel count from the Halide buffer.
+     * @return width × height, or 0 if buffer undefined.
+     */
+    [[nodiscard]] size_t getPixelCountByHalide() const noexcept;
+
+    /**
+     * @brief Gets the total data element count from the Halide buffer.
+     * @return width × height × channels (total float elements), or 0 if buffer undefined.
+     */
+    [[nodiscard]] size_t getDataSizeByHalide() const noexcept;
+
+    /**
+     * @brief Checks if the Halide buffer is defined.
+     * @return true if m_halide_buffer.defined() returns true.
+     */
+    [[nodiscard]] bool isHalideBufferValid() const noexcept;
 };
 
 } // namespace ImageProcessing
