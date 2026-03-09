@@ -75,28 +75,16 @@ public:
     exportToCPUCopy() = 0;
 
     /**
-     * @brief Transfers ownership of internal image data to a CPU-based ImageRegion (Zero-Copy Move).
+     * @brief Exports a downscaled version of the image directly from GPU.
      *
      * @details
-     * This method transfers ownership of the internal buffer to the returned ImageRegion
-     * without performing a deep copy. After this call, the working image is invalidated
-     * and must be re-initialized before further use.
+     * For GPU: Performs downsample on GPU, then transfers only the small result.
+     * For CPU: Performs downsample on CPU.
      *
-     * **Post-Condition:**
-     * After calling this method:
-     * - `isValid()` returns false
-     * - `getSize()` returns {0, 0}
-     * - Internal buffer is deallocated
-     *
-     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
-     *         Unique pointer to moved data on success.
-     *         Returns error if working image is invalid.
-     *
-     * @warning The working image becomes invalid after this call.
-     * @see exportToCPUCopy() For copying when working image must remain valid.
+     * This is the preferred method for display purposes.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUMove() = 0;
+    downsample(size_t target_width, size_t target_height) = 0;
 
     /**
      * @brief Gets dimensions (width, height) of image data.
