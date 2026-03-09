@@ -10,11 +10,11 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-void WorkingImageData::initializeData(const Common::ImageRegion& cpu_image)
+std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(const Common::ImageRegion& cpu_image)
 {
     if (!cpu_image.isValid()) {
         spdlog::warn("[WorkingImageData::initializeData]: Input ImageRegion is invalid");
-        return;
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     try {
