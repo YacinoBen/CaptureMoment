@@ -29,11 +29,6 @@
 #include "image_processing/interfaces/i_working_image_hardware.h"
 
 /**
- * @brief Specific interface for CPU-based image buffers.
- */
-#include "image_processing/cpu/interfaces/i_working_image_cpu.h"
-
-/**
  * @brief Specific interface for GPU-based image buffers.
  */
 #include "image_processing/gpu/interfaces/i_working_image_gpu.h"
@@ -47,16 +42,29 @@
 // 2. Concrete Implementations
 // ============================================================
 
-// --- Base Classes ---
+// --- Base Classes Halide ---
 #include "image_processing/halide/working_image_halide.h"
 
 // --- CPU Implementations ---
 #include "image_processing/cpu/working_image_cpu_default.h"
 #include "image_processing/cpu/working_image_cpu_halide.h"
 
+/**
+ * @brief Specific class for CPU-based image buffers.
+ */
+#include "image_processing/cpu/working_image_cpu.h"
+
 // --- GPU Implementations ---
+/**
+ * @brief Specific class for GPU Halide-based image buffers.
+ */
 #include "image_processing/gpu/working_image_gpu_halide.h"
 
+// --- Common Implementations ---
+/**
+ * @brief Base class providing raw buffer storage and metadata for all working image implementations.
+ */
+#include "image_processing/common/working_image_data.h"
 // ============================================================
 // 3. Factories
 // ============================================================
