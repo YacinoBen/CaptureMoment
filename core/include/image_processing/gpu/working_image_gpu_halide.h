@@ -76,7 +76,7 @@ public:
      * This is the preferred method for display purposes.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    downsample(int target_width, int target_height) override;
+    downsample(size_t target_width, size_t target_height) override;
 
     /**
      * @brief Gets the dimensions (width, height) of the internal GPU image data.
