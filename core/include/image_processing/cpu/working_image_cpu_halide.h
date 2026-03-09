@@ -92,7 +92,7 @@ public:
      *
      * @return true if the internal Halide buffer is allocated and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override { return return m_valid && m_halide_buffer.defined(); };
+    [[nodiscard]] bool isValid() const override { return m_valid && m_halide_buffer.defined(); };
 
     /**
      * @brief Gets the memory type where the image data resides.
