@@ -56,17 +56,35 @@ public:
     updateFromCPU(const Common::ImageRegion& cpu_image) = 0;
 
     /**
-     * @brief Exports current internal image data to a new CPU-based ImageRegion.
+     * @brief Exports current internal image data to a new CPU-based ImageRegion (Deep Copy).
      *
      * @details
-     * Transfers ownership of the newly created ImageRegion to the caller.
-     * The internal buffer remains valid for further operations.
+     * Creates a deep copy of the internal buffer and returns it as a new ImageRegion.
+     * The internal buffer remains valid and unchanged after this operation.
+     *
+     * **Performance Note:**
+     * This method involves memory allocation and data copying. For large images,
+     * prefer `exportToCPUMove()` when the working image data is no longer needed.
      *
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
      *         Unique pointer to copied data on success.
+     *
+     * @see exportToCPUMove() For zero-copy transfer when working image can be invalidated.
+     */
+    [[maybe_unused]] [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    exportToCPUCopy() = 0;
+
+    /**
+     * @brief Exports a downscaled version of the image directly from GPU.
+     *
+     * @details
+     * For GPU: Performs downsample on GPU, then transfers only the small result.
+     * For CPU: Performs downsample on CPU.
+     *
+     * This is the preferred method for display purposes.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUCopy() = 0;
+    downsample(size_t target_width, size_t target_height) = 0;
 
     /**
      * @brief Gets dimensions (width, height) of image data.
