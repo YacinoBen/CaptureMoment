@@ -7,7 +7,7 @@
 
 #pragma once
 #include "image_processing/halide/working_image_halide.h"
-#include "image_processing/cpu/interfaces/i_working_image_cpu.h"
+#include "image_processing/cpu/working_image_cpu.h"
 
 #include <memory>
 #include <expected>
@@ -23,7 +23,7 @@ namespace ImageProcessing {
  *         Returns {} (void) on success, or an error code on failure.
  */
 
-class WorkingImageCPU_Halide final : public IWorkingImageCPU, public WorkingImageHalide {
+class WorkingImageCPU_Halide final : public WorkingImageCPU, public WorkingImageHalide {
 public:
     /**
      * @brief Constructs a WorkingImageCPU_Halide.
@@ -45,19 +45,6 @@ public:
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU(const Common::ImageRegion& cpu_image) override;
 
-
-    /**
-     * @brief Updates internal image data by MOVING from a CPU-based ImageRegion.
-     *
-     * Preferred method during initialization. Transfers ownership of the buffer
-     * without copying bytes.
-     *
-     * @param cpu_image The source image data (rvalue reference).
-     * @return std::expected<void, std::error_code>. Void on success, error code on failure.
-     */
-    [[nodiscard]] std::expected<void,  ErrorHandling::CoreError>
-    updateFromCPU(Common::ImageRegion&& cpu_image);
-
     /**
      * @brief Exports internal data to a new ImageRegion.
      *
@@ -68,22 +55,6 @@ public:
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
     exportToCPUCopy() override;
-
-    /**
-     * @brief Transfers ownership of GPU image data to a CPU ImageRegion (Zero-Copy Move).
-     *
-     * @details
-     * Performs an optimized transfer with minimal overhead. After this call,
-     * the WorkingImage is invalidated and must be re-initialized.
-     *
-     * @return std::expected with ImageRegion on success, error on failure.
-     *
-     * @warning Destructive operation - WorkingImage becomes invalid.
-     *
-     * @see IWorkingImageHardware::exportToCPUMove() for interface documentation.
-     */
-    [[maybe_unused]] [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUMove() override;
 
     /**
      * @brief Gets the dimensions (width, height) of the internal Halide buffer.
@@ -121,7 +92,7 @@ public:
      *
      * @return true if the internal Halide buffer is allocated and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override { return m_halide_buffer.defined(); };
+    [[nodiscard]] bool isValid() const override { return return m_valid && m_halide_buffer.defined(); };
 
     /**
      * @brief Gets the memory type where the image data resides.
