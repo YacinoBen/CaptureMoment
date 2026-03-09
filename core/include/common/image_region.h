@@ -86,6 +86,63 @@ struct ImageRegion {
     std::vector<float> m_data;
 
     // ============================================================
+    // Constructors
+    // ============================================================
+
+    /**
+     * @brief Default constructor.
+     * Creates an empty, invalid ImageRegion.
+     */
+    ImageRegion() = default;
+
+    /**
+     * @brief Constructs an ImageRegion by moving existing pixel data (Zero-Copy).
+     *
+     * @details
+     * This constructor enables efficient transfer of pixel data ownership without
+     * any memory copying. It is the preferred way to create an ImageRegion when
+     * the source buffer is no longer needed.
+     *
+     * **Performance Benefits:**
+     * - No memory allocation (takes ownership of existing vector)
+     * - No data copying (O(1) operation)
+     * - Ideal for pipeline data transfer between components
+     *
+     * @param data Rvalue reference to the pixel data vector. Ownership is transferred.
+     * @param w Width in pixels.
+     * @param h Height in pixels.
+     * @param ch Number of color channels per pixel.
+     *
+     * @note The x and y coordinates default to (0, 0).
+     * @note Format defaults to PixelFormat::RGBA_F32.
+     */
+    ImageRegion(std::vector<float>&& data, int w, int h, int ch)
+        : m_data(std::move(data))
+        , m_width(w)
+        , m_height(h)
+        , m_channels(ch)
+    {}
+
+    /**
+     * @brief Constructs an ImageRegion with position and moved pixel data.
+     *
+     * @param x X-coordinate offset in the source image.
+     * @param y Y-coordinate offset in the source image.
+     * @param data Rvalue reference to the pixel data vector.
+     * @param w Width in pixels.
+     * @param h Height in pixels.
+     * @param ch Number of color channels per pixel.
+     */
+    ImageRegion(int x, int y, std::vector<float>&& data, int w, int h, int ch)
+        : m_x(x)
+        , m_y(y)
+        , m_data(std::move(data))
+        , m_width(w)
+        , m_height(h)
+        , m_channels(ch)
+    {}
+
+    // ============================================================
     // Accessors & Utilities
     // ============================================================
 
