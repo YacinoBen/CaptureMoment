@@ -7,6 +7,8 @@ A fundamental principle of this architecture is the segregation of data storage 
 ### Key Data Structures:
 * **`CaptureMoment::Core::Common::ImageRegion` (formerly `ImageRegion`):** This structure represents a self-contained tile of pixel data (e.g., RGBA F32), along with its spatial coordinates.
 * **Why Value Type?** By making `ImageRegion` a simple container, it becomes highly efficient for memory management. It can be easily copied, moved, and passed between functions, minimizing complexity and supporting future integration with low-level processing frameworks (like Halide or CUDA) that thrive on raw, contiguous data buffers.
+* **Uniform Types:** The dimensions (`m_width`, `m_height`), coordinates (`m_x`, `m_y`), and channels (`m_channels`) now use common types defined in `Common::ImageDim`, `Common::ImageCoord`, and `Common::ImageChan` respectively for consistency across the codebase.
+* **Constructors:** Includes constructors for direct initialization and move semantics (zero-copy).
 * **`CaptureMoment::Core::Operations::OperationDescriptor` (formerly `OperationDescriptor`):** This structure holds all necessary parameters to define a single processing step (e.g., brightness value, contrast factor, enable state).
 * **Why Value Type?** It acts as a configuration snapshot. The `OperationPipeline` uses this descriptor to instruct the `OperationFactory` what to create and what parameters to apply, keeping the engine itself free from hard-coded operation logic.
 ---
@@ -18,6 +20,7 @@ The `ISourceManager` defines the contract for handling the image source, namely,
 * **Decoupling:** By using the `ISourceManager` interface, the core logic (the `OperationPipeline`) is entirely agnostic to the underlying I/O technology.
 * **Implementation (`SourceManager`):** The concrete implementation uses industry-standard tools like OpenImageIO (OIIO) to handle diverse file formats and efficient caching via `OIIO::ImageBuf` and `OIIO::ImageCache rest of the application from OIIO's specific complexities.
 * **Pattern Explanation (Strategy):** The `ISourceManager` interface defines a family of algorithms (different I/O methods). `SourceManager` provides a concrete implementation. This allows switching between different I/O strategies (e.g., OIIO, native filesystem, network) without changing the code that depends on `ISourceManager`, promoting flexibility and maintainability.
+* **Uniform Types:** Methods like `width()`, `height()`, `channels()` now return `Common::ImageDim`, `Common::ImageDim`, `Common::ImageChan` respectively.
 ---
 ## 3. Hardware-Agnostic Processing Architecture
 The most significant recent evolution is the introduction of a hardware-agnostic processing layer that abstracts CPU and GPU execution behind a unified interface.
@@ -27,16 +30,16 @@ This interface represents an image used as a working buffer, abstracting its har
 * `exportToCPUCopy()`: Creates a CPU copy of the image data for display or saving.
 * `updateFromCPU(const ImageRegion&)`: Updates the working buffer from CPU data.
 * `isValid()`: Checks if the buffer is valid.
-* `getSize()`, `getChannels()`, `getDataSize()`: Query buffer dimensions.
+* `getSize()`, `getChannels()`, `getDataSize()`: Query buffer dimensions. These now return `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize` respectively.
 * `downsample(size_t target_width, size_t target_height)`: Exports a downscaled version of the image directly from the hardware buffer, optimizing for display purposes. This method replaces the previous destructive `exportToCPUMove()` and is preferred for UI updates.
 * **Pattern Explanation (Interface/Abstraction):** The interface `IWorkingImageHardware` defines the contract for interacting with an image buffer, regardless of its physical location. Concrete implementations (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) provide the specific logic for CPU or GPU memory. This allows the rest of the application (like `OperationPipelineExecutor`) to work with the abstract interface, promoting hardware independence and easier testing.
 ### Base Classes and Hierarchies
-* **`WorkingImageData`**: Base class providing raw pixel data storage (`std::unique_ptr<float[]>`) and metadata (width, height, channels, validity state `m_valid`) for all working image implementations. Introduces `initializeData` for buffer setup and `getDataSpan` for safe access.
-* **`WorkingImageHalide`**: Base class providing shared Halide buffer (`Halide::Buffer<float>`) logic. Offers methods to initialize the buffer view (`initializeHalide` taking a `std::span`), and specific getters for dimensions/channels based on the Halide buffer (`getSizeByHalide`, `getChannelsByHalide`, etc.).
-* **`WorkingImageCPU`**: Class extending `IWorkingImageHardware` and `WorkingImageData`. Specific CPU implementations (like `WorkingImageCPU_Halide`) inherit from this interface.
+* **`WorkingImageData`**: Base class providing raw pixel data storage (`std::unique_ptr<float[]>`) and metadata (width, height, channels, validity state `m_valid`) for all working image implementations. Introduces `initializeData` for buffer setup and `getDataSpan` for safe access. Uses `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize` for its members.
+* **`WorkingImageHalide`**: Base class providing shared Halide buffer (`Halide::Buffer<float>`) logic. Offers methods to initialize the buffer view (`initializeHalide` taking a `std::span`), and specific getters for dimensions/channels based on the Halide buffer (`getSizeByHalide`, `getChannelsByHalide`, etc.). These getters now return `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize`.
+* **`WorkingImageCPU`**: Concrete base class inheriting from `IWorkingImageHardware` and `WorkingImageData`. Specific CPU implementations (like `WorkingImageCPU_Halide`) inherit from this class.
 * **`IWorkingImageGPU`**: Abstract interface extending `IWorkingImageHardware` and `WorkingImageData`. Specific GPU implementations (like `WorkingImageGPU_Halide`) inherit from this interface.
 ### Concrete Implementations
-* **`WorkingImageCPU_Halide`**: Concrete implementation inheriting from `IWorkingImageCPU` and `WorkingImageHalide`. Combines CPU-specific logic, raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`).
+* **`WorkingImageCPU_Halide`**: Concrete implementation inheriting from `WorkingImageCPU` and `WorkingImageHalide`. Combines CPU-specific logic, raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`).
 * **`WorkingImageGPU_Halide`**: Concrete implementation inheriting from `IWorkingImageGPU` and `WorkingImageHalide`. Combines GPU-specific logic (device transfers), raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`).
 ### `CaptureMoment::Core::ImageProcessing::WorkingImageFactory` (Factory & Registry Pattern)
 This factory encapsulates the logic for creating the appropriate `IWorkingImageHardware` implementation based on the configured backend.
@@ -112,9 +115,9 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Memory Management**: Uses `std::unique_ptr<float[]>` (allocated via `std::make_unique_for_overwrite`) as backing store for Halide buffers, enabling in-place modifications without unnecessary copies and avoiding zero-initialization overhead during allocation.
 * **Direct Buffer Access**: Provides `getHalideBuffer()` method for direct pipeline execution.
 * **Interaction with Pipeline Executor**: The `OperationPipelineExecutor` interacts with `WorkingImageHalide` by calling its `getHalideBuffer()` `Halide::Buffer<float>` and then executing the pipeline on it via `executeOnHalideBuffer`.
-* **Initialization & Dimension Access**: `WorkingImageHalide` now provides methods like `initializeHalide(std::span<float>, ...)` and dimension getters (`getSizeByHalide`, `getChannelsByHalide`) that are used by its derived classes (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) to initialize the Halide buffer view and query its properties.
+* **Initialization & Dimension Access**: `WorkingImageHalide` now provides methods like `initializeHalide(std::span<float>, ...)` and dimension getters (`getSizeByHalide`, `getChannelsByHalide`) that are used by its derived classes (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) to initialize the Halide buffer view and query its properties. These getters return `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize`.
 ### `CaptureMoment::Core::ImageProcessing::WorkingImageData` (Base Class)
-* **Raw Data Storage**: Provides the underlying `std::unique_ptr<float[]>` (`m_data`) and metadata (`m_width`, `m_height`, `m_channels`, `m_valid`) for CPU and GPU implementations.
+* **Raw Data Storage**: Provides the underlying `std::unique_ptr<float[]>` (`m_data`) and metadata (`m_width`, `m_height`, `m_channels`, `m_valid`) for CPU and GPU implementations. Uses `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize` for its members.
 * **Initialization Logic**: Contains the `initializeData` method, which handles the allocation and copying of pixel data from an `ImageRegion`, and sets the metadata.
 * **State Management**: The `m_valid` flag is managed here and used by derived classes to determine the overall validity state.
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
@@ -193,7 +196,7 @@ The core library includes a flexible system for saving and loading the state of 
 * **Pattern Explanation (Namespace/Utilities):** A namespace groups related utility functions. **Note:** The use of `std::any` for operation parameters is planned to be replaced by `std::variant` for better type safety and performance.
 * **`CaptureMoment::Core::Serializer::Exiv2Initializer`:** A utility class ensuring the Exiv2 library is initialized before any operations are performed.
 ### Benefits of Independence
-* **Modularity:** `PhotoEngine` focuses purely on image processing orchestration. completely separate.
+* **Modularity:** `PhotoEngine` focuses purely on image processing orchestration. The serialization logic is completely separate.
 * **Flexibility:** The serialization layer (`FileSerializerManager`) can be managed and invoked independently by the UI layer (e.g., via `UISerializerManager` in the Qt module) without requiring `PhotoEngine` to hold a reference to it.
 * **Maintainability:** Changes to serialization mechanisms or strategies do not impact the core processing engine.
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
@@ -240,7 +243,7 @@ This organization clarifies the role of each component and prevents naming colli
 - **Memory Allocation:** `WorkingImageHalide` uses `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` to avoid zero-initialization overhead during large buffer allocation.
 ### WorkingImage Refactoring
 - **New Base Classes:** Introduced `WorkingImageData` (for raw data and metadata) and `WorkingImageHalide` (for shared Halide logic).
-- **Hierarchical Structure:** Concrete implementations like `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide` now inherit from specific base interfaces (`IWorkingImageCPU`/`IWorkingImageGPU`) which themselves inherit from `IWorkingImageHardware` and `WorkingImageData`. They also inherit from `WorkingImageHalide`.
+- **Hierarchical Structure:** Concrete implementations like `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide` now inherit from specific base classes (`WorkingImageCPU`/`IWorkingImageGPU`) which themselves inherit from `IWorkingImageHardware` and `WorkingImageData`. They also inherit from `WorkingImageHalide`.
 - **Unified Buffer Initialization:** `WorkingImageHalide::initializeHalide` now accepts a `std::span<float>` for safer and more flexible buffer view creation.
 - **Delegated Accessors:** Concrete implementations (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) delegate dimension and channel queries to methods defined in `WorkingImageHalide` (e.g., `getSizeByHalide`).
 - **Validity Check Refined:** The `isValid()` method in concrete implementations now combines state from `WorkingImageData` (`m_valid`) and `WorkingImageHalide` (`m_halide_buffer.defined()`).
@@ -277,6 +280,9 @@ This organization clarifies the role of each component and prevents naming colli
 ### Operation Coalescing in StateImageManager
 - **Coalescing Strategy:** `StateImageManager::applyOperations` now implements a coalescing strategy. If an operation is already pending, new requests overwrite the previous pending request, optimizing for the most recent state during rapid UI interactions.
 - **Promise Handling:** The `std::future` returned by `applyOperations` resolves only when the *final* operation in the potential chain (including any coalesced ones) completes.
+### Uniform Image Types
+- **Common Types:** `Common::ImageDim`, `Common::ImageCoord`, `Common::ImageChan`, `Common::ImageSize` for consistent representation of image properties across `ImageRegion`, `SourceManager`, `WorkingImage` implementations, and related classes.
+- **Consistent APIs:** Methods like `getSize()`, `getChannels()`, `getTile()` now return these common types, improving type safety and code readability.
 ---
 ## READ MORE
 * [**Operations**](core/OPERATIONS.md).
