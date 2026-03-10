@@ -326,19 +326,19 @@ void StateImageManager::waitForPendingProcessing()
     }
 }
 
-int StateImageManager::getSourceWidth() const
+Common::ImageDim StateImageManager::getSourceWidth() const
 {
     std::lock_guard lock(m_state_mutex);
     return m_source_manager ? m_source_manager->width() : 0;
 }
 
-int StateImageManager::getSourceHeight() const
+Common::ImageDim StateImageManager::getSourceHeight() const
 {
     std::lock_guard lock(m_state_mutex);
     return m_source_manager ? m_source_manager->height() : 0;
 }
 
-int StateImageManager::getSourceChannels() const
+Common::ImageChan StateImageManager::getSourceChannels() const
 {
     std::lock_guard lock(m_state_mutex);
     return m_source_manager ? m_source_manager->channels() : 0;
