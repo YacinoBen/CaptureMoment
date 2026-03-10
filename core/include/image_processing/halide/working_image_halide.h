@@ -12,6 +12,7 @@
 #include <span>
 
 #include "common/image_region.h"
+#include "common/types/image_types.h"
 
 #include "Halide.h"
 
@@ -83,25 +84,25 @@ protected:
     /**
      * @brief
      * @return {width, height} in pixels, or {0, 0} if buffer undefined. */
-    [[nodiscard]] std::pair<size_t, size_t> getSizeByHalide() const noexcept;
+    [[nodiscard]] std::pair<Common::ImageDim, Common::ImageDim> getSizeByHalide() const noexcept;
 
     /**
      * @brief Gets the number of color channels from the Halide buffer.
      * @return Channel count (e.g., 3 for RGB, 4 for RGBA), or 0 if buffer undefined.
      */
-    [[nodiscard]] size_t getChannelsByHalide() const noexcept;
+    [[nodiscard]] Common::ImageChan getChannelsByHalide() const noexcept;
 
     /**
      * @brief Gets the total pixel count from the Halide buffer.
      * @return width × height, or 0 if buffer undefined.
      */
-    [[nodiscard]] size_t getPixelCountByHalide() const noexcept;
+    [[nodiscard]] Common::ImageSize getPixelCountByHalide() const noexcept;
 
     /**
      * @brief Gets the total data element count from the Halide buffer.
      * @return width × height × channels (total float elements), or 0 if buffer undefined.
      */
-    [[nodiscard]] size_t getDataSizeByHalide() const noexcept;
+    [[nodiscard]] Common::ImageSize getDataSizeByHalide() const noexcept;
 
     /**
      * @brief Checks if the Halide buffer is defined.

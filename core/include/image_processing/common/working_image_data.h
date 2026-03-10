@@ -42,6 +42,8 @@
 
 #include "common/image_region.h"
 #include "common/error_handling/core_error.h"
+#include "common/types/image_types.h"
+
 #include <memory>
 #include <expected>
 #include <cstddef>
@@ -90,7 +92,7 @@ protected:
      *
      * **Value:** 0 when no data is allocated; > 0 when valid data exists.
      */
-    size_t m_data_size{0};
+    Common::ImageSize m_data_size{0};
 
     /**
      * @brief Image width in pixels.
@@ -99,7 +101,7 @@ protected:
      * Populated from ImageRegion during `initializeAndCopyFrom()`.
      * Returns to 0 when the working image is invalidated (e.g., after `exportToCPUMove()`).
      */
-    size_t m_width{0};
+    Common::ImageDim m_width{0};
 
     /**
      * @brief Image height in pixels.
@@ -107,7 +109,7 @@ protected:
      * @details
      * Returns to 0 when the working image is invalidated.
      */
-    size_t m_height{0};
+    Common::ImageDim m_height{0};
 
     /**
      * @brief Number of color channels per pixel.
@@ -115,7 +117,7 @@ protected:
      * @details
      * Typical values: 3 (RGB), 4 (RGBA).
      */
-    size_t m_channels{0};
+    Common::ImageChan m_channels{0};
 
     /**
      * @brief Validity flag indicating whether the buffer contains usable data.

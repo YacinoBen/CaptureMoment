@@ -136,40 +136,40 @@ WorkingImageCPU_Default::exportToCPUShared() const
     return shared_ref;
 }
 
-std::pair<size_t, size_t> WorkingImageCPU_Default::getSize() const
+std::pair<Common::ImageDim, Common::ImageDim> WorkingImageCPU_Default::getSize() const
 {
     if (!isValid())
     {
         return {0, 0};
     }
-    return {static_cast<size_t>(m_image_data->m_width), static_cast<size_t>(m_image_data->m_height)};
+    return {static_cast<Common::ImageDim>(m_image_data->m_width), static_cast<Common::ImageDim>(m_image_data->m_height)};
 }
 
-size_t WorkingImageCPU_Default::getChannels() const
+Common::ImageChan WorkingImageCPU_Default::getChannels() const
 {
     if (!isValid())
     {
         return 0;
     }
-    return static_cast<size_t>(m_image_data->m_channels);
+    return static_cast<Common::ImageChan>(m_image_data->m_channels);
 }
 
-size_t WorkingImageCPU_Default::getPixelCount() const
+Common::ImageSize WorkingImageCPU_Default::getPixelCount() const
 {
     if (!isValid())
     {
         return 0;
     }
-    return static_cast<size_t>(m_image_data->m_width) * m_image_data->m_height;
+    return static_cast<Common::ImageSize>(m_image_data->m_width) * static_cast<Common::ImageSize>(m_image_data->m_height);
 }
 
-size_t WorkingImageCPU_Default::getDataSize() const
+Common::ImageSize WorkingImageCPU_Default::getDataSize() const
 {
     if (!isValid())
     {
         return 0;
     }
-    return static_cast<size_t>(m_image_data->m_width) * m_image_data->m_height * m_image_data->m_channels;
+    return static_cast<Common::ImageSize>(m_image_data->m_width) * static_cast<Common::ImageSize>(m_image_data->m_height) * static_cast<Common::ImageSize>(m_image_data->m_channels);
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing

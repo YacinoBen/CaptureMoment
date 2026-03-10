@@ -109,7 +109,7 @@ WorkingImageCPU_Halide::exportToCPUCopy()
     return convertHalideToImageRegion();
 }
 
-std::pair<size_t, size_t> WorkingImageCPU_Halide::getSize() const
+std::pair<Common::ImageDim, Common::ImageDim> WorkingImageCPU_Halide::getSize() const
 {
     if (!isValid()) {
         return {0, 0};
@@ -117,7 +117,7 @@ std::pair<size_t, size_t> WorkingImageCPU_Halide::getSize() const
     return getSizeByHalide();
 }
 
-size_t WorkingImageCPU_Halide::getChannels() const
+Common::ImageChan WorkingImageCPU_Halide::getChannels() const
 {
     if (!isValid()) {
         return 0;
@@ -125,7 +125,7 @@ size_t WorkingImageCPU_Halide::getChannels() const
     return getChannelsByHalide();
 }
 
-size_t WorkingImageCPU_Halide::getPixelCount() const
+Common::ImageSize WorkingImageCPU_Halide::getPixelCount() const
 {
     if (!isValid()) {
         return 0;
@@ -133,7 +133,7 @@ size_t WorkingImageCPU_Halide::getPixelCount() const
     return getPixelCountByHalide();
 }
 
-size_t WorkingImageCPU_Halide::getDataSize() const
+Common::ImageSize WorkingImageCPU_Halide::getDataSize() const
 {
     if (!isValid()) {
         return 0;

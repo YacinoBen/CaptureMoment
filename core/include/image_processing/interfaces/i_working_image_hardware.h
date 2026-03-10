@@ -22,6 +22,8 @@
 #include "common/types/memory_type.h"
 #include "common/image_region.h"
 #include "common/error_handling/core_error.h"
+#include "common/types/image_types.h"
+
 #include <memory>
 #include <cstddef>
 #include <utility>
@@ -90,25 +92,25 @@ public:
      * @brief Gets dimensions (width, height) of image data.
      * @return {width, height}. Returns {0, 0} if invalid.
      */
-    [[nodiscard]] virtual std::pair<size_t, size_t> getSize() const = 0;
+    [[nodiscard]] virtual std::pair<Common::ImageDim, Common::ImageDim> getSize() const = 0;
 
     /**
      * @brief Gets number of color channels.
      * @return Number of channels. Returns 0 if invalid.
      */
-    [[nodiscard]] virtual size_t getChannels() const = 0;
+    [[nodiscard]] virtual Common::ImageChan getChannels() const = 0;
 
     /**
      * @brief Gets total number of pixels.
      * @return width * height. Returns 0 if invalid.
      */
-    [[nodiscard]] virtual size_t getPixelCount() const = 0;
+    [[nodiscard]] virtual Common::ImageSize getPixelCount() const = 0;
 
     /**
      * @brief Gets total number of data elements (pixels * channels).
      * @return Total size. Returns 0 if invalid.
      */
-    [[nodiscard]] virtual size_t getDataSize() const = 0;
+    [[nodiscard]] virtual Common::ImageSize getDataSize() const = 0;
 
     /**
      * @brief Checks if the image data is valid.

@@ -29,37 +29,37 @@ void WorkingImageHalide::initializeHalide(std::span<float> data, std::int32_t wi
     }
 }
 
-std::pair<size_t, size_t> WorkingImageHalide::getSizeByHalide() const noexcept
+std::pair<Common::ImageDim, Common::ImageDim> WorkingImageHalide::getSizeByHalide() const noexcept
 {
     if (!m_halide_buffer.defined()) {
             return {0, 0};
         }
-    return {static_cast<size_t>(m_halide_buffer.width()),
-                static_cast<size_t>(m_halide_buffer.height())};
+    return {static_cast<Common::ImageDim>(m_halide_buffer.width()),
+                static_cast<Common::ImageDim>(m_halide_buffer.height())};
 }
 
-size_t WorkingImageHalide::getChannelsByHalide() const noexcept
+Common::ImageChan WorkingImageHalide::getChannelsByHalide() const noexcept
 {
     if (!m_halide_buffer.defined()) {
         return 0;
     }
-    return static_cast<size_t>(m_halide_buffer.channels());
+    return static_cast<Common::ImageChan>(m_halide_buffer.channels());
 }
 
-size_t WorkingImageHalide::getPixelCountByHalide() const noexcept
+Common::ImageSize WorkingImageHalide::getPixelCountByHalide() const noexcept
 {
     if (!m_halide_buffer.defined()) {
         return 0;
     }
-    return static_cast<size_t>(m_halide_buffer.width()) * static_cast<size_t>(m_halide_buffer.height());
+    return static_cast<Common::ImageSize>(m_halide_buffer.width()) * static_cast<Common::ImageSize>(m_halide_buffer.height());
 }
 
-size_t WorkingImageHalide::getDataSizeByHalide() const noexcept
+Common::ImageSize WorkingImageHalide::getDataSizeByHalide() const noexcept
 {
     if (!m_halide_buffer.defined()) {
         return 0;
     }
-    return static_cast<size_t>(m_halide_buffer.size_in_bytes() / sizeof(float));
+    return static_cast<Common::ImageSize>(m_halide_buffer.size_in_bytes() / sizeof(float));
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing
