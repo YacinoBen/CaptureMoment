@@ -18,6 +18,7 @@
 
 #include "common/image_region.h"
 #include "common/error_handling/core_error.h"
+#include "common/types/image_types.h"
 
 #include <string>
 #include <string_view>
@@ -69,19 +70,19 @@ public:
      * @brief Retrieves the width (in pixels) of the source image.
      * @return The image width, or 0 if no image is loaded.
      */
-    [[nodiscard]] virtual int width() const noexcept = 0;
+    [[nodiscard]] virtual Common::ImageDim width() const noexcept = 0;
 
     /**
      * @brief Retrieves the height (in pixels) of the source image.
      * @return The image height, or 0 if no image is loaded.
      */
-    [[nodiscard]] virtual int height() const noexcept = 0;
+    [[nodiscard]] virtual Common::ImageDim height() const noexcept = 0;
 
     /**
      * @brief Gets the number of channels of the internal buffer.
      * @return Number of channels (typically 4 for RGBA), or 0 if not loaded.
      */
-    [[nodiscard]] virtual int channels() const noexcept = 0;
+    [[nodiscard]] virtual Common::ImageChan channels() const noexcept = 0;
 
     /**
      * @brief Extracts a rectangular region (tile) of pixels from the image.
@@ -98,7 +99,7 @@ public:
      *         - CoreError (e.g., InvalidImageRegion) if extraction fails.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> getTile(
-        int x, int y, int width, int height
+        Common::ImageDim x, Common::ImageDim y, Common::ImageDim width, Common::ImageDim height
         ) = 0;
 
     /**

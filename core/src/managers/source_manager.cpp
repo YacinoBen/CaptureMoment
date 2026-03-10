@@ -7,11 +7,11 @@
 
 #include "managers/source_manager.h"
 
-#include <algorithm>
-#include <mutex>
 #include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imageio.h>
 #include <spdlog/spdlog.h>
+#include <mutex>
+#include <algorithm>
 
 namespace CaptureMoment::Core::Managers {
 
@@ -21,17 +21,14 @@ static std::once_flag s_cacheInitFlag;
 
 OIIO::ImageCache* SourceManager::getGlobalCache()
 {
-    std::call_once(s_cacheInitFlag, [](){
-        // Create the global ImageCache singleton
+    std::call_once(s_cacheInitFlag, []() {
         s_globalCachePtr = OIIO::ImageCache::create();
-
-        OIIO::ImageCache* cache = s_globalCachePtr.get();
-        if (cache) {
-            // Limit memory usage to 2GB
-            cache->attribute("max_memory_MB", 2048.0f);
-            spdlog::debug("OIIO ImageCache created: 2GB limit");
+        
+        if (s_globalCachePtr) {
+            s_globalCachePtr->attribute("max_memory_MB", 2048.0f);
+            spdlog::debug("[SourceManager] OIIO ImageCache created: 2GB limit");
         } else {
-            spdlog::critical("Failed to create OIIO ImageCache.");
+            spdlog::critical("[SourceManager] Failed to create OIIO ImageCache");
         }
     });
     return s_globalCachePtr.get();
@@ -41,8 +38,8 @@ SourceManager::SourceManager()
     : m_cache(getGlobalCache())
 {
     if (!m_cache) {
-        spdlog::critical("SourceManager: Failed to get global ImageCache.");
-        throw std::runtime_error("SourceManager: Initialization failed.");
+        spdlog::critical("[SourceManager] Failed to get global ImageCache");
+        throw std::runtime_error("SourceManager: Initialization failed");
     }
 }
 
@@ -54,98 +51,84 @@ SourceManager::~SourceManager()
 std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::string_view path)
 {
     if (path.empty()) {
-        spdlog::warn("SourceManager::loadFile: Empty file path provided.");
+        spdlog::warn("[SourceManager::loadFile] Empty file path");
         return std::unexpected(ErrorHandling::CoreError::FileNotFound);
     }
 
-    // Lock before checking and unloading
     std::lock_guard<std::mutex> lock(m_mutex);
 
     if (isLoaded_unsafe()) {
-        unloadInternal(); // Call internal function to avoid double-locking
+        unloadInternal();
     }
 
-    spdlog::info("SourceManager::loadFile Loading file: '{}'", path);
+    spdlog::info("[SourceManager::loadFile] Loading: '{}'", path);
 
     try {
-        // 1. Load the image using OIIO
-        auto temp_buf = std::make_unique<OIIO::ImageBuf>(
-            std::string(path),
-            0, 0,
-            s_globalCachePtr
-            );
-
-        if (!temp_buf->read())
-        {
-            spdlog::warn("SourceManager::loadFile Failed to read file '{}'. OIIO Message: {}",
-                         path, temp_buf->geterror());
+        // ============================================================
+        // Step 1: Load via OIIO ImageCache
+        // ============================================================
+        OIIO::ImageBuf src_buf(std::string(path), 0, 0, s_globalCachePtr);
+        
+        if (!src_buf.read(0, 0, true, OIIO::TypeDesc::FLOAT)) {
+            spdlog::error("[SourceManager::loadFile] Failed to read '{}': {}", 
+                          path, src_buf.geterror());
             return std::unexpected(ErrorHandling::CoreError::DecodingError);
         }
 
         // ============================================================
-        // OPTIMIZATION: Pre-convert to RGBA_F32
+        // Step 2: Get dimensions
         // ============================================================
-        const int w = temp_buf->spec().width;
-        const int h = temp_buf->spec().height;
-        const int current_ch = temp_buf->spec().nchannels;
+        const Common::ImageDim w = static_cast<Common::ImageDim>(src_buf.spec().width);
+        const Common::ImageDim h = static_cast<Common::ImageDim>(src_buf.spec().height);
+        const Common::ImageChan src_ch = static_cast<Common::ImageChan>(src_buf.spec().nchannels);
 
-        OIIO::ImageBuf final_buf;
+        // ============================================================
+        // Step 3: Convert to RGBA_F32 (standard internal format)
+        // ============================================================
+        OIIO::ImageSpec target_spec(static_cast<int>(w), static_cast<int>(h), 4, OIIO::TypeDesc::FLOAT);
+        OIIO::ImageBuf rgba_buf(target_spec);
 
-        if (current_ch != 4)
-        {
-            spdlog::info("SourceManager::loadFile Converting image from {} channels to RGBA (4 channels).", current_ch);
+        // Channel mapping for conversion
+        std::vector<int> channel_order = {0, 1, 2, 3};
+        std::vector<float> channel_values = {0.0f, 0.0f, 0.0f, 1.0f};
 
-            OIIO::ImageSpec target_spec(w, h, 4, OIIO::TypeDesc::FLOAT);
-            final_buf.reset(target_spec);
-
-            std::vector<int> channel_map = {0, 1, 2, 3};
-            std::vector<float> channel_values = {0.0f, 0.0f, 0.0f, 1.0f};
-
-            if (current_ch == 1) {
-                channel_map = {0, 0, 0, 0}; // Grayscale to RGB
-            }
-
-            if (!OIIO::ImageBufAlgo::channels(final_buf, *temp_buf, 4, channel_map, channel_values)) {
-                spdlog::error("SourceManager: Failed to convert channels to RGBA.");
-                return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
-            }
-        }
-        else
-        {
-            // Ensure format is FLOAT if it wasn't (e.g. UINT8)
-            if (temp_buf->spec().format != OIIO::TypeDesc::FLOAT)
-            {
-                spdlog::info("SourceManager: Converting pixel format to FLOAT.");
-
-                OIIO::ImageSpec target_spec(w, h, 4, OIIO::TypeDesc::FLOAT);
-                final_buf.reset(target_spec);
-
-                if (!OIIO::ImageBufAlgo::copy(final_buf, *temp_buf, OIIO::TypeDesc::FLOAT))
-                {
-                    spdlog::error("SourceManager: Failed to convert pixel format to FLOAT.");
-                    return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
-                }
-            }
-            else {
-                // Already correct format, just move the buffer
-                final_buf = std::move(*temp_buf);
-            }
+        switch (src_ch) {
+            case 1:  // Grayscale → R=G=B=gray, A=1
+                channel_order = {0, 0, 0, -1};
+                break;
+            case 2:  // Gray+Alpha → RGB=gray, A=alpha
+                channel_order = {0, 0, 0, 1};
+                break;
+            case 3:  // RGB → RGB, A=1
+                channel_order = {0, 1, 2, -1};
+                break;
+            case 4:  // RGBA → direct copy
+            default:
+                channel_order = {0, 1, 2, 3};
+                break;
         }
 
-        // Now assign the final buffer to m_image_buf
-        m_image_buf = std::make_unique<OIIO::ImageBuf>(std::move(final_buf));
+        if (!OIIO::ImageBufAlgo::channels(rgba_buf, src_buf, 4, channel_order, channel_values)) {
+            spdlog::error("[SourceManager::loadFile] Channel conversion failed: {}", rgba_buf.geterror());
+            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+        }
+
+        // ============================================================
+        // Step 4: Store final buffer
+        // ============================================================
+        m_image_buf = std::make_unique<OIIO::ImageBuf>(std::move(rgba_buf));
         m_current_path = path;
 
-        spdlog::info("SourceManager::loadFile  Successfully loaded '{}'. Internal Resolution: {}x{} (4 channels RGBA_F32 value: {}).",
-                     m_current_path, m_image_buf->spec().width, m_image_buf->spec().height, m_image_buf->spec().nchannels);
+        spdlog::info("[SourceManager::loadFile] Loaded '{}': {}x{} RGBA_F32", 
+                     m_current_path, w, h);
         return {};
 
     } catch (const std::bad_alloc&) {
-        spdlog::critical("SourceManager::loadFile: Memory allocation failed for '{}'.", path);
+        spdlog::critical("[SourceManager::loadFile] Allocation failed for '{}'", path);
         m_image_buf.reset();
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     } catch (const std::exception& e) {
-        spdlog::critical("SourceManager::loadFile: Exception during file loading of '{}': {}", path, e.what());
+        spdlog::critical("[SourceManager::loadFile] Exception: {}", e.what());
         m_image_buf.reset();
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
@@ -160,92 +143,91 @@ void SourceManager::unload()
 void SourceManager::unloadInternal()
 {
     if (m_image_buf && m_image_buf->initialized()) {
-        spdlog::info("SourceManager: Unloading '{}'.", m_current_path);
+        spdlog::info("[SourceManager] Unloading '{}'", m_current_path);
     }
     m_image_buf.reset();
     m_current_path.clear();
 }
 
-bool SourceManager::isLoaded() const {
+bool SourceManager::isLoaded() const
+{
     std::lock_guard<std::mutex> lock(m_mutex);
     return isLoaded_unsafe();
 }
 
-bool SourceManager::isLoaded_unsafe() const {
+bool SourceManager::isLoaded_unsafe() const
+{
     return m_image_buf && m_image_buf->initialized();
 }
 
-int SourceManager::width() const noexcept {
-    return (m_image_buf && m_image_buf->initialized()) ? m_image_buf->spec().width : 0;
+Common::ImageDim SourceManager::width() const noexcept
+{
+    return m_image_buf ? static_cast<Common::ImageDim>(m_image_buf->spec().width) : 0;
 }
 
-int SourceManager::height() const noexcept {
-    return (m_image_buf && m_image_buf->initialized()) ? m_image_buf->spec().height : 0;
+Common::ImageDim SourceManager::height() const noexcept
+{
+    return m_image_buf ? static_cast<Common::ImageDim>(m_image_buf->spec().height) : 0;
 }
 
-int SourceManager::channels() const noexcept {
-    return (m_image_buf && m_image_buf->initialized()) ? m_image_buf->spec().nchannels : 0;
+Common::ImageChan SourceManager::channels() const noexcept
+{
+    return m_image_buf ? static_cast<Common::ImageChan>(m_image_buf->spec().nchannels) : 0;
 }
 
-std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> SourceManager::getTile(
-    int x, int y, int width, int height)
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+SourceManager::getTile(Common::ImageDim x, Common::ImageDim y, 
+                       Common::ImageDim width, Common::ImageDim height)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if (!m_image_buf || !m_image_buf->initialized()) {
-        spdlog::warn("SourceManager::getTile: No image loaded");
+    if (!isLoaded_unsafe()) {
+        spdlog::warn("[SourceManager::getTile] No image loaded");
         return std::unexpected(ErrorHandling::CoreError::SourceNotLoaded);
     }
 
-    const int img_w = m_image_buf->spec().width;
-    const int img_h = m_image_buf->spec().height;
-
-    if (width <= 0 || height <= 0) {
+    if (width == 0 || height == 0) {
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
-    // Clamp coordinates to image bounds
-    int clamped_x = std::clamp(x, 0, img_w - 1);
-    int clamped_y = std::clamp(y, 0, img_h - 1);
-    int clamped_width = std::min(width, img_w - clamped_x);
-    int clamped_height = std::min(height, img_h - clamped_y);
-
-    if (clamped_width <= 0 || clamped_height <= 0) {
-        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
-    }
-
-    auto region = std::make_unique<Common::ImageRegion>();
-    region->m_x = clamped_x;
-    region->m_y = clamped_y;
-    region->m_width = clamped_width;
-    region->m_height = clamped_height;
-    region->m_channels = 4;
-    region->m_format = Common::PixelFormat::RGBA_F32;
-
-    const size_t dataSize = static_cast<size_t>(clamped_width * clamped_height * 4);
-    region->m_data.resize(dataSize);
-
+    // OIIO handles bounds via ROI - no manual clamping needed
     OIIO::ROI roi(
-        clamped_x, clamped_x + clamped_width,
-        clamped_y, clamped_y + clamped_height,
+        static_cast<int>(x), static_cast<int>(x + width),
+        static_cast<int>(y), static_cast<int>(y + height),
         0, 1,
         0, 4
-        );
+    );
 
-    if (!m_image_buf->get_pixels(roi, OIIO::TypeDesc::FLOAT, region->m_data.data())) {
-        spdlog::warn("SourceManager::getTile: Failed to extract tile");
+    // Allocate result
+    const size_t dataSize = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
+    std::vector<float> data(dataSize);
+
+    if (!m_image_buf->get_pixels(roi, OIIO::TypeDesc::FLOAT, data.data())) {
+        spdlog::warn("[SourceManager::getTile] get_pixels failed: {}", m_image_buf->geterror());
         return std::unexpected(ErrorHandling::CoreError::IOError);
     }
+
+    // Create ImageRegion
+    auto region = std::make_unique<Common::ImageRegion>(
+        std::move(data),
+        width,
+        height,
+        static_cast<Common::ImageChan>(4)
+    );
+    region->m_x = static_cast<Common::ImageCoord>(x);
+    region->m_y = static_cast<Common::ImageCoord>(y);
+    region->m_format = Common::PixelFormat::RGBA_F32;
 
     return region;
 }
 
-std::expected<void, ErrorHandling::CoreError> SourceManager::setTile(const Common::ImageRegion& tile)
+std::expected<void, ErrorHandling::CoreError>
+SourceManager::setTile(const Common::ImageRegion& tile)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if (!m_image_buf || !m_image_buf->initialized()) {
-        spdlog::warn("SourceManager::setTile: No image loaded");
+    if (!isLoaded_unsafe()) {
+        spdlog::warn("[SourceManager::setTile] No image loaded");
         return std::unexpected(ErrorHandling::CoreError::SourceNotLoaded);
     }
 
@@ -254,27 +236,20 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::setTile(const Commo
     }
 
     if (tile.m_format != Common::PixelFormat::RGBA_F32 || tile.m_channels != 4) {
+        spdlog::error("[SourceManager::setTile] Invalid format: expected RGBA_F32");
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
-    const int img_w = m_image_buf->spec().width;
-    const int img_h = m_image_buf->spec().height;
-
-    if (tile.m_x < 0 || tile.m_y < 0 ||
-        tile.m_x + tile.m_width > img_w ||
-        tile.m_y + tile.m_height > img_h) {
-        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
-    }
-
+    // OIIO ROI for the tile
     OIIO::ROI roi(
-        tile.m_x, tile.m_x + tile.m_width,
-        tile.m_y, tile.m_y + tile.m_height,
+        static_cast<int>(tile.m_x), static_cast<int>(tile.m_x + tile.m_width),
+        static_cast<int>(tile.m_y), static_cast<int>(tile.m_y + tile.m_height),
         0, 1,
         0, 4
-        );
+    );
 
     if (!m_image_buf->set_pixels(roi, OIIO::TypeDesc::FLOAT, tile.m_data.data())) {
-        spdlog::error("SourceManager::setTile: Failed to write tile. OIIO Error: {}", m_image_buf->geterror());
+        spdlog::error("[SourceManager::setTile] set_pixels failed: {}", m_image_buf->geterror());
         return std::unexpected(ErrorHandling::CoreError::IOError);
     }
 
@@ -290,13 +265,9 @@ std::optional<std::string> SourceManager::getMetadata(std::string_view key) cons
     }
 
     const auto& spec = m_image_buf->spec();
-    auto* attr = spec.find_attribute(std::string(key));
+    const auto* attr = spec.find_attribute(std::string(key));
 
-    if (attr) {
-        return attr->get_string();
-    } else {
-        return std::nullopt;
-    }
+    return attr ? std::optional{attr->get_string()} : std::nullopt;
 }
 
 } // namespace CaptureMoment::Core::Managers
