@@ -107,30 +107,30 @@ public:
     /**
      * @brief Gets dimensions (width, height) of internal image data.
      *
-     * @return std::pair<size_t, size_t> Width and height. Returns {0, 0} if invalid.
+     * @return std::pair<Common::ImageDim, Common::ImageDim> Width and height. Returns {0, 0} if invalid.
      */
-    [[nodiscard]] std::pair<size_t, size_t> getSize() const override;
+    [[nodiscard]] std::pair<Common::ImageDim, Common::ImageDim> getSize() const override;
 
     /**
      * @brief Gets number of color channels.
      *
-     * @return size_t Number of channels. Returns 0 if invalid.
+     * @return Common::ImageChan Number of channels. Returns 0 if invalid.
      */
-    [[nodiscard]] size_t getChannels() const override;
+    [[nodiscard]] Common::ImageChan getChannels() const override;
 
     /**
      * @brief Gets total number of pixels.
      *
-     * @return size_t width * height. Returns 0 if invalid.
+     * @return Common::ImageSize width * height. Returns 0 if invalid.
      */
-    [[nodiscard]] size_t getPixelCount() const override;
+    [[nodiscard]] Common::ImageSize getPixelCount() const override;
 
     /**
      * @brief Gets total number of data elements (pixels * channels).
      *
-     * @return size_t Total size. Returns 0 if invalid.
+     * @return Common::ImageSize Total size. Returns 0 if invalid.
      */
-    [[nodiscard]] size_t getDataSize() const override;
+    [[nodiscard]] Common::ImageSize getDataSize() const override;
 
     /**
      * @brief Checks if internal image data is valid.
