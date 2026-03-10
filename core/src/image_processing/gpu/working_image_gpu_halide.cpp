@@ -171,7 +171,7 @@ WorkingImageGPU_Halide::downsample(size_t target_width, size_t target_height)
     }
 }
 
-std::pair<size_t, size_t> WorkingImageGPU_Halide::getSize() const
+std::pair<Common::ImageDim, Common::ImageDim> WorkingImageGPU_Halide::getSize() const
 {
     if (!isValid()) {
         return {0, 0};
@@ -179,7 +179,7 @@ std::pair<size_t, size_t> WorkingImageGPU_Halide::getSize() const
     return getSizeByHalide();
 }
 
-size_t WorkingImageGPU_Halide::getChannels() const
+Common::ImageChan WorkingImageGPU_Halide::getChannels() const
 {
     if (!isValid()) {
         return 0;
@@ -187,7 +187,7 @@ size_t WorkingImageGPU_Halide::getChannels() const
     return getChannelsByHalide();
 }
 
-size_t WorkingImageGPU_Halide::getPixelCount() const
+Common::ImageSize WorkingImageGPU_Halide::getPixelCount() const
 {
     if (!isValid()) {
         return 0;
@@ -195,7 +195,7 @@ size_t WorkingImageGPU_Halide::getPixelCount() const
     return getPixelCountByHalide();
 }
 
-size_t WorkingImageGPU_Halide::getDataSize() const
+Common::ImageSize WorkingImageGPU_Halide::getDataSize() const
 {
     if (!isValid()) {
         return 0;

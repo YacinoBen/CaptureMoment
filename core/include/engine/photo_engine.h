@@ -21,6 +21,7 @@
 #include "operations/operation_descriptor.h"
 #include "common/image_region.h"
 #include "common/error_handling/core_error.h"
+#include "common/types/image_types.h"
 
 #include <memory>
 #include <string_view>
@@ -93,21 +94,21 @@ public:
      *
      * @return Image width in pixels, or 0 if no image is loaded.
      */
-    [[nodiscard]] int width() const noexcept;
+    [[nodiscard]] Common::ImageDim width() const noexcept;
 
     /**
      * @brief Gets the height of the loaded image.
      *
      * @return Image height in pixels, or 0 if no image is loaded.
      */
-    [[nodiscard]] int height() const noexcept;
+    [[nodiscard]] Common::ImageDim height() const noexcept;
 
     /**
      * @brief Gets the number of color channels.
      *
      * @return Number of channels (e.g., 4 for RGBA), or 0 if no image is loaded.
      */
-    [[nodiscard]] int channels() const noexcept;
+    [[nodiscard]] Common::ImageChan channels() const noexcept;
 
     /**
      * @brief Applies a cumulative list of operations.
