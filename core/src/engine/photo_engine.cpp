@@ -63,17 +63,17 @@ void PhotoEngine::resetWorkingImage()
     (void) m_state_manager->resetToOriginal();
 }
 
-int PhotoEngine::width() const noexcept
+Common::ImageDim PhotoEngine::width() const noexcept
 {
     return m_state_manager->getSourceWidth();
 }
 
-int PhotoEngine::height() const noexcept
+Common::ImageDim PhotoEngine::height() const noexcept
 {
     return m_state_manager->getSourceHeight();
 }
 
-int PhotoEngine::channels() const noexcept
+Common::ImageChan PhotoEngine::channels() const noexcept
 {
     return m_state_manager->getSourceChannels();
 }
