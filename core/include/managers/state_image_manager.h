@@ -26,6 +26,7 @@
 #include "managers/i_source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
 #include "operations/operation_factory.h"
+#include "common/types/image_types.h"
 
 #include <vector>
 #include <memory>
@@ -172,7 +173,7 @@ public:
      * @details These methods query the SourceManager for the original image properties.
      * @return The width of the source image.
      */
-    [[nodiscard]] int getSourceWidth() const;
+    [[nodiscard]] Common::ImageDim getSourceWidth() const;
 
     /**
      * @brief Gets the height of the original source image.
@@ -180,7 +181,7 @@ public:
      * @details These methods query the SourceManager for the original image properties.
      * @return The height of the source image.
      */
-    [[nodiscard]] int getSourceHeight() const;
+    [[nodiscard]] Common::ImageDim getSourceHeight() const;
 
     /**
      * @brief Gets the number of channels of the original source image.
@@ -188,7 +189,7 @@ public:
      * @details These methods query the SourceManager for the original image properties.
      * @return The number of channels of the source image.
      */
-    [[nodiscard]] int getSourceChannels() const;
+    [[nodiscard]] Common::ImageChan getSourceChannels() const;
 
 private:
 
