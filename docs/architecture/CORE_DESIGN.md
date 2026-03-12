@@ -52,7 +52,21 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Initialization:** The benchmark runs once at application startup in `main()`, and the result is used throughout the application lifecycle.
 * [**See more**](core/IMAGE_PROCESSING.md).
 ---
-## 4. Task-Based Processing Architecture: Abstraction and Orchestration
+## 4. WorkingImage Lifecycle Management
+To manage the creation, reuse, and state of `IWorkingImageHardware` instances efficiently, a dedicated context class is introduced.
+### `CaptureMoment::Core::ImageProcessing::WorkingImageContext` (Context Pattern)
+* **Responsibility:** Manages the lifecycle of a single `IWorkingImageHardware` instance. It encapsulates the creation, reuse, and export of a `WorkingImage`.
+* **Key Methods:**
+* `prepare(std::unique_ptr<Common::ImageRegion>&& original_tile)`: Creates or reuses the internal `WorkingImage` instance based on the provided tile.
+* `update(const Common::ImageRegion& original_tile)`: Updates the existing internal `WorkingImage` with new data.
+* `getWorkingImage()`: Returns a shared pointer to the managed `IWorkingImageHardware`.
+* `getWorkingImageAsRegion()`: Exports the current internal `WorkingImage` data to a CPU-based `ImageRegion`.
+* `isReady()`: Checks if a `WorkingImage` is available and valid.
+* `release()`: Releases the managed `WorkingImage`.
+* **Pattern Explanation (Context):** `WorkingImageContext` acts as a context or wrapper around the specific `IWorkingImageHardware` instance (e.g., `WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`). It centralizes the logic for its management (creation, update, validation, export), isolating the client code (like `StateImageManager`) from the direct instantiation and state management details of the various `WorkingImage` implementations.
+* **Interaction with `OperationPipelineExecutor`:** The `Worker` (e.g., `HalideOperationWorker`) retrieves the `WorkingImage` instance from `WorkingImageContext` via `getWorkingImage()` and passes it to `PipelineHalideOperationManager::execute`. `OperationPipelineExecutor::execute` then receives this object via the `IWorkingImageHardware&` parameter. It subsequently calls methods like `isValid()`, `getSize()`, `getChannels()` on this object, which resolve to the specific implementations in the concrete `WorkingImage` class (e.g., `WorkingImageCPU_Halide`), interacting with the underlying `WorkingImageData` and `WorkingImageHalide` bases as described in Section 3. Finally, `OperationPipelineExecutor` accesses the `Halide::Buffer<float>` via a cast to `WorkingImageHalide&` to execute the pipeline.
+---
+## 5. Task-Based Processing Architecture: Abstraction and Orchestration
 To manage the processing workflow effectively, especially in a potentially concurrent or sequential context, we introduce a layer of abstraction using interfaces and a central orchestrator.
 ### `CaptureMoment::Core::Domain::IProcessingTask` & `CaptureMoment::Core::Engine::PhotoTask` (Command Pattern / Task Abstraction)
 The **`IProcessingTask`** interface defines a unit of work encapsulating the processing of an image region with a specific sequence of operations.
@@ -67,7 +81,7 @@ The **`IProcessingBackend`** interface defines the contract for creating and sub
 * **Pattern Explanation (Facade):** `PhotoEngine` acts as a facade, providing a simplified interface to the complex subsystem of `SourceManager`, `StateImageManager`, `OperationPipeline`, and task execution. It hides the intricate details of how these components interact, making it easier for the UI layer to initiate processing.
 * **Benefit:** This centralizes the high-level logic (when to process, what operations are active, how to handle results, managing the working state) away pipeline execution and resource management.
 ---
-## 5. Low-Level Pipeline Execution: Statelessness and Utility
+## 6. Low-Level Pipeline Execution: Statelessness and Utility
 The core logic for applying a sequence of operations to a data unit is encapsulated in a stateless utility located within the `operation` directory.
 ### `CaptureMoment::Core::Operations::OperationPipeline` (Stateless Utility)
 The `OperationPipeline` class is refactored into a stateless class containing only a static method (`applyOperations`).
@@ -77,7 +91,7 @@ The `OperationPipeline` class is refactored into a stateless class containing on
 * **Benefit:** High reusability and testability. It's a pure function-like component that performs the core processing step.
 * **Pattern Explanation (Utility/Stateless):** Being stateless means the class doesn't hold any instance-specific data. Its methods are pure functions of their inputs. This makes it highly reusable, thread-safe (as it doesn't modify shared state), and easy to test in isolation.
 ---
-## 6. Operation Management: The Factory Pattern
+## 7. Operation Management: The Factory Pattern
 This pattern remains crucial for creating operation instances within the processing pipeline.
 ### Components
 * **`CaptureMoment::Core::Operations::IOperation` (formerly `IOperation`):** The base interface for all operations (e.g., `OperationBrightness`, `OperationContrast`). It defines a single `execute(IWorkingImageHardware& working_image, const OperationDescriptor& descriptor)` method.
@@ -89,7 +103,7 @@ This pattern remains crucial for creating operation instances within the process
 * **Pattern Explanation (Factory):** The `OperationFactory` centralizes the creation of `IOperation` subclasses. It maps an `OperationType` to a specific creation routine. This removes the need for `OperationPipeline` to have `if/else` or `switch` statements for every possible operation type, making it easy to add new operations without touching existing code.
 * [🟦 **SEE OPERATIONS.md**](core/OPERATIONS.md).
 ---
-## 7. Pipeline Fusion Architecture
+## 8. Pipeline Fusion Architecture
 The architecture now includes advanced pipeline fusion capabilities for optimal performance.
 ### `CaptureMoment::Core::Pipeline::IPipelineExecutor` & `CaptureMoment::Core::Pipeline::OperationPipelineExecutor` (Strategy Pattern)
 * **`IPipelineExecutor`**: Abstract interface for executing a pre-built pipeline on an image.
@@ -108,7 +122,7 @@ The architecture now includes advanced pipeline fusion capabilities for optimal 
 * **Problem:** An earlier version of `OperationPipelineExecutor` attempted to statically compile the entire Halide pipeline, including the input node, leading to incorrect execution where the input buffer was not properly linked during runtime.
 * **Solution:** The `OperationPipelineExecutor` now caches the *logic for chaining operations* (the fused computational graph excluding the input node) in a `std::function` (`m_operation_chain`). During execution (`executeOnHalideBuffer`), the input buffer is dynamically bound to create the final `Halide::Func`, which is then compiled and scheduled just-in-time before execution. This ensures the correct input data is processed by the fused pipeline while preserving the performance benefits of operation fusion.
 ---
-## 8. Hardware-Agnostic Pipeline Execution
+## 9. Hardware-Agnostic Pipeline Execution
 The fused pipeline system works seamlessly across different hardware backends.
 ### `CaptureMoment::Core::ImageProcessing::WorkingImageHalide` (Base Class)
 * **Shared Infrastructure**: Base class providing common Halide buffer functionality for both CPU and GPU implementations.
@@ -125,8 +139,9 @@ The fused pipeline system works seamlessly across different hardware backends.
 * **Delegated Responsibilities:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
 * **Enhanced Interface:** Provides methods like `loadImage`, `commitWorkingImageToSource`, and getters for source image properties (`width`, `height`, `channels`).
 * **Operation Coalescing:** Implements a coalescing strategy for incoming `applyOperations` requests. If an operation is already in progress (`isUpdatePending` is true), subsequent requests overwrite any previously pending request, optimizing for the most recent state during rapid UI interactions (e.g., dragging a slider).
+* **WorkingImage Context:** Now owns `m_working_image_context` (`std::unique_ptr<WorkingImageContext>`) to manage the lifecycle of the active working image.
 ---
-## 9. Pipeline Management and Execution Strategies
+## 10. Pipeline Management and Execution Strategies
 Recent refactoring introduced a more structured approach to managing pipeline execution strategies.
 ### `CaptureMoment::Core::Pipeline::PipelineBuilder* **Responsibility:** Central registry for creating `IPipelineExecutor` instances based on `PipelineType` (e.g., HalideOperation).
 * **Global Instance:** The `PipelineBuilder` registry is now initialized once globally via `PipelineRegistry::registerAll()` during application startup (often triggered by `PipelineContext` construction).
@@ -148,7 +163,7 @@ Recent refactoring introduced a more structured approach to managing pipeline ex
 * **Operation Factory Location:** Now owns the `OperationFactory` instance, centralizing operation creation logic.
 * **Executor Creation:** Instantiates its required `OperationPipelineExecutor` by calling the **static** `PipelineBuilder::build()` method.
 ---
-## 10. Asynchronous Processing Workers
+## 11. Asynchronous Processing Workers
 A new layer has been introduced to handle specific processing tasks asynchronously, further decoupling execution logic.
 ### `CaptureMoment::Core::Workers::IWorkerRequest` (Abstract Interface)
 * **Responsibility:** Defines the contract for executing a specific task asynchronously.
@@ -167,8 +182,9 @@ A new layer has been introduced to handle specific processing tasks asynchronous
 ### `CaptureMoment::Core::Workers::HalideOperationWorker` (Concrete Worker)
 * **Responsibility:** Concrete implementation for executing Halide-based adjustments asynchronously.
 * **Pattern Explanation (Strategy):** Implements `IWorkerRequest` to execute the logic managed by `PipelineHalideOperationManager`.
+* **WorkingImage Context Interaction:** Retrieves the `IWorkingImageHardware` instance to process via `WorkingImageContext::getWorkingImage()`.
 ---
-## 11. Synchronized Operation Execution
+## 12. Synchronized Operation Execution
 A critical improvement has been made to ensure UI responsiveness and visual consistency### `CaptureMoment::Core::Engine::PhotoEngine` (Updated Contract)
 * **Method Change:** The `applyOperations` method now returns a `std::future<bool>` instead of `void`.
 * **Responsibility:** The caller (e.g., `ImageControllerBase`) is now responsible for calling `.get()` on the returned future to wait for the operation to complete. This ensures the internal working image state and the update flag in `StateImageManager` are properly synchronized before proceeding.
@@ -178,7 +194,7 @@ A critical improvement has been made to ensure UI responsiveness and visual cons
 * **Responsibility:** Ensures that the display update (`DisplayManager`) only occurs *after* the core image processing (`StateImageManager`) has fully finished and its state is updated.
 * **Benefit:** Guarantees visual consistency between the UI controls and the rendered image.
 ---
-## 12. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
+## 13. Serialization and Persistence: Interfaces and Strategies (Independent Layer)
 The core library includes a flexible system for saving and loading the state of image operations using XMP metadata. This system is designed as an **independent layer**, separate from the core image processing engine (`PhotoEngine`), to maximize modularity and flexibility.
 ### Components
 * **`CaptureMoment::Core::Serializer::IXmpProvider`:** An interface abstracting the low-level XMP packet read/write operations. This allows switching between different XMP libraries (e.g., Exiv2, Adobe XMP Toolkit) without changing dependent code.
@@ -202,7 +218,7 @@ The core library includes a flexible system for saving and loading the state of 
 * **Clear Responsibility:** `PhotoEngine` handles image processing state and pipeline execution. A separate service handles persistence.
 * [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
 ---
-## 13. Utility Modules and Generic Conversion
+## 14. Utility Modules and Generic Conversion
 Generic utility functions, such as string conversion, are centralized to promote reusability and reduce code duplication across the core library.
 ### `CaptureMoment::Core::utils::toString`
 * **Purpose:** Provides a generic mechanism for converting primitive types (e.g., `int`, `float`, `double`, `bool`) and `std::string` to their string representation.
@@ -210,7 +226,7 @@ Generic utility functions, such as string conversion, are centralized to promote
 * **Location:** Implemented in `utils/to_string_utils.h`, placed directly in the `utils` folder without subdirectories for conversion or other purposes.
 * **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
 ---
-## 14. Namespace Organization
+## 15. Namespace Organization
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 - **`CaptureMoment::Core::Common`**: Contains fundamental data structures like `ImageRegion` and `PixelFormat`.
 - **`CaptureMoment::Core::Operations`**: Contains operation-related logic, including `IOperation`, `OperationDescriptor`, `OperationFactory`, `OperationPipeline`, and specific operation implementations (e.g., `OperationBrightness`).
@@ -226,7 +242,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 - **`CaptureMoment::Core::utils`**: Contains generic utility functions, such as `toString`.
 This organization clarifies the role of each component and prevents naming collisions.
 ---
-## 15. Recent Architectural Improvements
+## 16. Recent Architectural Improvements
 ### Pipeline Fusion Optimization
 - **Fused Execution**: Operations now support both sequential (`execute`) and fused (`appendToFusedPipeline`) execution patterns.
 - **Zero-Copy Processing**: `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::unique_ptr<float[]>` and `Halide::Buffer`.
@@ -247,7 +263,11 @@ This organization clarifies the role of each component and prevents naming colli
 - **Unified Buffer Initialization:** `WorkingImageHalide::initializeHalide` now accepts a `std::span<float>` for safer and more flexible buffer view creation.
 - **Delegated Accessors:** Concrete implementations (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) delegate dimension and channel queries to methods defined in `WorkingImageHalide` (e.g., `getSizeByHalide`).
 - **Validity Check Refined:** The `isValid()` method in concrete implementations now combines state from `WorkingImageData` (`m_valid`) and `WorkingImageHalide` (`m_halide_buffer.defined()`).
-- **`exportToCPUMove` Removed:** The destructive `exportToCPUMove` method was removed from the interface and implementations. A new `downsample` method was introduced on `IWorkingImageHardware` and implemented in the concrete classes for optimized Pipeline Management Refactoring
+- **`exportToCPUMove` Removed:** The destructive `exportToCPUMove` method was removed from the interface and implementations. A new `downsample` method was introduced on `IWorkingImageHardware` and implemented in the concrete classes for optimized WorkingImage Context Integration
+- **`StateImageManager` Ownership:** `StateImageManager` now owns `m_working_image_context` to manage the lifecycle of the active working image.
+- **Worker Interaction:** Workers (e.g., `HalideOperationWorker`) retrieve the `IWorkingImageHardware` instance via `WorkingImageContext::getWorkingImage()`.
+- **Pipeline Executor Interaction:** `OperationPipelineExecutor` receives the `IWorkingImageHardware` object via the `execute` method parameter, which originates from `WorkingImageContext`. It then interacts with this object as described in Section 3 and Section 9.
+### Pipeline Management Refactoring
 - **Global Registry Pattern**: Introduced `PipelineBuilder` (global registry) and `PipelineRegistry` for flexible executor creation. `PipelineContext` triggers global registration.
 - **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager strategy control.
 - **Pipeline Context**: Centralized infrastructure management via `PipelineContext` (holds managers, triggers global builder registration).
