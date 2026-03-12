@@ -270,4 +270,10 @@ std::optional<std::string> SourceManager::getMetadata(std::string_view key) cons
     return attr ? std::optional{attr->get_string()} : std::nullopt;
 }
 
+std::string SourceManager::getImageSourcePath() const
+{
+    std::lock_guard lock(m_mutex);
+    return m_current_path;
+}
+
 } // namespace CaptureMoment::Core::Managers

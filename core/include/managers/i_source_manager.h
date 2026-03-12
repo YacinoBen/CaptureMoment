@@ -67,6 +67,13 @@ public:
     [[nodiscard]] virtual bool isLoaded() const = 0;
 
     /**
+     * @brief Gets the path of the image source.
+     *
+     * @return A copy of the file path as `std::string`.
+     */
+    [[nodiscard]] virtual std::string getImageSourcePath() const = 0;
+
+    /**
      * @brief Retrieves the width (in pixels) of the source image.
      * @return The image width, or 0 if no image is loaded.
      */
