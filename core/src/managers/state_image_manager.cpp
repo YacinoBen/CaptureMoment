@@ -10,6 +10,7 @@
 #include "image_processing/factories/working_image_factory.h"
 #include "pipeline/pipeline_context.h"
 #include "workers/worker_context.h"
+#include "image_processing/working_image_context.h"
 #include "managers/source_manager.h"
 
 #include <spdlog/spdlog.h>
@@ -20,6 +21,7 @@ namespace CaptureMoment::Core::Managers {
 StateImageManager::StateImageManager()
     : m_pipeline_context(std::make_unique<Pipeline::PipelineContext>())
     , m_worker_context(std::make_unique<Workers::WorkerContext>())
+    , m_working_image_context(std::make_unique<ImageProcessing::WorkingImageContext>())
     , m_source_manager(std::make_unique<Managers::SourceManager>())
 {
     if (!m_source_manager) {
@@ -54,12 +56,18 @@ bool StateImageManager::loadImage(std::string_view path)
         return false;
     }
 
+    const Common::ImageDim w = m_source_manager->width();
+    const Common::ImageDim h = m_source_manager->height();
+    auto tile = m_source_manager->getTile(0, 0, w, h);
+
+    if (!tile || !m_working_image_context->prepare(std::move(tile.value()))) {
+        spdlog::error("[StateImageManager::loadImage]: Failed to prepare WorkingImage.");
+        return false;
+    }
     // 3. Update State Metadata
     {
         std::lock_guard lock(m_state_mutex);
         m_original_image_path = std::string(path);
-        // Reset working image pointer
-        m_working_image = nullptr;
     }
 
     // 4. Clear any pending operations from previous image
@@ -67,6 +75,7 @@ bool StateImageManager::loadImage(std::string_view path)
         std::lock_guard lock(m_pending_mutex);
         m_pending_ops.reset();
     }
+
     spdlog::info("[StateImageManager::loadImage]: Image '{}' loaded successfully ({}x{}).",
                  path, m_source_manager->width(), m_source_manager->height());
 
@@ -82,7 +91,7 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingIm
     std::shared_ptr<ImageProcessing::IWorkingImageHardware> working_image_hw;
     {
         std::lock_guard lock(m_state_mutex);
-        working_image_hw = m_working_image;
+        working_image_hw = m_working_image_context->getWorkingImage();
     }
 
     if (!working_image_hw) {
@@ -128,22 +137,15 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::resetToOriginal
     return {};
 }
 
-std::shared_ptr<ImageProcessing::IWorkingImageHardware> StateImageManager::getWorkingImage() const
-{
-    std::lock_guard lock(m_state_mutex);
-    return m_working_image;
-}
-
 bool StateImageManager::isUpdatePending() const
 {
     std::lock_guard lock(m_flag_mutex);
     return m_is_updating;
 }
 
-std::string StateImageManager::getOriginalImageSourcePath() const
+std::string StateImageManager::getImageSourcePath() const
 {
-    std::lock_guard lock(m_state_mutex);
-    return m_original_image_path;
+   return m_source_manager->getImageSourcePath();
 }
 
 std::future<bool> StateImageManager::applyOperations(std::vector<Operations::OperationDescriptor>&& ops)
@@ -193,57 +195,21 @@ void StateImageManager::launchProcessing(
     m_is_updating.store(true, std::memory_order_release);
 
     // 1. Retrieve the original image data from the SourceManager.
-    const size_t source_width = m_source_manager->width();
-    const size_t source_height = m_source_manager->height();
-    auto original_tile = m_source_manager->getTile(0, 0, source_width, source_height);
+    Common::ImageDim source_width = m_source_manager->width();
+    Common::ImageDim source_height = m_source_manager->height();
+    auto tile = m_source_manager->getTile(0, 0, source_width, source_height);
 
-    if (!original_tile)
+    if (!tile)
     {
         spdlog::error("[StateImageManager::launchProcessing]: Failed to retrieve original tile.");
         onProcessingComplete(false);
         return;
     }
 
-    // 2. Get or Create the Working Image (reuse optimization)
-    std::shared_ptr<ImageProcessing::IWorkingImageHardware> working_image_to_use;
-
-    {
-        std::lock_guard lock(m_state_mutex);
-
-        // Check if we can reuse the existing working image
-        bool can_reuse = false;
-
-        if (m_working_image && m_working_image->isValid()) {
-            auto [current_width, current_height] = m_working_image->getSize();
-
-            if (current_width == source_width && current_height == source_height) {
-                // Same size - try to update in place
-                auto update_result = m_working_image->updateFromCPU(*original_tile.value());
-
-                if (update_result) {
-                    can_reuse = true;
-                    working_image_to_use = m_working_image;
-                    spdlog::debug("[StateImageManager::launchProcessing]: Reused existing working image (updated from CPU).");
-                } else {
-                    spdlog::warn("[StateImageManager::launchProcessing]: updateFromCPU failed, will recreate.");
-                }
-            }
-        }
-
-        // Create new if we couldn't reuse
-        if (!can_reuse) {
-            auto unique_new_image = ImageProcessing::WorkingImageFactory::create(*original_tile.value());
-
-            if (!unique_new_image) {
-                spdlog::error("[StateImageManager::launchProcessing]: Failed to create working image.");
-                onProcessingComplete(false);
-                return;
-            }
-
-            working_image_to_use = std::move(unique_new_image);
-            m_working_image = working_image_to_use;  // Store for future reuse
-            spdlog::debug("[StateImageManager::launchProcessing]: Created new working image.");
-        }
+    if (!m_working_image_context->update(std::move(*tile.value()))) {
+        spdlog::error("[StateImageManager::launchProcessing]: Failed to update working image.");
+        onProcessingComplete(false);
+        return;
     }
 
     // 3. Retrieve the Halide Manager from the Pipeline Context.
@@ -257,9 +223,9 @@ void StateImageManager::launchProcessing(
 
     // 6. Execute the processing asynchronously.
     // Note: We pass a raw reference since working_image_to_use is kept alive by m_working_image
-    auto worker_future = worker.execute(*m_pipeline_context, *working_image_to_use);
+    auto worker_future = worker.execute(*m_pipeline_context, *m_working_image_context->getWorkingImage());
 
-    // 7. Launch async continuation to handle completion
+    // 8. Launch async continuation to handle completion
     std::thread([this, worker_future = std::move(worker_future)]() mutable {
         // Wait for worker to complete
         bool success = worker_future.get();
@@ -344,4 +310,14 @@ Common::ImageChan StateImageManager::getSourceChannels() const
     return m_source_manager ? m_source_manager->channels() : 0;
 }
 
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> StateImageManager::getWorkingImageAsRegion() const
+{
+    std::lock_guard lock(m_state_mutex);
+
+    if (!m_working_image_context) {
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+    }
+
+    return m_working_image_context->getWorkingImageAsRegion();
+}
 } // namespace CaptureMoment::Core::Managers

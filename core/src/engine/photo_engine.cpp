@@ -89,29 +89,21 @@ std::future<bool> PhotoEngine::applyOperations(std::vector<Operations::Operation
     return m_state_manager->applyOperations(std::move(ops));
 }
 
-std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const
-{
-    return m_state_manager ? m_state_manager->getWorkingImage() : nullptr;
-}
-
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> PhotoEngine::getWorkingImageAsRegion() const
 {
     if (!m_state_manager) {
+        spdlog::error("[PhotoEngine::getWorkingImageAsRegion]: StateManager is null.");
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 
-    auto working_image_hw = m_state_manager->getWorkingImage();
-    if (!working_image_hw) {
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+    auto result = m_state_manager->getWorkingImageAsRegion();
+
+    if (!result) {
+        spdlog::error("[PhotoEngine::getWorkingImageAsRegion]: Failed to get working image.");
+        return std::unexpected(result.error());
     }
 
-    // Export HW image to CPU
-    auto cpu_copy = working_image_hw->exportToCPUCopy();
-    if (!cpu_copy) {
-        return std::unexpected(cpu_copy.error());
-    }
-
-    return cpu_copy;
+    return result;
 }
 
 } // namespace CaptureMoment::Core::Engine
