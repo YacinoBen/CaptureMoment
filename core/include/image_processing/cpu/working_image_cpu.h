@@ -47,7 +47,7 @@ public:
      * This is the preferred method for display purposes.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    downsample(size_t target_width, size_t target_height) override;
+    downsample(Common::ImageDim target_width, Common::ImageDim target_height) override;
 
 protected:
     /**
