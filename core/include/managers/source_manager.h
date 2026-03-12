@@ -61,6 +61,8 @@ public:
 
     [[nodiscard]] std::optional<std::string> getMetadata(std::string_view key) const override;
 
+    [[nodiscard]] std::string getImageSourcePath() const override;
+
 private:
     /**
      * @brief The main image buffer containing the loaded image data.
