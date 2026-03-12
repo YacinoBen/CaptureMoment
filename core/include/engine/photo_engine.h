@@ -127,17 +127,6 @@ public:
     [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
-     * @brief Gets the raw working image (Hardware Abstraction).
-     *
-     * Returns a shared pointer to the internal hardware-agnostic image.
-     * This is useful if the caller needs to interface directly with the processing
-     * backend.
-     *
-     * @return Shared pointer to the working image, or nullptr.
-     */
-    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
-
-    /**
      * @brief Gets the working image as a CPU-based copy.
      *
      * This method exports the working image (which might reside in GPU memory)
