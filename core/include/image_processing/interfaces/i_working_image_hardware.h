@@ -86,7 +86,7 @@ public:
      * This is the preferred method for display purposes.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    downsample(size_t target_width, size_t target_height) = 0;
+    downsample(Common::ImageDim target_width, Common::ImageDim target_height) = 0;
 
     /**
      * @brief Gets dimensions (width, height) of image data.

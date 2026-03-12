@@ -10,7 +10,7 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-void WorkingImageHalide::initializeHalide(std::span<float> data, std::int32_t width, std::int32_t height, std::int32_t channels)
+void WorkingImageHalide::initializeHalide(std::span<float> data, Common::ImageDim width, Common::ImageDim height, Common::ImageChan channels)
 {
     if (data.empty()) {
         spdlog::error("[WorkingImageHalide::initializeHalide]: Cannot initialize Halide buffer: data span is empty.");

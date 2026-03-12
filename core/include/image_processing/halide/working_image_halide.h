@@ -79,7 +79,7 @@ protected:
      * @pre !data.empty()
      * @post m_halide_buffer references the provided data
      */
-    void initializeHalide(std::span<float> data, std::int32_t width, std::int32_t height, std::int32_t channels);
+    void initializeHalide(std::span<float> data, Common::ImageDim width, Common::ImageDim height, Common::ImageChan channels);
 
     /**
      * @brief
