@@ -25,6 +25,7 @@ set(CORE_SOURCES
     src/image_processing/halide/working_image_halide.cpp
     src/image_processing/registration/working_image_registration.cpp
     src/image_processing/common/working_image_data.cpp
+    src/image_processing/working_image_context.cpp
 
 
     # Deciders

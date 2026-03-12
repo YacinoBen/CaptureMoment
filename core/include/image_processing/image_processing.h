@@ -84,3 +84,13 @@
  * Runs performance tests to select the fastest available backend.
  */
 #include "image_processing/deciders/benchmarking_backend_decider.h"
+
+
+// ============================================================
+// 5. Contexts
+// ============================================================
+
+/**
+ * @brief Manages the lifecycle of a single WorkingImage instance.
+ */
+#include "image_processing/working_image_context.h"
