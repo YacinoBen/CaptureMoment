@@ -47,6 +47,11 @@ namespace Workers {
 class WorkerContext;
 }
 
+namespace ImageProcessing {
+class WorkingImageContext;
+}
+
+
 namespace Managers {
 
 /**
@@ -147,13 +152,6 @@ public:
     [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
-     * @brief Gets the current working image (Thread-Safe).
-     *
-     * @return Shared pointer to the current `IWorkingImageHardware`. Returns nullptr if no image exists.
-     */
-    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
-
-    /**
      * @brief Checks if a processing update is currently in progress.
      *
      * @return true if the worker thread is processing, false otherwise.
@@ -161,11 +159,11 @@ public:
     [[nodiscard]] bool isUpdatePending() const;
 
     /**
-     * @brief Gets the path of the original image source.
+     * @brief Gets the path of the image source.
      *
      * @return A copy of the file path as `std::string`.
      */
-    [[nodiscard]] std::string getOriginalImageSourcePath() const;
+    [[nodiscard]] std::string getImageSourcePath() const;
 
     /**
      * @brief Gets the width of the original source image.
@@ -190,6 +188,13 @@ public:
      * @return The number of channels of the source image.
      */
     [[nodiscard]] Common::ImageChan getSourceChannels() const;
+
+    /**
+     * @brief
+     * Exports the current working image data to CPU memory as an ImageRegion.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    getWorkingImageAsRegion() const;
 
 private:
 
@@ -235,10 +240,10 @@ private:
     std::unique_ptr<Workers::WorkerContext> m_worker_context;
 
     /**
-     * @brief The current processed image buffer.
-     * @details Protected by `m_state_mutex` for thread-safe access.
+     * @brief The current working image context, containing the active working image and related state.
+     * @details This context manages the lifecycle of the working image, including creation, reuse, and export.
      */
-    std::shared_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
+    std::unique_ptr<ImageProcessing::WorkingImageContext> m_working_image_context;
 
     /**
      * @brief File path of the original source image.
