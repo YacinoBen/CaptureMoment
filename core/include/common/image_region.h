@@ -148,6 +148,42 @@ struct ImageRegion {
     // Accessors & Utilities
     // ============================================================
 
+    /*
+     * @brief Accessor for width.
+     * @return The width of the image region in pixels.
+    */
+    [[nodiscard]] constexpr ImageDim width() const noexcept { return m_width; }
+
+    /*
+     * @brief Accessor for height.
+     * @return The height of the image region in pixels.
+     */
+   [[nodiscard]] constexpr ImageDim height() const noexcept { return m_height; }
+
+    /*
+     * @brief Accessor for channels.
+     * @return The number of color channels per pixel.
+     */
+   [[nodiscard]] constexpr ImageChan channels() const noexcept { return m_channels; }
+
+    /*
+     * @brief Accessor for pixel format.
+     * @return The pixel format of the image region.
+     */
+   [[nodiscard]] constexpr PixelFormat format() const noexcept { return m_format; }
+
+    /*
+     * @brief Accessor for x-coordinate.
+     * @return The x-coordinate of the image region in the source image.
+     */
+   [[nodiscard]] constexpr ImageCoord x() const noexcept { return m_x; }
+
+    /*
+     * @brief Accessor for y-coordinate.
+     * @return The y-coordinate of the image region in the source image.
+     */
+    [[nodiscard]] constexpr ImageCoord y() const noexcept { return m_y; }
+
     /**
      * @brief Validates the integrity of the ImageRegion (Overflow-Safe Version).
      *
