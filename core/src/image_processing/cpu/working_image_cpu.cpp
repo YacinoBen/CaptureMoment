@@ -15,8 +15,9 @@
 namespace CaptureMoment::Core::ImageProcessing {
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-WorkingImageCPU::downsample(size_t target_width, size_t target_height)
+WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim target_height)
 {
+
     // Validate state
     if (!m_valid || !m_data || m_data_size == 0) {
         spdlog::warn("[WorkingImageCPU::downsample] Image is invalid");
@@ -40,45 +41,45 @@ WorkingImageCPU::downsample(size_t target_width, size_t target_height)
             static_cast<int>(m_channels),
             OIIO::TypeDesc::FLOAT
             );
-        // OIIO ImageBuf takes a pointer to external memory - NO COPY of source
         OIIO::ImageBuf src_buf(src_spec, getDataSpan().data());
 
         // ============================================================
-        // Step 2: Define target region of interest
+        // Step 2: Create destination buffer
         // ============================================================
-        OIIO::ROI target_roi(
-            0, static_cast<int>(target_width),
-            0, static_cast<int>(target_height),
-            0, 1,
-            0, static_cast<int>(m_channels)
+        OIIO::ImageSpec dst_spec(
+            static_cast<int>(target_width),
+            static_cast<int>(target_height),
+            static_cast<int>(m_channels),
+            OIIO::TypeDesc::FLOAT
             );
+        OIIO::ImageBuf dst_buf(dst_spec);
 
         // ============================================================
-        // Step 3: Perform resample (bilinear interpolation)
-        // OIIO reads from our buffer directly - only writes to new result
+        // Step 3: Perform high-quality resize
+        // resize() uses proper filtering (default: lanczos3)
+        // vs resample() which only does simple bilinear
         // ============================================================
-        OIIO::ImageBuf result_buf = OIIO::ImageBufAlgo::resample(src_buf, true, target_roi);
+        bool success = OIIO::ImageBufAlgo::resize(dst_buf, src_buf);
 
-        if (!result_buf.initialized()) {
-            spdlog::error("[WorkingImageCPU::downsample]: OIIO resample failed");
+        if (!success || !dst_buf.initialized()) {
+            spdlog::error("[WorkingImageCPU::downsample]: OIIO resize failed: {}",
+                          OIIO::geterror());
             return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
 
         // ============================================================
-        // Step 4: Allocate result vector and extract pixels
+        // Step 4: Extract pixels to result vector
         // ============================================================
         const size_t result_size = target_width * target_height * m_channels;
         std::vector<float> result_data(result_size);
 
-        if (!result_buf.get_pixels(OIIO::ROI::All(), OIIO::TypeDesc::FLOAT, result_data.data())) {
+        if (!dst_buf.get_pixels(OIIO::ROI::All(), OIIO::TypeDesc::FLOAT, result_data.data())) {
             spdlog::error("[WorkingImageCPU::downsample]: Failed to extract pixels from OIIO buffer");
             return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
 
         // ============================================================
         // Step 5: Create ImageRegion with result
-        // NOTE: COPY semantics - m_data remains VALID
-        // WorkingImage can be downsampled multiple times
         // ============================================================
         auto region = std::make_unique<Common::ImageRegion>(
             std::move(result_data),
