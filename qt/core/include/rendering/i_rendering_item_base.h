@@ -10,6 +10,7 @@
 #include <QObject>
 #include <QMutex>
 #include <QPointF>
+#include <memory>
 
 #include "common/image_region.h"
 
@@ -31,50 +32,6 @@ namespace Rendering {
  * It does not inherit from QQuickItem or any other Qt Quick base class, allowing
  */
 class IRenderingItemBase {
-protected:
-    /**
-     * @brief Shared pointer to the full image data displayed by this item.
-     * 
-     * This member holds the complete image data (CPU side, float32) which is used to update the display.
-     */
-    std::shared_ptr<Core::Common::ImageRegion> m_full_image;
-    
-    /**
-     * @brief Flag indicating if the display needs to be updated from m_full_image.
-     * 
-     * Set to true when setImage or updateTile is called to signal the render node.
-     */
-    bool m_display_needs_update{false};
-
-    // Zoom/Pan
-    /**
-     * @brief Mutex protecting access to m_full_image and related state.
-     * Ensures thread-safe updates to the image data.
-     */
-    mutable QMutex m_image_mutex;
-
-    /**
-     * @brief Current zoom level applied to the image.
-     * 
-     * A value of 1.0f represents the original size.
-     */
-    float m_zoom{1.0f};
-    /**
-     * @brief Current pan offset applied to the image.
-     * 
-     * Represents the offset in scene coordinates.
-     */
-    QPointF m_pan{0, 0};
-    
-    // Image metadata
-    /**
-     * @brief Width of the currently loaded image in pixels.
-     */
-    int m_image_width{0};
-    /**
-     * @brief Height of the currently loaded image in pixels.
-     */
-    int m_image_height{0};
 
 public:
     /**
@@ -88,9 +45,9 @@ public:
      * This method safely updates the internal image data and marks the display
      * for an update on the next render pass.
      * 
-     * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
+     * @param image The image data.
      */
-    virtual void setImage(const std::shared_ptr<Core::Common::ImageRegion>& image) = 0;
+    virtual void setImage(std::unique_ptr<Core::Common::ImageRegion> image) = 0;
     
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -99,9 +56,9 @@ public:
      * and marks the display for an update. It's intended for incremental updates
      * after processing specific regions.
      * 
-     * @param tile A shared pointer to the ImageRegion containing the processed tile data.
+     * @param tile The image tile containing the updated region.
      */
-    virtual void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) = 0;
+    virtual void updateTile(std::unique_ptr<Core::Common::ImageRegion> tile) = 0;
     
     /**
      * @brief Sets the zoom level.
@@ -110,22 +67,22 @@ public:
     virtual void setZoom(float zoom) = 0;
 
     /**
-     * @brief Gets the current zoom level.
-     * @return The current zoom factor.
-     */
-    [[nodiscard]] float zoom() const { return m_zoom; };
-
-    /**
      * @brief Sets the pan offset.
      * @param pan The new pan offset as a QPointF.
      */
     virtual void setPan(const QPointF& pan) = 0;
 
     /**
+     * @brief Gets the current zoom level.
+     * @return The current zoom factor.
+     */
+    [[nodiscard]] virtual float zoom() const = 0;
+
+    /**
      * @brief Gets the current pan offset.
      * @return The current pan offset.
      */
-    [[nodiscard]] QPointF pan() const { return m_pan; };
+    [[nodiscard]] virtual QPointF pan() const = 0;
 
     /**
      * @brief Get the width of the image.
@@ -134,25 +91,31 @@ public:
     [[nodiscard]] virtual int imageWidth() const = 0;
 
     /**
+     * @brief Get the height of the image.
+     * @return The image height in pixels, or 0 if no image is loaded.
+     */
+    [[nodiscard]] virtual int imageHeight() const = 0;
+
+    /**
+     * @brief Checks if the full image data is loaded and valid.
+     * @return True if the image is valid, false otherwise.
+     */
+    [[nodiscard]] virtual bool isImageValid() const = 0;
+
+    /**
      * @brief Gets a pointer to the mutex protecting the image data.
      * This method provides access to the mutex for thread-safe operations.
      * The mutex is mutable, so it can be locked even on a const object.
      * @return A pointer to the image mutex.
      */
-    [[nodiscard]] QMutex* getImageMutex() const { return &m_image_mutex; };
+    [[nodiscard]] virtual QMutex* getImageMutex() const = 0;
 
     /**
-     * @brief Gets the shared pointer to the full image data.
+     * @brief Gets a pointer to the full image data.
      * This method provides access to the internal image data pointer.
-     * @return A shared pointer to the ImageRegion.
+     * @return A pointer to the ImageRegion, or nullptr if no image is loaded.
      */
-    [[nodiscard]] std::shared_ptr<Core::Common::ImageRegion> getFullImage() const { return m_full_image; };
-
-    /**
-     * @brief Get the height of the image.
-     * @return The image height in pixels, or 0 if no image is loaded.
-     */
-    [[nodiscard]] virtual int imageHeight() const = 0;
+    [[nodiscard]] virtual const Core::Common::ImageRegion* getFullImage() const = 0;
 };
 
 } // namespace Rendering
