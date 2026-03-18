@@ -114,7 +114,7 @@ public:
      * @return A new ImageRegion containing the downsampled image data, or an error if it fails.
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    downsample(Common::ImageDim target_width, Common::ImageDim target_height);
+    getDownsampled(Common::ImageDim target_width, Common::ImageDim target_height);
     /**
      * @brief Releases the managed WorkingImage.
      * 

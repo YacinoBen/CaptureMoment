@@ -72,7 +72,7 @@ WorkingImageContext::getWorkingImageAsRegion() const
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-WorkingImageContext::downsample(Common::ImageDim target_width, Common::ImageDim target_height)
+WorkingImageContext::getDownsampled(Common::ImageDim target_width, Common::ImageDim target_height)
 {
     if (!m_working_image) {
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
