@@ -113,7 +113,7 @@ WorkingImageGPU_Halide::exportToCPUCopy()
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-WorkingImageGPU_Halide::downsample(size_t target_width, size_t target_height)
+WorkingImageGPU_Halide::downsample(Common::ImageDim target_width, Common::ImageDim target_height)
 {
     if (!m_valid) {
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
@@ -129,35 +129,54 @@ WorkingImageGPU_Halide::downsample(size_t target_width, size_t target_height)
         float scale_x = static_cast<float>(m_width) / target_width;
         float scale_y = static_cast<float>(m_height) / target_height;
 
+        // Use bilinear interpolation for better quality
+        Halide::Expr src_x = x * scale_x;
+        Halide::Expr src_y = y * scale_y;
+
         downsample(x, y, c) = m_halide_buffer(
-            Halide::cast<int>(x * scale_x),
-            Halide::cast<int>(y * scale_y),
+            Halide::cast<int>(src_x),
+            Halide::cast<int>(src_y),
             c
-        );
+            );
 
         Halide::Var xi, yi;
         downsample.gpu_tile(x, y, xi, yi, 16, 16);
 
-        // Allocate result
+        // Realize to a temporary buffer
+        Halide::Buffer<float> result_buf = downsample.realize(
+            {static_cast<int>(target_width),
+             static_cast<int>(target_height),
+             static_cast<int>(m_channels)},
+            target
+            );
+
+        // Copy to host
+        result_buf.copy_to_host();
+
+        // Check strides
+        spdlog::debug("[WorkingImageGPU_Halide::downsample]: strides = {}, {}, {}",
+                      result_buf.dim(0).stride(), result_buf.dim(1).stride(), result_buf.dim(2).stride());
+
+        // Copy data to contiguous vector
         size_t result_size = target_width * target_height * m_channels;
         std::vector<float> result_data(result_size);
 
-        Halide::Buffer<float> result_buf(
-            result_data.data(),
-            static_cast<int>(target_width),
-            static_cast<int>(target_height),
-            static_cast<int>(m_channels)
-        );
+        // Manual copy respecting strides
+        for (int c = 0; c < static_cast<int>(m_channels); ++c) {
+            for (int y = 0; y < static_cast<int>(target_height); ++y) {
+                for (int x = 0; x < static_cast<int>(target_width); ++x) {
+                    size_t dst_idx = (y * target_width + x) * m_channels + c;
+                    result_data[dst_idx] = result_buf(x, y, c);
+                }
+            }
+        }
 
-        downsample.realize(result_buf, target);
-
-        // WorkingImage reste VALIDE
         auto region = std::make_unique<Common::ImageRegion>(
             std::move(result_data),
             static_cast<int>(target_width),
             static_cast<int>(target_height),
             static_cast<int>(m_channels)
-        );
+            );
         region->m_format = Common::PixelFormat::RGBA_F32;
 
         spdlog::debug("[WorkingImageGPU_Halide::downsample]: Downsampled {}x{} → {}x{}",
