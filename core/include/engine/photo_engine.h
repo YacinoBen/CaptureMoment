@@ -138,6 +138,21 @@ public:
      * @return `std::expected` containing a unique pointer to the ImageRegion, or an error code.
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> getWorkingImageAsRegion() const;
+
+
+    /*
+     * @brief Gets a downsampled version of the working image for display purposes.
+     *
+     * This method performs an internal downsampling of the working image to create
+     * a lower-resolution version suitable for real-time display. The dimensions of
+     * the downsampled image are determined based on the current viewport size and
+     * the original source image dimensions.
+     *
+     * This is intended for use by the DisplayManager to efficiently render a preview
+     * without needing to process the full-resolution image on every update.
+    */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    getDownsampledDisplayImage(Common::ImageDim width, Common::ImageDim height);
 };
 
 } // namespace Engine

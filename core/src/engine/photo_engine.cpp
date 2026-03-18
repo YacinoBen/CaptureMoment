@@ -106,4 +106,13 @@ std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> Ph
     return result;
 }
 
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+PhotoEngine::getDownsampledDisplayImage(Common::ImageDim width, Common::ImageDim height)
+{
+    if (!m_state_manager) {
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
+    }
+    return m_state_manager->getDownsampledDisplayImage(width, height);
+}
+
 } // namespace CaptureMoment::Core::Engine
