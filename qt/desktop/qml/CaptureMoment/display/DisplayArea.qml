@@ -26,9 +26,17 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
+            clip: true
+
             QMLSGSImageItem {
                 id: imageDisplay
-                anchors.fill: parent
+
+                // Center the item in the container instead of filling it
+                anchors.centerIn: parent
+
+                // Set size to the specific display size calculated by the backend
+                width: (controller && controller.displayManager) ? controller.displayManager.displayImageSize.width : 0
+                height: (controller && controller.displayManager) ? controller.displayManager.displayImageSize.height : 0
 
                 onImageSizeChanged: {
                     console.log("DisplayArea.qml::onHeightChanged: width: ", imageDisplay.imageWidth)
@@ -96,7 +104,7 @@ Rectangle {
     Component.onCompleted: {
        // controller.setPaintedImageItemFromQml(imageDisplay)
         controller.setSGSImageItemFromQml(imageDisplay)
-       // controller.setRHIImageItemFromQml(imageDisplay)
+       //controller.setRHIImageItemFromQml(imageDisplay)
     }
 
     function updateViewport() {
