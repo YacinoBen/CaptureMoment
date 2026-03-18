@@ -173,8 +173,33 @@ void DisplayManager::zoomAt(const QPointF& point, float zoom_delta)
 void DisplayManager::fitToView()
 {
     spdlog::debug("[DisplayManager::fitToView]: Fitting view to image");
-    m_zoom = 1.0f;
-    m_pan = QPointF(0, 0);
+
+    // Use display image size (the actual texture/image we're displaying)
+    // If not available yet, fall back to source image size
+    QSize image_size = m_display_image_size.isEmpty() ? m_source_image_size : m_display_image_size;
+
+    if (image_size.isEmpty() || m_viewport_size.isEmpty()) {
+        spdlog::warn("[DisplayManager::fitToView]: Image size or viewport is empty, using defaults");
+        m_zoom = 1.0f;
+        m_pan = QPointF(0, 0);
+    } else {
+        // Calculate zoom to fit image in viewport while maintaining aspect ratio
+        float zoom_x = static_cast<float>(m_viewport_size.width()) / image_size.width();
+        float zoom_y = static_cast<float>(m_viewport_size.height()) / image_size.height();
+        m_zoom = std::min(zoom_x, zoom_y);
+
+        // Calculate pan to center the image in viewport
+        float scaled_width = image_size.width() * m_zoom;
+        float scaled_height = image_size.height() * m_zoom;
+        float pan_x = (m_viewport_size.width() - scaled_width) / 2.0f;
+        float pan_y = (m_viewport_size.height() - scaled_height) / 2.0f;
+        m_pan = QPointF(pan_x, pan_y);
+
+        spdlog::debug("[DisplayManager::fitToView]: image={}x{}, viewport={}x{}, zoom={:.4f}, pan=({:.1f}, {:.1f})",
+                      image_size.width(), image_size.height(),
+                      m_viewport_size.width(), m_viewport_size.height(),
+                      m_zoom, m_pan.x(), m_pan.y());
+    }
 
     if (m_rendering_item) {
         spdlog::trace("[DisplayManager::fitToView]: Updating zoom and pan on rendering item");
