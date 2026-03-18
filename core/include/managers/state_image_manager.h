@@ -196,6 +196,17 @@ public:
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     getWorkingImageAsRegion() const;
 
+    /**
+     * @brief Gets a downsampled version of the working image for display.
+     * Uses GPU-accelerated downsampling, much faster than exporting full image.
+     *
+     * @param target_width  Target display width.
+     * @param target_height Target display height.
+     * @return Downsampled ImageRegion on success, CoreError on failure.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    getDownsampledDisplayImage(Common::ImageDim target_width, Common::ImageDim target_height);
+
 private:
 
     // ========================================================================
