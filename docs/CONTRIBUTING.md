@@ -57,3 +57,27 @@ Adherence to these standards is mandatory for all code submissions to be accepte
 ## ⚖️ License Agreement
 
 By submitting code, documentation, or any other material to the Capture Moment repository, you agree to license your contributions under the GNU General Public License v3 (GPLv3). This ensures that the project remains free and open for the entire community.
+
+
+## 🛠️ How to Contribute
+
+### Adding a New Operation (e.g., Vignette)
+
+1.  **Define Operation Type:** Add `Vignette` to the `OperationType` enum.
+2.  **Create Operation Implementation:** Define `OperationVignette` class inheriting from `IOperation`. Implement `execute` and `appendToFusedPipeline` (adding the vignetting logic as a Halide `Func`, passing `Halide::Param<float>` for parameters).
+3.  **Register Operation:** Add `OperationVignette` to the `OperationFactory::createOperation` switch/if statement.
+4.  **UI Integration:** Create corresponding UI controls/models to generate the `OperationDescriptor` for Vignette.
+
+### Adding a New Serialization Strategy
+
+1.  **Define Strategy Interface:** (If not already done for the new strategy type).
+2.  **Implement Strategy:** Create a new class implementing the required interface (e.g., a new `IFileSerializerWriter` for a different metadata format).
+3.  **Configure in App Startup:** Inject the new strategy implementation into the `FileSerializerManager` during application setup.
+4.  **No Core Code Change Required:** The `FileSerializerManager` (facade) abstracts the core from the serialization details.
+
+### Adding a New Hardware Backend (e.g., OpenCL)
+
+1.  **Implement `IWorkingImageHardware`:** Create `WorkingImageOpenCL` implementing the import/export/process interfaces (including `downsample`) using OpenCL API.
+2.  **Implement Processing Kernels:** Adapt the Halide compilation target or write custom OpenCL kernels for operations like fused pipeline execution and downsampling.
+3.  **Integrate Backend Selection:** Modify the logic that decides which `IWorkingImageHardware` implementation to create (e.g., in `WorkingImageContext` or a dedicated factory based on `AppConfig`).
+4.  **Test:** Ensure all operations and the pipeline executor work correctly with the new backend.
