@@ -46,7 +46,7 @@ private:
      * This member holds the image data (converted from ImageRegion) ready for QPainter.
      * It's protected by m_image_mutex.
      */
-    QImage m_current_qimage{QSize(800,600),QImage::Format_RGB32};
+    QImage m_current_qimage;
 
 public:
     /**
@@ -66,9 +66,9 @@ public:
      * This method safely updates the internal image data by converting the ImageRegion
      * to a QImage and scheduling a repaint via update().
      * 
-     * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
+     * @param image The image data.
      */
-    void setImage(const std::shared_ptr<Core::Common::ImageRegion>& image) override;
+    void setImage(std::unique_ptr<Core::Common::ImageRegion> image) override;
     
     /**
      * @brief Updates a specific tile of the displayed image.
@@ -77,21 +77,9 @@ public:
      * buffer and schedules a repaint via update(). It's intended for incremental updates
      * after processing specific regions.
      * 
-     * @param tile A shared pointer to the ImageRegion containing the processed tile data.
+     * @param tile The image tile containing the updated region.
      */
-    void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) override;
-    
-    /**
-     * @brief Sets the zoom level.
-     * @param zoom The new zoom factor (e.g., 1.0f for original size).
-     */
-    void setZoom(float zoom) override;
-
-    /**
-     * @brief Sets the pan offset.
-     * @param pan The new pan offset as a QPointF.
-     */
-    void setPan(const QPointF& pan) override;
+    void updateTile(std::unique_ptr<Core::Common::ImageRegion> tile) override;
 
 protected:
     // QQuickPaintedItem override
@@ -105,6 +93,27 @@ protected:
      * @param painter The QPainter instance to use for drawing.
      */
     void paint(QPainter* painter) override;
+
+        /*
+     * @brief Handlers for state changes (zoom, pan, image).
+     * These methods are called when the corresponding state changes (zoom, pan, image).
+     * They can be overridden to react to changes, but the base implementation does nothing.
+     */
+    void onZoomChanged(float new_zoom) override;
+
+    /*
+     * @brief Handler for pan changes.
+     * This method is called when the pan offset changes.
+     * The base implementation does nothing, but it can be overridden to react to pan changes.
+     */
+    void onPanChanged(const QPointF& new_pan) override;
+
+    /*
+     * @brief Handler for image changes.
+     * This method is called when the image data changes (setImage or updateTile).
+     * The base implementation does nothing, but it can be overridden to react to image changes.
+     */
+    void onImageChanged() override;
     
 private:
     /**

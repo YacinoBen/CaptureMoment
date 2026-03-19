@@ -14,7 +14,7 @@
 #include <QSizeF>
 #include <QPointF>
 
-#include "rendering/base_image_item.h" // Inherits from BaseImageItem and IRenderingItemBase
+#include "rendering/base_image_item.h"
 
 namespace CaptureMoment::UI {
 
@@ -67,10 +67,10 @@ public:
      * for an update on the next render pass. The conversion to GPU texture happens
      * in updatePaintNode on the render thread.
      *
-     * @param image A shared pointer to the ImageRegion containing the full-resolution image data.
+     * @param image The image data.
      */
-    void setImage(const std::shared_ptr<Core::Common::ImageRegion>& image) override;
-            
+    void setImage(std::unique_ptr<Core::Common::ImageRegion> image) override;
+
     /**
      * @brief Updates a specific tile of the displayed image.
      *
@@ -78,22 +78,9 @@ public:
      * full image buffer (CPU side) and marks the internal state for an update.
      * The conversion to GPU texture happens in updatePaintNode on the render thread.
      *
-     * @param tile A shared pointer to the ImageRegion containing the processed tile data.
+     * @param tile The image tile containing the updated region.
      */
-    void updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile) override;
-
-    // Zoom/Pan (Implementation provided by BaseImageItem, setters implemented here)
-    /**
-     * @brief Sets the zoom level.
-     * @param zoom The new zoom factor (e.g., 1.0f for original size).
-     */
-    void setZoom(float zoom) override;
-
-    /**
-     * @brief Sets the pan offset.
-     * @param pan The new pan offset as a QPointF.
-     */
-    void setPan(const QPointF& pan) override;
+    void updateTile(std::unique_ptr<Core::Common::ImageRegion> tile) override;
 
 signals:
     /**
@@ -127,6 +114,27 @@ protected:
      * @return The QSGNode instance for this item.
      */
     QSGNode* updatePaintNode(QSGNode* node, UpdatePaintNodeData* data) override;
+
+    /*
+     * @brief Handlers for state changes (zoom, pan, image).
+     * These methods are called when the corresponding state changes (zoom, pan, image).
+     * They can be overridden to react to changes, but the base implementation does nothing.
+     */
+    void onZoomChanged(float new_zoom) override;
+
+    /*
+     * @brief Handler for pan changes.
+     * This method is called when the pan offset changes.
+     * The base implementation does nothing, but it can be overridden to react to pan changes.
+     */
+    void onPanChanged(const QPointF& new_pan) override;
+
+    /*
+     * @brief Handler for image changes.
+     * This method is called when the image data changes (setImage or updateTile).
+     * The base implementation does nothing, but it can be overridden to react to image changes.
+     */
+    void onImageChanged() override;
 };
 
 } // namespace Rendering

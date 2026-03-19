@@ -320,4 +320,18 @@ std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> St
 
     return m_working_image_context->getWorkingImageAsRegion();
 }
+
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+StateImageManager::getDownsampledDisplayImage(Common::ImageDim target_width, Common::ImageDim target_height)
+{
+    std::lock_guard lock(m_state_mutex);
+
+    if (!m_working_image_context) {
+        spdlog::error("[StateImageManager::getDownsampledDisplayImage]: No WorkingImageContext");
+        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+    }
+
+    return m_working_image_context->getDownsampled(target_width, target_height);
+}
+
 } // namespace CaptureMoment::Core::Managers

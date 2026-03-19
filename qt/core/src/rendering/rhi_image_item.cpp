@@ -6,98 +6,76 @@
  */
 
 #include "rendering/rhi_image_item.h"
-#include "rendering/rhi_image_item_renderer.h" // Include the new renderer class
+#include "rendering/rhi_image_item_renderer.h"
 #include <spdlog/spdlog.h>
 #include <QMutexLocker>
 
 namespace CaptureMoment::UI::Rendering {
 
-// Constructor: Initializes the item.
 RHIImageItem::RHIImageItem(QQuickItem* parent)
-    : QQuickRhiItem(parent) // Appel du constructeur de QQuickRhiItem
+    : QQuickRhiItem(parent)
 {
-    // QQuickRhiItem sets ItemHasContents automatically
-    setSize(QSizeF(800, 600)); // Default size
-    spdlog::info("RHIImageItem: Created");
+    spdlog::debug("[RHIImageItem::RHIImageItem]: Created");
 }
 
-// Destructor: Cleans up resources.
-RHIImageItem::~RHIImageItem() {
-    spdlog::debug("RHIImageItem: Destroyed");
+RHIImageItem::~RHIImageItem()
+{
+    spdlog::debug("[RHIImageItem::~RHIImageItem]: Destroyed");
 }
 
-// Sets the full image to be displayed.
-// Updates the internal image data and marks the GPU texture for update.
-void RHIImageItem::setImage(const std::shared_ptr<Core::Common::ImageRegion>& image)
+void RHIImageItem::setImage(std::unique_ptr<Core::Common::ImageRegion> image)
 {
-    spdlog::info("RHIImageItem::setImage: CALLED with image {}x{}",
-                 image ? image->m_width : -1, image ? image->m_height : -1);
-
     if (!image || !image->isValid()) {
-        spdlog::warn("RHIImageItem::setImage: Invalid image region");
+        spdlog::warn("[RHIImageItem::setImage]: Invalid image");
         return;
     }
 
-    spdlog::info("RHIImageItem::setImage: {}x{}", image->m_width, image->m_height);
+    spdlog::info("[RHIImageItem::setImage]: {}x{}", image->width(), image->height());
 
-    // Protect access to shared data (m_full_image, m_image_width, m_image_height, m_texture_needs_update)
     {
         QMutexLocker lock(&m_image_mutex);
-        m_full_image = image;
-        m_image_width = image->m_width;
-        m_image_height = image->m_height;
-        // Signal that the GPU texture needs to be updated from the new image data.
+        m_full_image = std::move(image);
         m_texture_needs_update = true;
-        spdlog::info("RHIImageItem::setImage: Texture update flag set to true");
     }
 
-    emit imageSizeChanged();
-
-    // Trigger a repaint to reflect the new image.
-    spdlog::info("RHIImageItem::setImage: {}x{}, triggering update", image->m_width, image->m_height);
-    update();
+    onImageChanged();
 }
 
-// Updates a specific tile of the displayed image.
-// Merges the tile data into the full image buffer (CPU side) and marks the GPU texture for update.
-void RHIImageItem::updateTile(const std::shared_ptr<Core::Common::ImageRegion>& tile)
+void RHIImageItem::updateTile(std::unique_ptr<Core::Common::ImageRegion> tile)
 {
-    if (!tile || !tile->isValid())
-    {
-        spdlog::warn("RHIImageItem::updateTile: Invalid tile");
+    if (!tile || !tile->isValid()) {
+        spdlog::warn("[RHIImageItem::updateTile]: Invalid tile");
         return;
     }
 
-    if (!isImageValid())
-    {
-        spdlog::warn("RHIImageItem::updateTile: No base image loaded or base image is invalid");
-        return;
-    }
-
-    // Protect access to shared data (m_full_image, m_texture_needs_update)
     {
         QMutexLocker lock(&m_image_mutex);
 
-        // Iterate through the pixels of the tile.
-        for (int y = 0; y < tile->m_height; ++y)
-        {
-            for (int x = 0; x < tile->m_width; ++x)
-            {
-                // Iterate through the channels (e.g., RGBA).
-                for (int c = 0; c < tile->m_channels; ++c)
-                {
-                    // Copy the pixel value from the tile to the correct position in the full image.
-                    // This assumes ImageRegion supports operator() for (y, x, c) access.
-                    // Adjust the indexing if ImageRegion uses (x, y, c) or another convention.
-                    (*m_full_image)(tile->m_y + y, tile->m_x + x, c) = (*tile)(y, x, c);
-                }
-            }
+        if (!m_full_image) {
+            spdlog::warn("[RHIImageItem::updateTile]: No base image");
+            return;
         }
-        // Signal that the GPU texture needs to be updated due to the tile change.
+
+        // Full replacement if same dimensions
+        if (tile->width() == m_full_image->width() &&
+            tile->height() == m_full_image->height()) {
+            m_full_image = std::move(tile);
+            spdlog::debug("[RHIImageItem::updateTile]: Full replacement");
+        } else {
+            // Partial copy by row (optimized)
+            const size_t row_size = tile->width() * tile->channels();
+            for (int y = 0; y < tile->height(); ++y) {
+                const float* src = tile->getBuffer().data() + y * row_size;
+                float* dst = m_full_image->getBuffer().data() +
+                    ((tile->y() + y) * m_full_image->width() + tile->x()) * m_full_image->channels();
+                std::copy(src, src + row_size, dst);
+            }
+            spdlog::debug("[RHIImageItem::updateTile]: Partial at ({}, {})", tile->x(), tile->y());
+        }
+
         m_texture_needs_update = true;
     }
-    spdlog::info("RHIImageItem::updateTile: Merged tile at ({}, {})", tile->m_x, tile->m_y);
-    // Trigger a repaint to reflect the updated tile.
+
     update();
 }
 
@@ -107,38 +85,31 @@ bool RHIImageItem::textureNeedsUpdate() const
     return m_texture_needs_update;
 }
 
-void RHIImageItem::setTextureNeedsUpdate(bool update)
+void RHIImageItem::setTextureNeedsUpdate(bool needs_update)
 {
     QMutexLocker lock(&m_image_mutex);
-    m_texture_needs_update = update;
+    m_texture_needs_update = needs_update;
 }
 
-// Sets the zoom level.
-void RHIImageItem::setZoom(float zoom)
+void RHIImageItem::onZoomChanged(float new_zoom)
 {
-    // Check if the zoom value is different and positive
-    if (!qFuzzyCompare(m_zoom, zoom) && zoom > 0.0f)
-    {
-        m_zoom = zoom; // Update the core zoom value (from BaseImageItem)
-        emit zoomChanged(m_zoom); // Emit signal for QML binding
-        update(); // Trigger repaint to reflect the new zoom level
-    }
+    emit zoomChanged(new_zoom);
+    update();
 }
 
-// Sets the pan offset.
-void RHIImageItem::setPan(const QPointF& pan)
+void RHIImageItem::onPanChanged(const QPointF& new_pan)
 {
-    // Check if the pan value is different
-    if (m_pan != pan)
-    {
-        m_pan = pan; // Update the core pan value (from BaseImageItem)
-        emit panChanged(m_pan); // Emit signal for QML binding
-        update(); // Trigger repaint to reflect the new pan offset
-    }
+    emit panChanged(new_pan);
+    update();
 }
 
-// Creates the renderer instance responsible for RHI rendering.
-QQuickRhiItemRenderer *RHIImageItem::createRenderer()
+void RHIImageItem::onImageChanged()
+{
+    emit imageSizeChanged();
+    update();
+}
+
+QQuickRhiItemRenderer* RHIImageItem::createRenderer()
 {
     return new RHIImageItemRenderer(this);
 }
