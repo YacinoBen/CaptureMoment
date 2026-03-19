@@ -12,6 +12,8 @@
 #pragma once
 
 #include "pixel_format.h"
+#include "types/image_types.h"
+
 #include <vector>
 #include <cstddef>
 #include <concepts>
@@ -51,27 +53,27 @@ struct ImageRegion {
     /**
      * @brief X-coordinate of the top-left corner of this region in the full source image.
      */
-    std::int32_t m_x{0};
+    ImageCoord m_x{0};
 
     /**
      * @brief Y-coordinate of the top-left corner of this region in the full source image.
      */
-    std::int32_t m_y{0};
+    ImageCoord m_y{0};
 
     /**
      * @brief Width of this image region in pixels.
      */
-    std::int32_t m_width{0};
+    ImageDim m_width{0};
 
     /**
      * @brief Height of this image region in pixels.
      */
-    std::int32_t m_height{0};
+    ImageDim m_height{0};
 
     /**
      * @brief Number of color channels per pixel.
      */
-    std::int32_t m_channels{4};
+    ImageChan m_channels{4};
 
     /**
      * @brief Format specifying how pixels are stored.
@@ -86,8 +88,101 @@ struct ImageRegion {
     std::vector<float> m_data;
 
     // ============================================================
+    // Constructors
+    // ============================================================
+
+    /**
+     * @brief Default constructor.
+     * Creates an empty, invalid ImageRegion.
+     */
+    ImageRegion() = default;
+
+    /**
+     * @brief Constructs an ImageRegion by moving existing pixel data (Zero-Copy).
+     *
+     * @details
+     * This constructor enables efficient transfer of pixel data ownership without
+     * any memory copying. It is the preferred way to create an ImageRegion when
+     * the source buffer is no longer needed.
+     *
+     * **Performance Benefits:**
+     * - No memory allocation (takes ownership of existing vector)
+     * - No data copying (O(1) operation)
+     * - Ideal for pipeline data transfer between components
+     *
+     * @param data Rvalue reference to the pixel data vector. Ownership is transferred.
+     * @param w Width in pixels.
+     * @param h Height in pixels.
+     * @param ch Number of color channels per pixel.
+     *
+     * @note The x and y coordinates default to (0, 0).
+     * @note Format defaults to PixelFormat::RGBA_F32.
+     */
+    ImageRegion(std::vector<float>&& data, ImageDim w, ImageDim h, ImageChan ch)
+        : m_data(std::move(data))
+        , m_width(w)
+        , m_height(h)
+        , m_channels(ch)
+    {}
+
+    /**
+     * @brief Constructs an ImageRegion with position and moved pixel data.
+     *
+     * @param x X-coordinate offset in the source image.
+     * @param y Y-coordinate offset in the source image.
+     * @param data Rvalue reference to the pixel data vector.
+     * @param w Width in pixels.
+     * @param h Height in pixels.
+     * @param ch Number of color channels per pixel.
+     */
+    ImageRegion(ImageCoord x, ImageCoord y, std::vector<float>&& data, ImageDim w, ImageDim h, ImageChan ch)
+        : m_x(x)
+        , m_y(y)
+        , m_data(std::move(data))
+        , m_width(w)
+        , m_height(h)
+        , m_channels(ch)
+    {}
+
+    // ============================================================
     // Accessors & Utilities
     // ============================================================
+
+    /*
+     * @brief Accessor for width.
+     * @return The width of the image region in pixels.
+    */
+    [[nodiscard]] constexpr ImageDim width() const noexcept { return m_width; }
+
+    /*
+     * @brief Accessor for height.
+     * @return The height of the image region in pixels.
+     */
+   [[nodiscard]] constexpr ImageDim height() const noexcept { return m_height; }
+
+    /*
+     * @brief Accessor for channels.
+     * @return The number of color channels per pixel.
+     */
+   [[nodiscard]] constexpr ImageChan channels() const noexcept { return m_channels; }
+
+    /*
+     * @brief Accessor for pixel format.
+     * @return The pixel format of the image region.
+     */
+   [[nodiscard]] constexpr PixelFormat format() const noexcept { return m_format; }
+
+    /*
+     * @brief Accessor for x-coordinate.
+     * @return The x-coordinate of the image region in the source image.
+     */
+   [[nodiscard]] constexpr ImageCoord x() const noexcept { return m_x; }
+
+    /*
+     * @brief Accessor for y-coordinate.
+     * @return The y-coordinate of the image region in the source image.
+     */
+    [[nodiscard]] constexpr ImageCoord y() const noexcept { return m_y; }
 
     /**
      * @brief Validates the integrity of the ImageRegion (Overflow-Safe Version).
@@ -102,7 +197,7 @@ struct ImageRegion {
     [[nodiscard]] constexpr bool isValid() const noexcept
     {
         // 1. Basic sanity checks
-        if (m_width <= 0 || m_height <= 0 || m_channels <= 0) {
+        if (m_width == 0 || m_height == 0 || m_channels == 0) {
             return false;
         }
 
@@ -124,9 +219,9 @@ struct ImageRegion {
         };
 
         // Cast to std::size_t to work with unsigned arithmetic
-        const std::size_t w = static_cast<std::size_t>(m_width);
-        const std::size_t h = static_cast<std::size_t>(m_height);
-        const std::size_t c = static_cast<std::size_t>(m_channels);
+        const ImageDim w = static_cast<ImageDim>(m_width);
+        const ImageDim h = static_cast<ImageDim>(m_height);
+        const ImageChan c = static_cast<ImageChan>(m_channels);
 
         // 3. Calculate pixel count safely (width * height)
         std::size_t pixel_count = 0;
@@ -148,7 +243,7 @@ struct ImageRegion {
     /**
      * @brief Calculates the total size in bytes of the pixel data buffer.
      */
-    [[nodiscard]] constexpr std::size_t sizeInBytes() const noexcept {
+    [[nodiscard]] constexpr ImageSize sizeInBytes() const noexcept {
         return m_data.size() * sizeof(float);
     }
 
@@ -156,7 +251,7 @@ struct ImageRegion {
      * @brief Calculates the total number of data elements (pixels * channels) in the pixel data buffer.
      * @return The total number of float elements (m_width * m_height * m_channels).
      */
-    [[nodiscard]] constexpr std::size_t getDataSize() const noexcept {
+    [[nodiscard]] constexpr ImageSize getDataSize() const noexcept {
         return m_data.size();
     }
 
@@ -187,9 +282,9 @@ struct ImageRegion {
      * @warning Release mode performs no bounds checking for maximum performance.
      */
     [[nodiscard]] float& operator()(int y, int x, int c) noexcept {
-        assert(y >= 0 && y < m_height);
-        assert(x >= 0 && x < m_width);
-        assert(c >= 0 && c < m_channels);
+        assert(y >= 0 && static_cast<std::size_t>(y) < m_height);
+        assert(x >= 0 && static_cast<std::size_t>(x) < m_width);
+        assert(c >= 0 && static_cast<std::size_t>(c) < m_channels);
         // Cast to size_t safely before arithmetic
         const std::size_t idx = (static_cast<std::size_t>(y) * m_width + x) * m_channels + c;
         return m_data[idx];
@@ -224,9 +319,9 @@ template<typename T>
 concept ImageLike = requires(const T& t)
 {
     // Must have dimensions
-    { t.m_width } -> std::convertible_to<int>;
-    { t.m_height } -> std::convertible_to<int>;
-    { t.m_channels } -> std::convertible_to<int>;
+    { t.m_width } -> std::convertible_to<Common::ImageDim>;
+    { t.m_height } -> std::convertible_to<Common::ImageDim>;
+    { t.m_channels } -> std::convertible_to<Common::ImageChan>;
 
     // Must have a validity check
     { t.isValid() } -> std::same_as<bool>;

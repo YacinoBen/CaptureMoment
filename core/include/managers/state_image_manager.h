@@ -12,6 +12,9 @@
  * - **Move Semantics:** All data processing methods accept ownership of data via `std::move`.
  * - **Thread-Safe:** Uses mutexes to protect the working image and status flags.
  * - **Stateless Processing:** Does not store operation lists; it receives, processes, and discards.
+ * - **Coalescing Updates:** If an update is requested while another is in progress,
+ *   the new request replaces any previously pending request, optimizing for the most
+ *   recent state during rapid UI interactions (e.g., dragging a slider).
  *
  * @author CaptureMoment Team
  * @date 2026
@@ -23,27 +26,31 @@
 #include "managers/i_source_manager.h"
 #include "image_processing/interfaces/i_working_image_hardware.h"
 #include "operations/operation_factory.h"
+#include "common/types/image_types.h"
 
 #include <vector>
 #include <memory>
 #include <mutex>
-#include <functional>
 #include <future>
 #include <string_view>
 #include <string>
+#include <optional>
 
-#include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core {
 
-// Forward declarations to avoid circular dependencies
 namespace Pipeline {
-    class PipelineContext;
+class PipelineContext;
 }
 
 namespace Workers {
-    class WorkerContext;
+class WorkerContext;
 }
+
+namespace ImageProcessing {
+class WorkingImageContext;
+}
+
 
 namespace Managers {
 
@@ -51,9 +58,23 @@ namespace Managers {
  * @class StateImageManager
  * @brief Manages the working image lifecycle and coordinates asynchronous processing.
  *
+ * @details
  * This class receives processing requests (e.g., apply operations) from the engine,
  * prepares the working memory, delegates execution to workers via the WorkerContext,
- * and updates the final result.
+ * and updates the final result. It implements a coalescing strategy for incoming
+ * operations to optimize responsiveness during rapid UI interactions.
+ *
+ * **Coalescing Behavior:**
+ * - When `applyOperations` is called and an update is already `isUpdatePending()`,
+ *   the new operation list is stored as pending.
+ * - If another `applyOperations` call occurs while a *previous* one is pending,
+ *   the *newest* operation list **overwrites** the previously pending one.
+ * - Once the currently running update finishes, if a pending operation exists,
+ *   it is launched immediately, continuing the chain. If no pending operation exists,
+ *   the update state is reset.
+ * - The `std::future<bool>` returned by `applyOperations` resolves only when the
+ *   operation *actually executed* (either the initial one or the final coalesced one)
+ *   completes.
  */
 class StateImageManager {
 public:
@@ -112,7 +133,13 @@ public:
      * This method is the primary entry point for image processing. It takes ownership
      * of the provided operation descriptors via `std::move` to avoid unnecessary copies.
      *
-     * **Workflow:**
+     * **Coalescing Workflow:**
+     * 1. If `isUpdatePending()` is true, the `ops` are stored as the new pending request
+     *    (overwriting any older pending request) and a new `std::future<bool>` is returned.
+     *    The processing chain continues when the current operation finishes.
+     * 2. If `isUpdatePending()` is false, the `ops` are processed immediately via `launchProcessing`.
+     *
+     * **Standard Workflow (when no pending update):**
      * 1. Creates a new working image from the source.
      * 2. Initializes the Halide strategy from the context, transferring the operation data.
      * 3. Creates a worker and executes the pipeline asynchronously.
@@ -120,15 +147,9 @@ public:
      *
      * @param ops The list of operation descriptors to apply (moved into the method).
      * @return `std::future<bool>` representing the asynchronous result.
+     *         The future resolves when the operation actually executed completes.
      */
     [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
-
-    /**
-     * @brief Gets the current working image (Thread-Safe).
-     *
-     * @return Shared pointer to the current `IWorkingImageHardware`. Returns nullptr if no image exists.
-     */
-    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
 
     /**
      * @brief Checks if a processing update is currently in progress.
@@ -138,34 +159,78 @@ public:
     [[nodiscard]] bool isUpdatePending() const;
 
     /**
-     * @brief Gets the path of the original image source.
+     * @brief Gets the path of the image source.
      *
      * @return A copy of the file path as `std::string`.
      */
-    [[nodiscard]] std::string getOriginalImageSourcePath() const;
+    [[nodiscard]] std::string getImageSourcePath() const;
 
-    /*
-    * @brief Gets the width of the original source image.
-    *
-    * These methods query the SourceManager for the original image properties.
-    */
-    [[nodiscard]] int getSourceWidth() const;
+    /**
+     * @brief Gets the width of the original source image.
+     *
+     * @details These methods query the SourceManager for the original image properties.
+     * @return The width of the source image.
+     */
+    [[nodiscard]] Common::ImageDim getSourceWidth() const;
 
-    /*
-    * @brief Gets the height of the original source image.
-    *
-    * These methods query the SourceManager for the original image properties.
-    */
-    [[nodiscard]] int getSourceHeight() const;
+    /**
+     * @brief Gets the height of the original source image.
+     *
+     * @details These methods query the SourceManager for the original image properties.
+     * @return The height of the source image.
+     */
+    [[nodiscard]] Common::ImageDim getSourceHeight() const;
 
-    /*
+    /**
      * @brief Gets the number of channels of the original source image.
      *
-     * These methods query the SourceManager for the original image properties.
+     * @details These methods query the SourceManager for the original image properties.
+     * @return The number of channels of the source image.
      */
-    [[nodiscard]] int getSourceChannels() const;
+    [[nodiscard]] Common::ImageChan getSourceChannels() const;
+
+    /**
+     * @brief
+     * Exports the current working image data to CPU memory as an ImageRegion.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    getWorkingImageAsRegion() const;
+
+    /**
+     * @brief Gets a downsampled version of the working image for display.
+     * Uses GPU-accelerated downsampling, much faster than exporting full image.
+     *
+     * @param target_width  Target display width.
+     * @param target_height Target display height.
+     * @return Downsampled ImageRegion on success, CoreError on failure.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    getDownsampledDisplayImage(Common::ImageDim target_width, Common::ImageDim target_height);
 
 private:
+
+    // ========================================================================
+    // Internal Processing Methods
+    // ========================================================================
+
+    /**
+     * @brief Launches async processing pipeline for operations.
+     * @param ops Operations to process.
+     */
+    void launchProcessing(std::vector<Operations::OperationDescriptor> ops);
+
+    /**
+     * @brief Handles processing completion and triggers pending ops if exists.
+     * @param success Whether processing succeeded.
+     */
+    void onProcessingComplete(bool success);
+
+    /**
+     * @brief Blocks until all pending processing completes.
+     */
+    void waitForPendingProcessing();
+
+
     /**
      * @brief Mutex protecting access to `m_working_image` and `m_original_image_path`.
      */
@@ -186,10 +251,10 @@ private:
     std::unique_ptr<Workers::WorkerContext> m_worker_context;
 
     /**
-     * @brief The current processed image buffer.
-     * Protected by `m_state_mutex` for thread-safe access.
+     * @brief The current working image context, containing the active working image and related state.
+     * @details This context manages the lifecycle of the working image, including creation, reuse, and export.
      */
-    std::shared_ptr<ImageProcessing::IWorkingImageHardware> m_working_image;
+    std::unique_ptr<ImageProcessing::WorkingImageContext> m_working_image_context;
 
     /**
      * @brief File path of the original source image.
@@ -203,13 +268,34 @@ private:
 
     /**
      * @brief Flag preventing multiple concurrent update requests.
+     * @details Uses atomic<bool> for lock-free reads in `isUpdatePending()`.
      */
-    bool m_is_updating{false};
+    std::atomic<bool> m_is_updating{false};
 
     /**
      * @brief Dependency to access original image tiles and metadata.
      */
     std::unique_ptr<Managers::ISourceManager> m_source_manager;
+
+
+    /**
+     * @brief Mutex protecting access to `m_pending_ops` and `m_pending_promise`.
+     */
+    mutable std::mutex m_pending_mutex;
+
+    /**
+     * @brief Stores the most recent operation list requested while an update is in progress.
+     * @details If `has_value()`, this operation will be processed next.
+     */
+    std::optional<std::vector<Operations::OperationDescriptor>> m_pending_ops;
+
+    /**
+     * @brief Promise associated with the currently executing or last completed operation chain.
+     * @details The future returned by the initial `applyOperations` call in a chain
+     *          is resolved by this promise when the chain (potentially including a coalesced
+     *          operation) finishes.
+     */
+    std::promise<bool> m_pending_promise;
 };
 
 } // namespace Managers

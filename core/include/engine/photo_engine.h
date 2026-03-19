@@ -21,6 +21,7 @@
 #include "operations/operation_descriptor.h"
 #include "common/image_region.h"
 #include "common/error_handling/core_error.h"
+#include "common/types/image_types.h"
 
 #include <memory>
 #include <string_view>
@@ -93,21 +94,21 @@ public:
      *
      * @return Image width in pixels, or 0 if no image is loaded.
      */
-    [[nodiscard]] int width() const noexcept;
+    [[nodiscard]] Common::ImageDim width() const noexcept;
 
     /**
      * @brief Gets the height of the loaded image.
      *
      * @return Image height in pixels, or 0 if no image is loaded.
      */
-    [[nodiscard]] int height() const noexcept;
+    [[nodiscard]] Common::ImageDim height() const noexcept;
 
     /**
      * @brief Gets the number of color channels.
      *
      * @return Number of channels (e.g., 4 for RGBA), or 0 if no image is loaded.
      */
-    [[nodiscard]] int channels() const noexcept;
+    [[nodiscard]] Common::ImageChan channels() const noexcept;
 
     /**
      * @brief Applies a cumulative list of operations.
@@ -126,17 +127,6 @@ public:
     [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
-     * @brief Gets the raw working image (Hardware Abstraction).
-     *
-     * Returns a shared pointer to the internal hardware-agnostic image.
-     * This is useful if the caller needs to interface directly with the processing
-     * backend.
-     *
-     * @return Shared pointer to the working image, or nullptr.
-     */
-    [[nodiscard]] std::shared_ptr<ImageProcessing::IWorkingImageHardware> getWorkingImage() const;
-
-    /**
      * @brief Gets the working image as a CPU-based copy.
      *
      * This method exports the working image (which might reside in GPU memory)
@@ -148,6 +138,21 @@ public:
      * @return `std::expected` containing a unique pointer to the ImageRegion, or an error code.
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> getWorkingImageAsRegion() const;
+
+
+    /*
+     * @brief Gets a downsampled version of the working image for display purposes.
+     *
+     * This method performs an internal downsampling of the working image to create
+     * a lower-resolution version suitable for real-time display. The dimensions of
+     * the downsampled image are determined based on the current viewport size and
+     * the original source image dimensions.
+     *
+     * This is intended for use by the DisplayManager to efficiently render a preview
+     * without needing to process the full-resolution image on every update.
+    */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    getDownsampledDisplayImage(Common::ImageDim width, Common::ImageDim height);
 };
 
 } // namespace Engine

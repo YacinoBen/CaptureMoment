@@ -49,17 +49,19 @@ public:
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError> loadFile(std::string_view path) override;
     void unload() override;
     [[nodiscard]] bool isLoaded() const override;
-    [[nodiscard]] int width() const noexcept override;
-    [[nodiscard]] int height() const noexcept override;
-    [[nodiscard]] int channels() const noexcept override;
+    [[nodiscard]] Common::ImageDim width() const noexcept override;
+    [[nodiscard]] Common::ImageDim height() const noexcept override;
+    [[nodiscard]] Common::ImageChan channels() const noexcept override;
 
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> getTile(
-        int x, int y, int width, int height
+        Common::ImageDim x, Common::ImageDim y, Common::ImageDim width, Common::ImageDim height
         ) override;
 
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError> setTile(const Common::ImageRegion& tile) override;
 
     [[nodiscard]] std::optional<std::string> getMetadata(std::string_view key) const override;
+
+    [[nodiscard]] std::string getImageSourcePath() const override;
 
 private:
     /**

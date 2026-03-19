@@ -49,4 +49,9 @@
  */
 #include "common/types/memory_type.h"
 
+/**
+ * @brief Common type definitions for image processing (dimensions, channels, coordinates).
+ */
+#include "common/types/image_types.h"
+
 // Add other common headers as needed

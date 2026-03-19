@@ -17,12 +17,16 @@ set(CORE_SOURCES
     src/operations/operation_registry.cpp
 
     # Image Processing
+    src/image_processing/cpu/working_image_cpu.cpp
     src/image_processing/cpu/working_image_cpu_default.cpp
     src/image_processing/cpu/working_image_cpu_halide.cpp
     src/image_processing/gpu/working_image_gpu_halide.cpp
     src/image_processing/factories/working_image_factory.cpp
     src/image_processing/halide/working_image_halide.cpp
     src/image_processing/registration/working_image_registration.cpp
+    src/image_processing/common/working_image_data.cpp
+    src/image_processing/working_image_context.cpp
+
 
     # Deciders
     src/image_processing/deciders/benchmarking_backend_decider.cpp

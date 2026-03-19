@@ -82,14 +82,6 @@ private:
     /** @brief Pointer to the active rendering component. */
     Rendering::IRenderingItemBase* m_rendering_item{nullptr};
 
-
-    /**
-     * @brief Shared pointer to the High-Res Source Image.
-     * DisplayManager does NOT own this memory, but holds a reference
-     * to allow re-downsampling on Viewport resize without querying Controller.
-     */
-    std::shared_ptr<Core::Common::ImageRegion> m_source_image;
-
 public:
     /**
      * @brief Constructs a DisplayManager.
@@ -111,16 +103,21 @@ public:
     
     /**
      * @brief Initializes the display buffer from a full-resolution source.
-     * @param sourceImage Shared pointer to the source ImageRegion.
+     * @param sourceImage The high-resolution image region to be downsampled for display.
      */
-    void createDisplayImage(const std::shared_ptr<Core::Common::ImageRegion>& sourceImage);
+    void createDisplayImage(std::unique_ptr<Core::Common::ImageRegion> source_image);
     
     /**
      * @brief Updates a specific part of the display image.
      * @param sourceTile The high-resolution tile to be downsampled and updated.
      */
-    void updateDisplayTile(const std::shared_ptr<Core::Common::ImageRegion>& sourceTile);
+    void updateDisplayTile(std::unique_ptr<Core::Common::ImageRegion> source_tile);
     
+    /**
+     * @brief Sets the source image size metadata.
+     */
+    void setSourceImageSize(int width, int height);
+
     /**
      * @brief Updates the magnification level.
      * @param zoom The new zoom factor.
@@ -193,6 +190,13 @@ public:
     float displayScale() const { return m_display_scale; }
 
 signals:
+    /**
+     * @brief Signal emitted when a new downsampled image is needed.
+     * @param target_width The width of the requested display image.
+     * @param target_height The height of the requested display image.
+     */
+    void displayImageRequest(int target_width, int target_height);
+
     /** @brief Emitted when the zoom level changes. */
     void zoomChanged(float zoom);
     /** @brief Emitted when the pan offset changes. */
@@ -214,17 +218,6 @@ private:
      * @return Calculated display dimensions.
      */
     QSize calculateDisplaySize(const QSize& source_size, const QSize& viewport_size) const;
-    
-    /**
-     * @brief Performs the actual downsampling logic.
-     * @param source Source ImageRegion data.
-     * @param target_width Desired width.
-     * @param target_height Desired height.
-     * @return A new downsampled ImageRegion.
-     */
-    std::shared_ptr<Core::Common::ImageRegion> downsampleImage(
-        const Core::Common::ImageRegion& source, int targetWidth, int targetHeight
-    ) const;
     
     /** @brief Ensures the pan offset keeps the image within reasonable bounds. */
     void constrainPan();

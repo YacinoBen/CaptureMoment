@@ -20,6 +20,7 @@ BlacksModel::BlacksModel(QObject* parent)
 Core::Operations::OperationDescriptor BlacksModel::getDescriptor() const
 {
     Core::Operations::OperationDescriptor descriptor;
+    descriptor.id = m_operation_id;
     descriptor.type = Core::Operations::OperationType::Blacks;
     descriptor.name = "Blacks (" + std::to_string(static_cast<int>(m_params.value * 100)) + "%)";
     descriptor.enabled = true;

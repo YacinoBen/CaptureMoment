@@ -22,6 +22,8 @@
 #include "common/types/memory_type.h"
 #include "common/image_region.h"
 #include "common/error_handling/core_error.h"
+#include "common/types/image_types.h"
+
 #include <memory>
 #include <cstddef>
 #include <utility>
@@ -56,41 +58,59 @@ public:
     updateFromCPU(const Common::ImageRegion& cpu_image) = 0;
 
     /**
-     * @brief Exports current internal image data to a new CPU-based ImageRegion.
+     * @brief Exports current internal image data to a new CPU-based ImageRegion (Deep Copy).
      *
      * @details
-     * Transfers ownership of the newly created ImageRegion to the caller.
-     * The internal buffer remains valid for further operations.
+     * Creates a deep copy of the internal buffer and returns it as a new ImageRegion.
+     * The internal buffer remains valid and unchanged after this operation.
+     *
+     * **Performance Note:**
+     * This method involves memory allocation and data copying. For large images,
+     * prefer `exportToCPUMove()` when the working image data is no longer needed.
      *
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
      *         Unique pointer to copied data on success.
+     *
+     * @see exportToCPUMove() For zero-copy transfer when working image can be invalidated.
+     */
+    [[maybe_unused]] [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    exportToCPUCopy() = 0;
+
+    /**
+     * @brief Exports a downscaled version of the image directly from GPU.
+     *
+     * @details
+     * For GPU: Performs downsample on GPU, then transfers only the small result.
+     * For CPU: Performs downsample on CPU.
+     *
+     * This is the preferred method for display purposes.
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUCopy() = 0;
+    downsample(Common::ImageDim target_width, Common::ImageDim target_height) = 0;
 
     /**
      * @brief Gets dimensions (width, height) of image data.
      * @return {width, height}. Returns {0, 0} if invalid.
      */
-    [[nodiscard]] virtual std::pair<size_t, size_t> getSize() const = 0;
+    [[nodiscard]] virtual std::pair<Common::ImageDim, Common::ImageDim> getSize() const = 0;
 
     /**
      * @brief Gets number of color channels.
      * @return Number of channels. Returns 0 if invalid.
      */
-    [[nodiscard]] virtual size_t getChannels() const = 0;
+    [[nodiscard]] virtual Common::ImageChan getChannels() const = 0;
 
     /**
      * @brief Gets total number of pixels.
      * @return width * height. Returns 0 if invalid.
      */
-    [[nodiscard]] virtual size_t getPixelCount() const = 0;
+    [[nodiscard]] virtual Common::ImageSize getPixelCount() const = 0;
 
     /**
      * @brief Gets total number of data elements (pixels * channels).
      * @return Total size. Returns 0 if invalid.
      */
-    [[nodiscard]] virtual size_t getDataSize() const = 0;
+    [[nodiscard]] virtual Common::ImageSize getDataSize() const = 0;
 
     /**
      * @brief Checks if the image data is valid.

@@ -10,40 +10,56 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-void WorkingImageHalide::initializeHalide(const Common::ImageRegion& working_image)
+void WorkingImageHalide::initializeHalide(std::span<float> data, Common::ImageDim width, Common::ImageDim height, Common::ImageChan channels)
 {
-      // --- Step 1: Validation of existing data ---
-    const std::size_t expected_size = static_cast<std::size_t>(working_image.m_width) *
-                                      working_image.m_height *
-                                      working_image.m_channels;
-
-    if (!m_data) {
-        spdlog::error("[WorkingImageHalide] Cannot initialize Halide buffer: Internal m_data is null.");
+    if (data.empty()) {
+        spdlog::error("[WorkingImageHalide::initializeHalide]: Cannot initialize Halide buffer: data span is empty.");
         return;
     }
 
-    if (m_data_size != expected_size) {
-        spdlog::error("[WorkingImageHalide] Internal data size mismatch! "
-                      "Expected: {}, Got: {}. Did you call updateFromCPU before initializeHalide?",
-                      expected_size, m_data_size);
-        return;
-    }
-
-    // --- Step 2: Create Halide Buffer View (Zero-Copy) ---
-    // Link the Halide buffer directly to the existing raw pointer in m_data.
-    // No allocation happens here.
-    m_halide_buffer = Halide::Buffer<float>(
-        m_data.get(), // Use raw pointer from unique_ptr
-        static_cast<int>(working_image.m_width),
-        static_cast<int>(working_image.m_height),
-        static_cast<int>(working_image.m_channels)
-    );
+    // Create Halide Buffer View (Zero-Copy)
+    // std::span::data() returns the underlying pointer safely.
+    m_halide_buffer = Halide::Buffer<float>(data.data(), width, height, channels);
 
     if (!m_halide_buffer.defined()) {
-        spdlog::error("[WorkingImageHalide] Failed to define Halide::Buffer from internal data.");
+        spdlog::error("[WorkingImageHalide::initializeHalide]: Failed to define Halide::Buffer.");
     } else {
-        spdlog::debug("[WorkingImageHalide] Halide buffer initialized successfully (Zero-Copy view on {} elements).", m_data_size);
+        spdlog::debug("[WorkingImageHalide::initializeHalide]: Halide buffer initialized ({}x{}, {} ch, zero-copy).",
+                      width, height, channels);
     }
+}
+
+std::pair<Common::ImageDim, Common::ImageDim> WorkingImageHalide::getSizeByHalide() const noexcept
+{
+    if (!m_halide_buffer.defined()) {
+            return {0, 0};
+        }
+    return {static_cast<Common::ImageDim>(m_halide_buffer.width()),
+                static_cast<Common::ImageDim>(m_halide_buffer.height())};
+}
+
+Common::ImageChan WorkingImageHalide::getChannelsByHalide() const noexcept
+{
+    if (!m_halide_buffer.defined()) {
+        return 0;
+    }
+    return static_cast<Common::ImageChan>(m_halide_buffer.channels());
+}
+
+Common::ImageSize WorkingImageHalide::getPixelCountByHalide() const noexcept
+{
+    if (!m_halide_buffer.defined()) {
+        return 0;
+    }
+    return static_cast<Common::ImageSize>(m_halide_buffer.width()) * static_cast<Common::ImageSize>(m_halide_buffer.height());
+}
+
+Common::ImageSize WorkingImageHalide::getDataSizeByHalide() const noexcept
+{
+    if (!m_halide_buffer.defined()) {
+        return 0;
+    }
+    return static_cast<Common::ImageSize>(m_halide_buffer.size_in_bytes() / sizeof(float));
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing

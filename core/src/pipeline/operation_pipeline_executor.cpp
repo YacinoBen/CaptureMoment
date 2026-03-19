@@ -55,7 +55,7 @@ void OperationPipelineExecutor::updateRuntimeParams(std::vector<Operations::Oper
     for (const auto& desc : m_operations) {
         if (!desc.enabled) continue;
 
-        auto it = m_pipeline_params.find(desc.name);
+        auto it = m_pipeline_params.find(desc.id);
         if (it != m_pipeline_params.end()) {
             // Parameter exists in cache, update its value
             if (auto val_res = desc.getParam<float>("value")) {
@@ -111,7 +111,7 @@ void OperationPipelineExecutor::buildOperationChain()
 
         if (fusion_logic) {
             // 1. Create or Retrieve the Halide::Param for this operation
-            auto& param_ref = m_pipeline_params[desc.name];
+            auto& param_ref = m_pipeline_params[desc.id];
 
             // 2. Initialize the parameter with the current value from the descriptor
             // This ensures the first run (compilation) has valid data.

@@ -7,7 +7,7 @@
 
 #pragma once
 #include "image_processing/halide/working_image_halide.h"
-#include "image_processing/cpu/interfaces/i_working_image_cpu.h"
+#include "image_processing/cpu/working_image_cpu.h"
 
 #include <memory>
 #include <expected>
@@ -23,7 +23,7 @@ namespace ImageProcessing {
  *         Returns {} (void) on success, or an error code on failure.
  */
 
-class WorkingImageCPU_Halide final : public IWorkingImageCPU, public WorkingImageHalide {
+class WorkingImageCPU_Halide final : public WorkingImageCPU, public WorkingImageHalide {
 public:
     /**
      * @brief Constructs a WorkingImageCPU_Halide.
@@ -45,19 +45,6 @@ public:
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU(const Common::ImageRegion& cpu_image) override;
 
-
-    /**
-     * @brief Updates internal image data by MOVING from a CPU-based ImageRegion.
-     *
-     * Preferred method during initialization. Transfers ownership of the buffer
-     * without copying bytes.
-     *
-     * @param cpu_image The source image data (rvalue reference).
-     * @return std::expected<void, std::error_code>. Void on success, error code on failure.
-     */
-    [[nodiscard]] std::expected<void,  ErrorHandling::CoreError>
-    updateFromCPU(Common::ImageRegion&& cpu_image);
-
     /**
      * @brief Exports internal data to a new ImageRegion.
      *
@@ -75,7 +62,7 @@ public:
      * @return A pair containing the width (first) and height (second) of the image.
      *         Returns {0, 0} if the internal Halide buffer is invalid or not loaded.
      */
-    [[nodiscard]] std::pair<size_t, size_t> getSize() const override;
+    [[nodiscard]] std::pair<Common::ImageDim, Common::ImageDim> getSize() const override;
 
     /**
      * @brief Gets the number of color channels of the internal Halide buffer.
@@ -83,14 +70,14 @@ public:
      * @return The number of channels (e.g., 3 for RGB, 4 for RGBA). Returns 0
      *         if the internal Halide buffer is invalid or not loaded.
      */
-    [[nodiscard]] size_t getChannels() const override;
+    [[nodiscard]] Common::ImageChan getChannels() const override;
 
     /**
      * @brief Gets the total number of pixels in the internal Halide buffer.
      *
      * @return The product of width and height. Returns 0 if the internal Halide buffer is invalid or not loaded.
      */
-    [[nodiscard]] size_t getPixelCount() const override;
+    [[nodiscard]] Common::ImageSize getPixelCount() const override;
 
     /**
      * @brief Gets the total number of data elements (pixels * channels) in the internal Halide buffer.
@@ -98,14 +85,14 @@ public:
      * @return The product of pixel count and channel count. Returns 0 if the internal Halide buffer
      *         or channel count is invalid.
      */
-    [[nodiscard]] size_t getDataSize() const override;
+    [[nodiscard]] Common::ImageSize getDataSize() const override;
 
     /**
      * @brief Checks if the internal Halide buffer data is in a valid state.
      *
      * @return true if the internal Halide buffer is allocated and contains valid data, false otherwise.
      */
-    [[nodiscard]] bool isValid() const override { return m_halide_buffer.defined(); };
+    [[nodiscard]] bool isValid() const override { return m_valid && m_halide_buffer.defined(); };
 
     /**
      * @brief Gets the memory type where the image data resides.

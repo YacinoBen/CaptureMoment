@@ -63,17 +63,17 @@ void PhotoEngine::resetWorkingImage()
     (void) m_state_manager->resetToOriginal();
 }
 
-int PhotoEngine::width() const noexcept
+Common::ImageDim PhotoEngine::width() const noexcept
 {
     return m_state_manager->getSourceWidth();
 }
 
-int PhotoEngine::height() const noexcept
+Common::ImageDim PhotoEngine::height() const noexcept
 {
     return m_state_manager->getSourceHeight();
 }
 
-int PhotoEngine::channels() const noexcept
+Common::ImageChan PhotoEngine::channels() const noexcept
 {
     return m_state_manager->getSourceChannels();
 }
@@ -89,29 +89,30 @@ std::future<bool> PhotoEngine::applyOperations(std::vector<Operations::Operation
     return m_state_manager->applyOperations(std::move(ops));
 }
 
-std::shared_ptr<ImageProcessing::IWorkingImageHardware> PhotoEngine::getWorkingImage() const
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> PhotoEngine::getWorkingImageAsRegion() const
 {
-    return m_state_manager ? m_state_manager->getWorkingImage() : nullptr;
+    if (!m_state_manager) {
+        spdlog::error("[PhotoEngine::getWorkingImageAsRegion]: StateManager is null.");
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
+    }
+
+    auto result = m_state_manager->getWorkingImageAsRegion();
+
+    if (!result) {
+        spdlog::error("[PhotoEngine::getWorkingImageAsRegion]: Failed to get working image.");
+        return std::unexpected(result.error());
+    }
+
+    return result;
 }
 
-std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> PhotoEngine::getWorkingImageAsRegion() const
+std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+PhotoEngine::getDownsampledDisplayImage(Common::ImageDim width, Common::ImageDim height)
 {
     if (!m_state_manager) {
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
-
-    auto working_image_hw = m_state_manager->getWorkingImage();
-    if (!working_image_hw) {
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    // Export HW image to CPU
-    auto cpu_copy = working_image_hw->exportToCPUCopy();
-    if (!cpu_copy) {
-        return std::unexpected(cpu_copy.error());
-    }
-
-    return cpu_copy;
+    return m_state_manager->getDownsampledDisplayImage(width, height);
 }
 
 } // namespace CaptureMoment::Core::Engine

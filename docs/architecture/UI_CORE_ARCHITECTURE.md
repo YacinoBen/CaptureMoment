@@ -20,6 +20,7 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
     *   Expose QML slots (like `loadImage`, `applyOperations`) and emit QML signals for results.
     *   Interact with `DisplayManager` for display updates.
     *   **Does not directly manage serialization.**
+    *   **Post-commit `26bf511`:** Calls `m_display_manager->setSourceImageSize(...)` after loading the source image. Uses `m_engine->getDownsampledDisplayImage(target_width, target_height)` to obtain the display-ready image directly from the Core, and passes it (via `std::move`) to `m_display_manager->createDisplayImage(...)` or `m_display_manager->updateDisplayTile(...)`.
 
 ### 2. `OperationModelManager`
 
@@ -51,9 +52,9 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 
 *   **Role:** Manage display-side logic: downsampling, zoom, pan, tile updates.
 *   **Responsibilities:**
-    *   Downsample the high-resolution image from `PhotoEngine` for display.
-    *   Manage zoom and pan state.
-    *   Send the downsampled image to the appropriate Qt Quick rendering item (`RHIImageItem`, `SGSImageItem`, etc.).
+    *   **Pre-commit `26bf511`:** Managed its own downsampling logic using OIIO, held a reference to the source image, and calculated display size.
+    *   **Post-commit `26bf511` & `94b0f21`:** **No longer** performs local downsampling. Delegates this responsibility entirely to the Core (`IWorkingImageHardware::downsample`). Manages zoom and pan state. Sends display-ready images (received from `ImageControllerBase`) to the appropriate Qt Quick rendering item (`RHIImageItem`, `SGSImageItem`, etc.). Notifies the Core layer of the source image size via `setSourceImageSize`. Implements the `fitToView` logic using the *displayed* image size (`m_display_image_size`) rather than just the source size.
+    *   **Signature Change:** Methods `createDisplayImage` and `updateDisplayTile` now accept `std::unique_ptr<Core::Common::ImageRegion>`.
 
 ### 6. `SerializerController`
 
@@ -69,11 +70,11 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 
 *   **Role:** Qt Quick items responsible for the final display of the image on screen.
 *   **Responsibilities:**
-    *   `IRenderingItemBase`: Abstract interface defining common methods (`setImage`, `updateTile`, `setZoom`, `setPan`) and state (`m_image_width`, `m_image_height`, `m_zoom`, `m_pan`, `m_image_mutex`).
-    *   `BaseImageItem`: Provides common implementations for `imageWidth`, `imageHeight`, and `isImageValid`, inheriting from `IRenderingItemBase`.
-    *   `RHIImageItem`: Uses `QQuickRhiItem` to leverage QRhi (Vulkan, Metal, DirectX12). Integrates `RHIImageNode` for direct manipulation of the render pipeline.
-    *   `SGSImageItem`: Uses `QQuickItem` and `QSGSimpleTextureNode` via the Scene Graph.
-    *   `PaintedImageItem`: Uses `QQuickPaintedItem` and `QPainter`.
+    *   `IRenderingItemBase`: Abstract interface defining common methods (`setImage`, `updateTile`, `setZoom`, `setPan`) and state. **Post-commit `533b85c`:** No longer holds state members like `m_full_image`, `m_zoom`, `m_pan`, etc. Signature of `setImage` and `updateTile` changed to accept `std::unique_ptr<Core::Common::ImageRegion>`. `getFullImage()` now returns a raw pointer `const ImageRegion*`. `zoom()`, `pan()`, `getImageMutex()` are now pure virtual.
+    *   `BaseImageItem`: Provides common implementations for `imageWidth`, `imageHeight`, `isImageValid`, `zoom()`, `pan()`, `getImageMutex()`, `getFullImage()`, inheriting from `IRenderingItemBase`. **Post-commit `058c558`:** Holds common state members (`m_full_image`, `m_image_mutex`, `m_zoom`, `m_pan`) as `protected`. Implements virtual handlers `onZoomChanged`, `onPanChanged`, `onImageChanged` for derived classes.
+    *   `RHIImageItem`: Uses `QQuickRhiItem` to leverage QRhi (Vulkan, Metal, DirectX12). Integrates `RHIImageNode` for direct manipulation of the render pipeline. **Post-commits `8cb418e`/`1314bd1`:** Signatures updated for `std::unique_ptr`. Implements `onZoomChanged`, `onPanChanged`, `onImageChanged` to emit signals and trigger updates. `RHIImageItemRenderer` is declared as a `friend`.
+    *   `SGSImageItem`: Uses `QQuickItem` and `QSGSimpleTextureNode` via the Scene Graph. **Post-commit `45f2117`:** Signatures updated for `std::unique_ptr`. Implements `onZoomChanged`, `onPanChanged`, `onImageChanged`. Optimized tile update logic.
+    *   `PaintedImageItem`: Uses `QQuickPaintedItem` and `QPainter`. **Post-commit `7bebceb`:** Signatures updated for `std::unique_ptr`. Implements `onZoomChanged`, `onPanChanged`, `onImageChanged`. Optimized tile update logic (treated as full replacement).
     *   All concrete items inherit from their specific Qt Quick base (`QQuickRhiItem`, `QQuickItem`, `QQuickPaintedItem`) and from `BaseImageItem` to get common state and logic.
     *   Receive the updated image from `DisplayManager` and display it.
     *   Implement zoom and pan logic.
@@ -99,15 +100,18 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 
 ## 🧩 Flow Diagrams
 
-### A. Image Processing Flow (updated for hardware abstraction and fused pipelines)
-1.  **Initialization:** `QmlContextSetup` creates `ImageControllerBase`, which creates its dependencies (`OperationStateManager`, `OperationModelManager`, etc.). `OperationModelManager` creates the models, and `ImageControllerBase` connects them to `OperationStateManager`. Then, `QmlContextSetup` registers the models to QML via `OperationModelManager`.
+### A. Image Processing Flow (updated for hardware abstraction and fused pipelines, post `26bf511`)
+
+1.  **Initialization:** `QmlContextSetup` creates `ImageControllerBase`, which creates its dependencies (`OperationStateManager`, `OperationModelManager`, `DisplayManager`, etc.). `OperationModelManager` creates the models, and `ImageControllerBase` connects them to `OperationStateManager`. Then, `QmlContextSetup` registers the models to QML via `OperationModelManager`.
 2.  **QML Interaction:** A user moves a slider (e.g., Brightness). This calls `brightnessControl.setValue(newValue)` in QML.
 3.  **Model Update:** `BaseAdjustmentModel::setValue` updates `m_params.value` and emits `valueChanged(newValue)`.
 4.  **Connection and State Update:** The lambda in `ImageControllerBase::connectModelsToStateManager` connected to `valueChanged` is executed. It calls `OperationStateManager::addOrUpdateOperation(brightness_descriptor)`.
 5.  **Operation Application:** The lambda retrieves the full list of active operations via `OperationStateManager::getActiveOperations()` and calls `QMetaObject::invokeMethod(ImageControllerBase::doApplyOperations, ...)` on the worker thread.
 6.  **Core Call:** `ImageControllerBase::doApplyOperations` calls `PhotoEngine::applyOperations(full_list_of_operations)`.
 7.  **Processing in Core:** `PhotoEngine` delegates to `StateImageManager` (Core) which uses `OperationPipelineBuilder` to create an `OperationPipelineExecutor`. This executor applies the list of operations via **fused Halide pipeline execution** using the hardware-agnostic `IWorkingImageHardware` abstraction (`WorkingImageCPU_Halide` or `WorkingImageGPU_Halide`). The dynamic input buffer binding ensures the correct image data is processed by the fused pipeline.
-8.  **Display Update:** `ImageControllerBase` retrieves the new working image from `PhotoEngine` via `getWorkingImageAsRegion()` (which exports the hardware buffer to CPU), passes it to `DisplayManager`, which downsamples it and sends it to the Qt Quick rendering item for display.
+8.  **Display Update (Core -> UI):** `ImageControllerBase::doApplyOperations` (or `doLoadImage`) calls `m_engine->getDownsampledDisplayImage(target_width, target_height)`. This method in the Core uses the `IWorkingImageHardware::downsample` capability (potentially performing the downsampling directly on the GPU) to produce a smaller image suitable for the display viewport.
+9.  **Display Update (UI Propagation):** `ImageControllerBase` receives the downsampled image (as `std::unique_ptr<Core::Common::ImageRegion>`) and passes it (via `std::move`) to `m_display_manager->updateDisplayTile(...)` (or `createDisplayImage(...)` during load).
+10. **Display Update (UI Rendering):** `DisplayManager` receives the image and passes it (via `std::move`) to the Qt Quick rendering item (e.g., `RHIImageItem::setImage`) for display.
 
 ### B. Serialization Flow (unchanged)
 1.  **Initialization:** `QmlContextSetup` receives an instance of `SerializerController` (created elsewhere) and registers it to the QML context as `serializerController`.
@@ -133,3 +137,4 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 2.  **Implement Strategy:** Create a new class implementing the required interface (e.g., `IXmpPathStrategy`) in the Core.
 3.  **Configure in App Startup:** Inject the new strategy implementation into the `FileSerializerManager` and subsequently into the `SerializerController` during application setup.
 4.  **No UI Code Change Required:** The `SerializerController` abstracts the core details, so the UI layer (QML) does not need modification.
+5.  
