@@ -40,6 +40,7 @@ set(CORE_SOURCES
 
     # Display
     src/display/display_manager.cpp
+    src/display/viewport_manager.cpp
 
     # Rendering
     src/rendering/rhi_image_item.cpp
@@ -72,6 +73,8 @@ set(QOBJECT_HEADERS
 
     # Display
     include/display/display_manager.h
+    include/display/viewport_manager.h
+    include/display/viewport_config.h
 
     # Controller
     include/controller/image_controller_base.h
@@ -123,6 +126,8 @@ target_sources(${CAPTUREMOMENT_QT_CORE_LIB}
 
             # Display
             display/display_manager.h
+            display/viewport_manager.h
+            display/viewport_config.h
 
             # Rendering
             rendering/i_rendering_item_base.h
