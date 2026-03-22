@@ -10,14 +10,86 @@
 
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <QScreen>
 
 namespace CaptureMoment::UI::Display {
 
 DisplayManager::DisplayManager(QObject* parent)
     : QObject(parent)
+    , m_viewport_manager(std::make_unique<ViewportManager>())
 {
     spdlog::debug("[DisplayManager::DisplayManager]: Created");
+    initialize();
 }
+
+// =============================================================================
+// Initialization
+// =============================================================================
+
+void DisplayManager::initialize()
+{
+    QScreen* primary_screen = QGuiApplication::primaryScreen();
+
+    ScreenInfo screen_info;
+    QSize viewport_default(800, 600);
+
+    if (primary_screen) {
+        QSize physical = primary_screen->size() * primary_screen->devicePixelRatio();
+        screen_info.physical_width = physical.width();
+        screen_info.physical_height = physical.height();
+        screen_info.dpr = static_cast<float>(primary_screen->devicePixelRatio());
+
+        spdlog::info("[DisplayManager::initialize]: Auto-detected screen: {}x{}, DPR: {:.2f}",
+                     screen_info.physical_width, screen_info.physical_height, screen_info.dpr);
+    } else {
+        spdlog::warn("[DisplayManager::initialize]: No screen detected, using defaults");
+        screen_info.physical_width = 1920;
+        screen_info.physical_height = 1080;
+        screen_info.dpr = 1.0f;
+    }
+
+    initialize(viewport_default, screen_info);
+}
+
+void DisplayManager::initialize(const QSize& viewport_logical, const ScreenInfo& screen)
+{
+    // =========================================================================
+    // Validate inputs
+    // =========================================================================
+
+    if (!viewport_logical.isValid() || viewport_logical.isEmpty()) {
+        spdlog::error("[DisplayManager::initialize]: Invalid viewport size");
+        return;
+    }
+
+    if (!screen.isValid()) {
+        spdlog::error("[DisplayManager::initialize]: Invalid screen info");
+        return;
+    }
+
+    // =========================================================================
+    // Initialize viewport manager
+    // =========================================================================
+
+    m_viewport_manager->initialize(viewport_logical, screen);
+
+    // =========================================================================
+    // Log configuration
+    // =========================================================================
+
+    spdlog::info("[DisplayManager::initialize]: Initialized successfully");
+    spdlog::info("[DisplayManager::initialize]: Max downsample: {}px", m_viewport_manager->maxDownsample());
+    spdlog::info("[DisplayManager::initialize]: Plafond: {}px", m_viewport_manager->plafond());
+    spdlog::info("[DisplayManager::initialize]: Quality margin: {:.2f}", m_viewport_manager->qualityMargin());
+
+    emit initializedChanged(true);
+}
+
+bool DisplayManager::isInitialized() const noexcept
+{
+    return m_viewport_manager && m_viewport_manager->isInitialized();
+}
+
 
 void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
 {
@@ -40,6 +112,10 @@ void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
 
 void DisplayManager::createDisplayImage(std::unique_ptr<Core::Common::ImageRegion> source_image)
 {
+    // =========================================================================
+    // Validate input
+    // =========================================================================
+
     if (!source_image || !source_image->isValid()) {
         spdlog::warn("[DisplayManager::createDisplayImage]: Invalid source image");
         return;
@@ -50,14 +126,34 @@ void DisplayManager::createDisplayImage(std::unique_ptr<Core::Common::ImageRegio
         return;
     }
 
-    // UPDATE display size HERE - when we actually receive the image
-    m_display_image_size = QSize(source_image->width(), source_image->height());
-    m_display_scale = static_cast<float>(m_display_image_size.width()) / m_source_image_size.width();
+    // =========================================================================
+    // Update downsample size from received image
+    // =========================================================================
 
-    spdlog::debug("[DisplayManager::createDisplayImage]: Creating display {}x{}",
-                  m_display_image_size.width(), m_display_image_size.height());
+    m_downsample_size = QSize(source_image->width(), source_image->height());
+
+    // =========================================================================
+    // Calculate display scale (ratio of downsample to source)
+    // =========================================================================
+
+    if (m_source_image_size.isValid() && m_source_image_size.width() > 0) {
+        m_display_scale = static_cast<float>(m_downsample_size.width()) /
+                          static_cast<float>(m_source_image_size.width());
+    }
+
+    spdlog::debug("[DisplayManager::createDisplayImage]: Creating display image: {}x{}, scale={:.3f}",
+                  m_downsample_size.width(), m_downsample_size.height(),
+                  m_display_scale);
+
+    // =========================================================================
+    // Transfer to rendering item
+    // =========================================================================
 
     m_rendering_item->setImage(std::move(source_image));
+
+    // =========================================================================
+    // Emit signals
+    // =========================================================================
 
     emit displayImageSizeChanged(m_display_image_size);
     emit displayScaleChanged(m_display_scale);
@@ -75,83 +171,128 @@ void DisplayManager::updateDisplayTile(std::unique_ptr<Core::Common::ImageRegion
         return;
     }
 
-    // UPDATE display size HERE - when we actually receive the image
-    m_display_image_size = QSize(source_tile->width(), source_tile->height());
-    m_display_scale = static_cast<float>(m_display_image_size.width()) / m_source_image_size.width();
-
     spdlog::debug("[DisplayManager::updateDisplayTile]: Updating display {}x{}",
                   m_display_image_size.width(), m_display_image_size.height());
 
     m_rendering_item->updateTile(std::move(source_tile));
-
-    emit displayImageSizeChanged(m_display_image_size);
-    emit displayScaleChanged(m_display_scale);
 }
 
 void DisplayManager::setSourceImageSize(int width, int height)
 {
-    m_source_image_size = QSize(width, height);
-    spdlog::debug("[DisplayManager::setSourceImageSize]: {}x{}", width, height);
+    // =========================================================================
+    // Store source size
+    // =========================================================================
 
-    // Recalculate display size based on viewport
-    if (!m_viewport_size.isEmpty()) {
-        QSize new_display_size = calculateDisplaySize(m_source_image_size, m_viewport_size);
-        if (m_display_image_size != new_display_size) {
-            m_display_image_size = new_display_size;
-            m_display_scale = static_cast<float>(m_display_image_size.width()) / m_source_image_size.width();
-            emit displayImageSizeChanged(m_display_image_size);
-            emit displayScaleChanged(m_display_scale);
+    m_source_image_size = QSize(width, height);
+
+    spdlog::debug("[DisplayManager::setSourceImageSize]: Source image size: {}x{}", width, height);
+
+    // =========================================================================
+    // Calculate display parameters via ViewportManager
+    // =========================================================================
+
+    if (!isInitialized()) {
+        spdlog::warn("[DisplayManager::setSourceImageSize]: Not initialized, using source size as display size");
+        m_display_image_size = m_source_image_size;
+        m_downsample_size = m_source_image_size;
+        m_display_scale = 1.0f;
+        m_fit_zoom = 1.0f;
+    } else {
+        ViewportCalculation calc = m_viewport_manager->calculateDisplay(m_source_image_size);
+
+        if (calc.isValid()) {
+            m_display_image_size = calc.display_size;
+            m_downsample_size = calc.downsample_size;
+            m_fit_zoom = calc.fit_zoom;
+
+            // Calculate display scale
+            if (m_source_image_size.width() > 0) {
+                m_display_scale = static_cast<float>(m_downsample_size.width()) /
+                                  static_cast<float>(m_source_image_size.width());
+            }
+
+            spdlog::info("[DisplayManager::setSourceImageSize]: Calculated display:");
+            spdlog::info("[DisplayManager::setSourceImageSize]:  Source: {}x{}", m_source_image_size.width(), m_source_image_size.height());
+            spdlog::info("[DisplayManager::setSourceImageSize]:  Display: {}x{}", m_display_image_size.width(), m_display_image_size.height());
+            spdlog::info("[DisplayManager::setSourceImageSize]:  Downsample: {}x{}", m_downsample_size.width(), m_downsample_size.height());
+            spdlog::info("[DisplayManager::setSourceImageSize]:  Fit zoom: {:.3f}", m_fit_zoom);
+            spdlog::info("[DisplayManager::setSourceImageSize]:  Texture memory: {} MB", calc.texture_memory_mb);
+
+            // Request new downsampled image if needed
+            if (calc.needs_downsample) {
+                spdlog::debug("[DisplayManager::setSourceImageSize]: Requesting downsampled image: {}x{}",
+                              m_downsample_size.width(), m_downsample_size.height());
+                emit displayImageRequest(m_downsample_size.width(), m_downsample_size.height());
+            }
         }
     }
 
+    // =========================================================================
+    // Emit signals
+    // =========================================================================
+
     emit sourceImageSizeChanged(m_source_image_size);
+    emit displayImageSizeChanged(m_display_image_size);
+    emit downsampleSizeChanged(m_downsample_size);
+    emit displayScaleChanged(m_display_scale);
 }
 
 void DisplayManager::setZoom(float zoom)
 {
-    float clamped_zoom = std::clamp(zoom, 0.1f, 10.0f);
+    // =========================================================================
+    // Clamp to valid range
+    // =========================================================================
 
-    if (!qFuzzyCompare(m_zoom, clamped_zoom)) {
-        spdlog::debug("[DisplayManager::setZoom]: Zoom changed from {:.6f} to {:.6f}", m_zoom, clamped_zoom);
-        m_zoom = clamped_zoom;
-        constrainPan();
+    const float clamped_zoom { std::clamp(zoom, 0.1f, 10.0f) };
 
-        if (m_rendering_item) {
-            spdlog::trace("[DisplayManager::setZoom]: Updating zoom on rendering item");
-            m_rendering_item->setZoom(m_zoom);
-        }
-
-        emit zoomChanged(m_zoom);
-    } else {
-        spdlog::trace("[DisplayManager::setZoom]: Zoom value unchanged, skipping update");
+    if (std::abs(m_zoom - clamped_zoom) < 0.001f) {
+        return;
     }
+
+    spdlog::debug("[DisplayManager::setZoom]: Zoom: {:.3f} → {:.3f}", m_zoom, clamped_zoom);
+
+    m_zoom = clamped_zoom;
+    constrainPan();
+
+    // Apply to rendering item
+    if (m_rendering_item) {
+        m_rendering_item->setZoom(m_zoom);
+    }
+
+    emit zoomChanged(m_zoom);
 }
 
 void DisplayManager::setPan(const QPointF& pan)
 {
-    if (m_pan != pan) {
-        spdlog::debug("[DisplayManager::setPan]: Pan changed from ({:.6f}, {:.6f}) to ({:.6f}, {:.6f})",
-                     m_pan.x(), m_pan.y(), pan.x(), pan.y());
-        m_pan = pan;
-        constrainPan();
-
-        if (m_rendering_item) {
-            spdlog::trace("[DisplayManager::setPan]: Updating pan on rendering item");
-            m_rendering_item->setPan(m_pan);
-        }
-
-        emit panChanged(m_pan);
-    } else {
-        spdlog::trace("[DisplayManager::setPan]: Pan value unchanged, skipping update");
+    if (m_pan == pan) {
+        spdlog::trace("[DisplayManager::setPan]: Pan is already set to ({:.3f}, {:.3f}), skipping update", pan.x(), pan.y());
+        return;
     }
+
+    m_pan = pan;
+    constrainPan();
+
+    if (m_rendering_item) {
+        m_rendering_item->setPan(m_pan);
+    }
+
+    emit panChanged(m_pan);
 }
 
 void DisplayManager::zoomAt(const QPointF& point, float zoom_delta)
 {
-    float old_zoom = m_zoom;
-    float new_zoom = std::clamp(old_zoom * zoom_delta, 0.1f, 10.0f);
+    // =========================================================================
+    // Calculate new zoom
+    // =========================================================================
 
-    QPointF adjusted_pan = point - (point - m_pan) * (new_zoom / old_zoom);
+    float old_zoom { m_zoom };
+    float new_zoom { std::clamp(old_zoom * zoom_delta, 0.1f, 10.0f) };
+
+    // =========================================================================
+    // Adjust pan to keep point under cursor
+    // =========================================================================
+
+    const QPointF adjusted_pan { point - (point - m_pan) * (new_zoom / old_zoom) };
 
     m_zoom = new_zoom;
     m_pan = adjusted_pan;
@@ -172,32 +313,48 @@ void DisplayManager::zoomAt(const QPointF& point, float zoom_delta)
 
 void DisplayManager::fitToView()
 {
-    spdlog::debug("[DisplayManager::fitToView]: Fitting view to image");
+   spdlog::debug("[DisplayManager::fitToView]: Fitting view to image");
 
-    // Use display image size (the actual texture/image we're displaying)
-    // If not available yet, fall back to source image size
-    QSize image_size = m_display_image_size.isEmpty() ? m_source_image_size : m_display_image_size;
+    spdlog::debug("[DisplayManager::fitToView]: m_display_image_size={}x{}, m_source_image_size={}x{}",
+                  m_display_image_size.width(), m_display_image_size.height(),
+                  m_source_image_size.width(), m_source_image_size.height());
 
-    if (image_size.isEmpty() || m_viewport_size.isEmpty()) {
+    spdlog::debug("[DisplayManager::fitToView]: viewport={}x{}",
+                  m_viewport_manager ? m_viewport_manager->viewportSize().width() : -1,
+                  m_viewport_manager ? m_viewport_manager->viewportSize().height() : -1);
+
+    bool image_valid { !m_downsample_size.isEmpty() };
+    bool viewport_manager_valid { m_viewport_manager != nullptr };
+    bool viewport_valid { m_viewport_manager && !m_viewport_manager->viewportSize().isEmpty() };
+
+    spdlog::debug("[DisplayManager::fitToView]: image_valid={}, viewport_manager_valid={}, viewport_valid={}",
+                  image_valid, viewport_manager_valid, viewport_valid);
+
+    if (!image_valid || !viewport_manager_valid || !viewport_valid) {
         spdlog::warn("[DisplayManager::fitToView]: Image size or viewport is empty, using defaults");
         m_zoom = 1.0f;
-        m_pan = QPointF(0, 0);
+        m_pan = QPointF(0.0, 0.0);
     } else {
-        // Calculate zoom to fit image in viewport while maintaining aspect ratio
-        float zoom_x = static_cast<float>(m_viewport_size.width()) / image_size.width();
-        float zoom_y = static_cast<float>(m_viewport_size.height()) / image_size.height();
+        const QSize viewport { m_viewport_manager->viewportSize() };
+
+        // ============================================================
+        // Calculate zoom to fit downsampled image in viewport
+        // ============================================================
+        const float zoom_x = static_cast<float>(viewport.width()) / m_downsample_size.width();
+        const float zoom_y = static_cast<float>(viewport.height()) / m_downsample_size.height();
         m_zoom = std::min(zoom_x, zoom_y);
 
-        // Calculate pan to center the image in viewport
-        float scaled_width = image_size.width() * m_zoom;
-        float scaled_height = image_size.height() * m_zoom;
-        float pan_x = (m_viewport_size.width() - scaled_width) / 2.0f;
-        float pan_y = (m_viewport_size.height() - scaled_height) / 2.0f;
+        // ============================================================
+        // Calculate pan to center the image
+        // ============================================================
+        const float image_displayed_width = m_downsample_size.width() * m_zoom;
+        const float image_displayed_height = m_downsample_size.height() * m_zoom;
+        
+        const float pan_x = (viewport.width() - image_displayed_width) / 2.0f;
+        const float pan_y = (viewport.height() - image_displayed_height) / 2.0f;
         m_pan = QPointF(pan_x, pan_y);
 
-        spdlog::debug("[DisplayManager::fitToView]: image={}x{}, viewport={}x{}, zoom={:.4f}, pan=({:.1f}, {:.1f})",
-                      image_size.width(), image_size.height(),
-                      m_viewport_size.width(), m_viewport_size.height(),
+        spdlog::debug("[DisplayManager::fitToView]: zoom={:.3f}, pan=({:.1f}, {:.1f})",
                       m_zoom, m_pan.x(), m_pan.y());
     }
 
@@ -216,34 +373,84 @@ void DisplayManager::resetView() {
     fitToView();
 }
 
+
+void DisplayManager::zoomIn()
+{
+    setZoom(m_zoom * 1.2f);
+}
+
+void DisplayManager::zoomOut()
+{
+    setZoom(m_zoom / 1.2f);
+}
+
+
+// =============================================================================
+// Viewport
+// =============================================================================
+
 void DisplayManager::setViewportSize(const QSize& size) {
-    if (m_viewport_size == size) {
+    if (!size.isValid() || size.isEmpty()) {
+        spdlog::warn("[DisplayManager::setViewportSize]: Invalid viewport size");
         return;
     }
 
-    spdlog::debug("[DisplayManager::setViewportSize]: {}x{}", size.width(), size.height());
-    m_viewport_size = size;
+    if (!m_viewport_manager) {
+        spdlog::error("[DisplayManager::setViewportSize]: ViewportManager not created");
+        return;
+    }
 
-    // Recalculate display size if we have source info
-    if (!m_source_image_size.isEmpty()) {
-        QSize new_display_size = calculateDisplaySize(m_source_image_size, m_viewport_size);
 
-        // Only emit request if size actually changed
-        if (new_display_size != m_display_image_size) {
-            // DON'T update m_display_image_size here!
-            // Wait until we actually receive the new image
+    const QSize old_viewport { m_viewport_manager->viewportSize() };
+    const int old_max { m_viewport_manager->maxDownsample() };
 
-            spdlog::debug("[DisplayManager::setViewportSize]: Requesting new image {}x{} (current is {}x{})",
-                          new_display_size.width(), new_display_size.height(),
-                          m_display_image_size.width(), m_display_image_size.height());
+    m_viewport_manager->setViewportSize(size);
 
-            emit displayImageRequest(new_display_size.width(), new_display_size.height());
+    // Check if max downsample changed
+    const int new_max { m_viewport_manager->maxDownsample() };
+    if (new_max != old_max) {
+        spdlog::debug("[DisplayManager::setViewportSize]: Max downsample changed: {} → {}", old_max, new_max);
+        emit maxDownsampleChanged(new_max);
+
+        // Recalculate display if we have a source image
+        if (m_source_image_size.isValid()) {
+            ViewportCalculation calc = m_viewport_manager->calculateDisplay(m_source_image_size);
+
+            if (calc.isValid() && calc.downsample_size != m_downsample_size) {
+                m_display_image_size = calc.display_size;
+                m_downsample_size = calc.downsample_size;
+                m_fit_zoom = calc.fit_zoom;
+
+                emit displayImageSizeChanged(m_display_image_size);
+                emit downsampleSizeChanged(m_downsample_size);
+                emit displayImageRequest(m_downsample_size.width(), m_downsample_size.height());
+            }
         }
     }
 
-    emit viewportSizeChanged(size);
+    if (old_viewport != size) {
+        emit viewportSizeChanged(size);
+    }
 }
 
+void DisplayManager::setQualityMargin(float margin)
+{
+    if (!m_viewport_manager) {
+        spdlog::error("[DisplayManager::setQualityMargin]: ViewportManager not created");
+        return;
+    }
+
+    const int old_max { m_viewport_manager->maxDownsample() };
+    m_viewport_manager->setQualityMargin(margin);
+    const int new_max { m_viewport_manager->maxDownsample() };
+
+    if (new_max != old_max) {
+        emit maxDownsampleChanged(new_max);
+    }
+}
+// =============================================================================
+// Coordinate Mapping
+// =============================================================================
 QPointF DisplayManager::mapBackendToDisplay(int backend_x, int backend_y) const
 {
     return QPointF(backend_x * m_display_scale, backend_y * m_display_scale);
@@ -257,35 +464,11 @@ QPoint DisplayManager::mapDisplayToBackend(float display_x, float display_y) con
     );
 }
 
-QSize DisplayManager::calculateDisplaySize(const QSize& source_size, const QSize& viewport_size) const
-{
-    if (source_size.isEmpty() || viewport_size.isEmpty()) {
-        spdlog::warn("[DisplayManager::calculateDisplaySize]: Invalid input sizes");
-        return QSize();
-    }
 
-    float source_aspect = static_cast<float>(source_size.width()) / source_size.height();
-    float viewport_aspect = static_cast<float>(viewport_size.width()) / viewport_size.height();
+// =============================================================================
+// Internal Methods
+// =============================================================================
 
-    int display_width, display_height;
-
-    if (source_aspect > viewport_aspect) {
-        display_width = viewport_size.width();
-        display_height = static_cast<int>(display_width / source_aspect);
-    } else {
-        display_height = viewport_size.height();
-        display_width = static_cast<int>(display_height * source_aspect);
-    }
-
-    display_width = std::max(1, display_width);
-    display_height = std::max(1, display_height);
-
-    spdlog::debug("[DisplayManager::calculateDisplaySize]: Calculated display size {}x{} from source {}x{} and viewport {}x{}",
-                 display_width, display_height, source_size.width(), source_size.height(),
-                 viewport_size.width(), viewport_size.height());
-
-    return QSize(display_width, display_height);
-}
 
 void DisplayManager::constrainPan()
 {
@@ -294,20 +477,50 @@ void DisplayManager::constrainPan()
         return;
     }
 
-    float visible_width = m_display_image_size.width() * m_zoom;
-    float visible_height = m_display_image_size.height() * m_zoom;
+    // Get viewport size
+    const QSize viewport { m_viewport_manager ? m_viewport_manager->viewportSize() : QSize(800, 600) };
 
-    float max_pan_x = std::max(0.0f, (visible_width - m_viewport_size.width()) / 2.0f);
-    float max_pan_y = std::max(0.0f, (visible_height - m_viewport_size.height()) / 2.0f);
+    // Calculate visible area at current zoom
+    const float visible_width { m_display_image_size.width() * m_zoom };
+    const float visible_height { m_display_image_size.height() * m_zoom };
 
-    QPointF old_pan = m_pan;
+    // Calculate maximum pan in each direction
+    const float max_pan_x { std::max(0.0f, (visible_width - viewport.width()) / 2.0f) };
+    const float max_pan_y { std::max(0.0f, (visible_height - viewport.height()) / 2.0f) };
+
+    // Clamp pan
+    const QPointF old_pan = m_pan;
     m_pan.setX(std::clamp(static_cast<float>(m_pan.x()), -max_pan_x, max_pan_x));
     m_pan.setY(std::clamp(static_cast<float>(m_pan.y()), -max_pan_y, max_pan_y));
 
     if (m_pan != old_pan) {
-        spdlog::debug("[DisplayManager::constrainPan]: Pan constrained from ({:.6f}, {:.6f}) to ({:.6f}, {:.6f})",
-                     old_pan.x(), old_pan.y(), m_pan.x(), m_pan.y());
+        spdlog::trace("[DisplayManager::constrainPan]: Pan constrained: ({:.1f}, {:.1f}) → ({:.1f}, {:.1f})",
+                      old_pan.x(), old_pan.y(), m_pan.x(), m_pan.y());
     }
+}
+
+QSize DisplayManager::calculateDisplaySize(const QSize& source_size) const
+{
+    if (!m_viewport_manager || !source_size.isValid()) {
+        return {};
+    }
+
+    ViewportCalculation calc = m_viewport_manager->calculateDisplay(source_size);
+    return calc.display_size;
+}
+
+// =============================================================================
+// Property Getters
+// =============================================================================
+
+int DisplayManager::maxDownsample() const noexcept
+{
+    return m_viewport_manager ? m_viewport_manager->maxDownsample() : 2048;
+}
+
+QSize DisplayManager::viewportSize() const noexcept
+{
+    return m_viewport_manager ? m_viewport_manager->viewportSize() : QSize();
 }
 
 } // namespace CaptureMoment::UI::Display
