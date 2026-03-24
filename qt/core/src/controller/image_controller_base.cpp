@@ -177,21 +177,21 @@ void ImageControllerBase::doLoadImage(const QString& file_path)
     }
 
     // 4. Get display size from DisplayManager
-    QSize display_size = m_display_manager->displayImageSize();
+    QSize downsample_size { m_display_manager->downsampleSize() };
 
-    if (display_size.isEmpty()) {
-        spdlog::error("[ImageControllerBase::doLoadImage]: Invalid display size");
-        onImageLoadResult(false, "Invalid display size");
+    if (downsample_size.isEmpty()) {
+        spdlog::error("[ImageControllerBase::doLoadImage]: Invalid downsample size");
+        onImageLoadResult(false, "Invalid downsample size");
         return;
     }
 
     // 5. Get downsampled image directly (GPU → small ImageRegion)
     spdlog::debug("[ImageControllerBase::doLoadImage]: Requesting downsampled image {}x{}",
-                  display_size.width(), display_size.height());
+                  downsample_size.width(), downsample_size.height());
 
     auto display_image_result = m_engine->getDownsampledDisplayImage(
-        static_cast<Core::Common::ImageDim>(display_size.width()),
-        static_cast<Core::Common::ImageDim>(display_size.height())
+        static_cast<Core::Common::ImageDim>(downsample_size.width()),
+        static_cast<Core::Common::ImageDim>(downsample_size.height())
     );
 
     if (!display_image_result) {
@@ -240,21 +240,21 @@ void ImageControllerBase::doApplyOperations(std::vector<Core::Operations::Operat
     }
 
     // 2. Get display size from DisplayManager
-    QSize display_size = m_display_manager->displayImageSize();
+    QSize downsample_size { m_display_manager->downsampleSize() };
 
-    if (display_size.isEmpty()) {
-        spdlog::error("[ImageControllerBase::doApplyOperations]: Invalid display size");
-        onOperationResult(false, "Invalid display size");
+    if (downsample_size.isEmpty()) {
+        spdlog::error("[ImageControllerBase::doApplyOperations]: Invalid downsample size");
+        onOperationResult(false, "Invalid downsample size");
         return;
     }
 
     // 3. Get downsampled image directly (GPU → small ImageRegion)
     spdlog::debug("[ImageControllerBase::doApplyOperations]: Requesting downsampled image {}x{}", 
-                  display_size.width(), display_size.height());
+                  downsample_size.width(), downsample_size.height());
 
     auto display_image_result = m_engine->getDownsampledDisplayImage(
-        static_cast<Core::Common::ImageDim>(display_size.width()),
-        static_cast<Core::Common::ImageDim>(display_size.height())
+        static_cast<Core::Common::ImageDim>(downsample_size.width()),
+        static_cast<Core::Common::ImageDim>(downsample_size.height())
     );
 
     if (!display_image_result) {
@@ -268,7 +268,7 @@ void ImageControllerBase::doApplyOperations(std::vector<Core::Operations::Operat
 
     // 4. Update DisplayManager with const& (no copy, no shared_ptr)
     if (m_display_manager) {
-        m_display_manager->updateDisplayTile(std::move(display_image_result.value()));
+        m_display_manager->createDisplayImage(std::move(display_image_result.value()));
         spdlog::info("[ImageControllerBase::doApplyOperations]: Display updated");
     } else {
         spdlog::warn("[ImageControllerBase::doApplyOperations]: No DisplayManager");
