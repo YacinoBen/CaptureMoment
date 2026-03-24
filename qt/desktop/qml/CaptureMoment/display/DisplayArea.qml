@@ -14,6 +14,7 @@ Rectangle {
     // Local properties to force info display immediately upon loading
     property int currentSourceWidth: 0
     property int currentSourceHeight: 0
+    property var displaySize: controller.displayManager ? controller.displayManager.displayImageSize : Qt.size(0, 0)
 
     signal openImageClicked()
 
@@ -39,8 +40,8 @@ Rectangle {
                 height: (controller && controller.displayManager) ? controller.displayManager.displayImageSize.height : 0
 
                 onImageSizeChanged: {
-                    console.log("DisplayArea.qml::onHeightChanged: width: ", imageDisplay.imageWidth)
-                    console.log("DisplayArea.qml::onWidthChanged: height: ", imageDisplay.imageHeight)
+                    console.log("DisplayArea.qml::onImageSizeChanged: width:", imageDisplay.imageWidth,
+                    "height:", imageDisplay.imageHeight)
                 }
             }
 
@@ -89,10 +90,8 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.margins: 10
 
-                // Uses local properties (immediate) or controller as fallback
-                text: "Source: " + currentSourceWidth + "x" + currentSourceHeight +
-                      " | Display: " + (controller.displayManager ? controller.displayManager.displayImageSize.width : 0) +
-                      "x" + (controller.displayManager ? controller.displayManager.displayImageSize.height : 0)
+                text:"Source: " + currentSourceWidth + "x" + currentSourceHeight +
+                " | Display: " + displaySize.width + "x" + displaySize.height
 
                 color: "#CCCCCC"
                 font.pixelSize: 12
