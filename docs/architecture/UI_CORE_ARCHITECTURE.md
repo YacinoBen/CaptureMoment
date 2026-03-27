@@ -21,6 +21,7 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
     *   Interact with `DisplayManager` for display updates.
     *   **Does not directly manage serialization.**
     *   **Post-commit `26bf511`:** Calls `m_display_manager->setSourceImageSize(...)` after loading the source image. Uses `m_engine->getDownsampledDisplayImage(target_width, target_height)` to obtain the display-ready image directly from the Core, and passes it (via `std::move`) to `m_display_manager->createDisplayImage(...)` or `m_display_manager->updateDisplayTile(...)`.
+    *   **Post-commit `features/viewport`:** Modified `doLoadImage` and `doApplyOperations` to retrieve the target *downsampled* size using `m_display_manager->downsampleSize()` instead of `m_display_manager->displayImageSize()`. In `doApplyOperations`, the call to `m_display_manager` was changed from `updateDisplayTile(...)` to `createDisplayImage(...)` after receiving the new downsampled image from the Core.
 
 ### 2. `OperationModelManager`
 
@@ -36,7 +37,7 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 *   **Responsibilities:**
     *   Maintain the full list of active operations (as `OperationDescriptor`).
     *   Provide thread-safe methods to add, update, remove operations in this state.
-    *   Provide a method to retrieve the full list of active operations.
+    * to retrieve the full list of active operations.
     *   **Does not communicate directly** with `PhotoEngine` or handle serialization.
 
 ### 4. `BaseAdjustmentModel` (and derivatives like `BrightnessModel`)
@@ -50,11 +51,13 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 
 ### 5. `DisplayManager`
 
-*   **Role:** Manage display-side logic: downsampling, zoom, pan, tile updates.
+*   **Role:** Manage display-side logic: viewport-aware downsampling, zoom, pan, tile updates.
 *   **Responsibilities:**
     *   **Pre-commit `26bf511`:** Managed its own downsampling logic using OIIO, held a reference to the source image, and calculated display size.
     *   **Post-commit `26bf511` & `94b0f21`:** **No longer** performs local downsampling. Delegates this responsibility entirely to the Core (`IWorkingImageHardware::downsample`). Manages zoom and pan state. Sends display-ready images (received from `ImageControllerBase`) to the appropriate Qt Quick rendering item (`RHIImageItem`, `SGSImageItem`, etc.). Notifies the Core layer of the source image size via `setSourceImageSize`. Implements the `fitToView` logic using the *displayed* image size (`m_display_image_size`) rather than just the source size.
     *   **Signature Change:** Methods `createDisplayImage` and `updateDisplayTile` now accept `std::unique_ptr<Core::Common::ImageRegion>`.
+    *   **Post-commit `features/viewport`:** Integrates `ViewportManager` (`m_viewport_manager`). The `initialize` method is added to configure the `ViewportManager` with screen and viewport details. The `setSourceImageSize` method now uses `m_viewport_manager->calculateDisplay(...)` to determine the required *downsampled* size, emitting `displayImageRequest` if downsampling is needed. The `downsampleSize` and `maxDownsample` are exposed as QML properties. The `fitToView` and `setViewportSize` methods utilize calculations from the `ViewportManager`. A new method `setQualityMargin` is added to control the quality vs. performance trade-off via the `ViewportManager`.
+    *   [🟦 **SEE VIEWPORT_MANAGEMENT.md**](ui/VIEWPORT_MANAGEMENT.md). 
 
 ### 6. `SerializerController`
 
@@ -100,17 +103,17 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 
 ## 🧩 Flow Diagrams
 
-### A. Image Processing Flow (updated for hardware abstraction and fused pipelines, post `26bf511`)
+### A. Image Processing Flow (updated for hardware abstraction, fused pipelines, and viewport management, post `features/viewport`)
 
-1.  **Initialization:** `QmlContextSetup` creates `ImageControllerBase`, which creates its dependencies (`OperationStateManager`, `OperationModelManager`, `DisplayManager`, etc.). `OperationModelManager` creates the models, and `ImageControllerBase` connects them to `OperationStateManager`. Then, `QmlContextSetup` registers the models to QML via `OperationModelManager`.
+1.  **Initialization:** `QmlContextSetup` creates `ImageControllerBase`, which creates its dependencies (`OperationStateManager`, `OperationModelManager`, `DisplayManager`, etc.). `OperationModelManager` creates the models, and `ImageControllerBase` connects them to `OperationStateManager`. `DisplayManager` is initialized (e.g., via `DisplayManager::initialize`) with viewport and screen information, which configures its internal `ViewportManager`.
 2.  **QML Interaction:** A user moves a slider (e.g., Brightness). This calls `brightnessControl.setValue(newValue)` in QML.
 3.  **Model Update:** `BaseAdjustmentModel::setValue` updates `m_params.value` and emits `valueChanged(newValue)`.
 4.  **Connection and State Update:** The lambda in `ImageControllerBase::connectModelsToStateManager` connected to `valueChanged` is executed. It calls `OperationStateManager::addOrUpdateOperation(brightness_descriptor)`.
 5.  **Operation Application:** The lambda retrieves the full list of active operations via `OperationStateManager::getActiveOperations()` and calls `QMetaObject::invokeMethod(ImageControllerBase::doApplyOperations, ...)` on the worker thread.
 6.  **Core Call:** `ImageControllerBase::doApplyOperations` calls `PhotoEngine::applyOperations(full_list_of_operations)`.
 7.  **Processing in Core:** `PhotoEngine` delegates to `StateImageManager` (Core) which uses `OperationPipelineBuilder` to create an `OperationPipelineExecutor`. This executor applies the list of operations via **fused Halide pipeline execution** using the hardware-agnostic `IWorkingImageHardware` abstraction (`WorkingImageCPU_Halide` or `WorkingImageGPU_Halide`). The dynamic input buffer binding ensures the correct image data is processed by the fused pipeline.
-8.  **Display Update (Core -> UI):** `ImageControllerBase::doApplyOperations` (or `doLoadImage`) calls `m_engine->getDownsampledDisplayImage(target_width, target_height)`. This method in the Core uses the `IWorkingImageHardware::downsample` capability (potentially performing the downsampling directly on the GPU) to produce a smaller image suitable for the display viewport.
-9.  **Display Update (UI Propagation):** `ImageControllerBase` receives the downsampled image (as `std::unique_ptr<Core::Common::ImageRegion>`) and passes it (via `std::move`) to `m_display_manager->updateDisplayTile(...)` (or `createDisplayImage(...)` during load).
+8.  **Display Update (Core -> UI):** `ImageControllerBase::doApplyOperations` (or `doLoadImage`) calls `m_engine->getDownsampledDisplayImage(target_width, target_height)`. The `target_width` and `target_height` are now obtained from `m_display_manager->downsampleSize()`, which was calculated by the `DisplayManager`'s `ViewportManager` based on the source image size and viewport characteristics.
+9.  **Display Update (UI Propagation):** `ImageControllerBase` receives the downsampled image (as `std::unique_ptr<Core::Common::ImageRegion>`) and passes it (via `std::move`) to `m_display_manager->createDisplayImage(...)` (or `updateDisplayTile(...)` depending on the flow, though `createDisplayImage` is used in `doApplyOperations` as per the latest changes).
 10. **Display Update (UI Rendering):** `DisplayManager` receives the image and passes it (via `std::move`) to the Qt Quick rendering item (e.g., `RHIImageItem::setImage`) for display.
 
 ### B. Serialization Flow (unchanged)
@@ -122,19 +125,3 @@ This architecture manages the Qt/C++ abstraction layer located between the centr
 
 ---
 
-## 🛠️ How to Contribute
-
-### Adding a New Operation (e.g., Vignette)
-
-1.  **Define Operation Type:** Add `Vignette` to the `OperationType` enum in the Core.
-2.  **Create Operation Implementation:** Define `OperationVignette` class in the Core that implements the new `execute(IWorkingImageHardware&, const OperationDescriptor&)` method and `appendToFusedPipeline` for pipeline fusion.
-3.  **Register Operation:** Add `OperationVignette` to the `OperationRegistry::registerAll` function in the Core.
-4.  **UI Integration:** Create a corresponding operation model in `ui_core` (`VignetteModel`) and expose it to QML via `OperationModelManager`.
-
-### Adding a New Serialization Strategy
-
-1.  **Define Strategy Interface:** (If not already done for the new strategy type).
-2.  **Implement Strategy:** Create a new class implementing the required interface (e.g., `IXmpPathStrategy`) in the Core.
-3.  **Configure in App Startup:** Inject the new strategy implementation into the `FileSerializerManager` and subsequently into the `SerializerController` during application setup.
-4.  **No UI Code Change Required:** The `SerializerController` abstracts the core details, so the UI layer (QML) does not need modification.
-5.  
