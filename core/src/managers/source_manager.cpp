@@ -6,6 +6,9 @@
  */
 
 #include "managers/source_manager.h"
+#include "image_config/raw_settings.h"
+#include "image_config/heic_settings.h"
+#include "utils/color_space_utils.h"
 
 #include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imageio.h>
@@ -16,29 +19,52 @@
 namespace CaptureMoment::Core::Managers {
 
 // Global static members for cache management
-static std::shared_ptr<OIIO::ImageCache> s_globalCachePtr = nullptr;
-static std::once_flag s_cacheInitFlag;
+static std::shared_ptr<OIIO::ImageCache> s_global_cache_ptr { nullptr };
+static std::once_flag s_cache_init_flag;
+
+/**
+ * @brief Checks if a file path has one of the specified extensions.
+ * @param path The file path to check.
+ * @param extensions The list of extensions to compare against.
+ * @return true If the file has one of the specified extensions.
+ * @return false If the file does not have any of the specified extensions.
+ */
+[[nodiscard]] static bool hasExtension(std::string_view path, std::span<const std::string_view> extensions) noexcept
+{
+    std::string lower_path(path);
+    std::transform(lower_path.begin(), lower_path.end(), lower_path.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    for (const auto& ext : extensions)
+    {
+        if (lower_path.size() >= ext.size() &&
+            lower_path.compare(lower_path.size() - ext.size(), ext.size(), ext) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
 
 OIIO::ImageCache* SourceManager::getGlobalCache()
 {
-    std::call_once(s_cacheInitFlag, []() {
-        s_globalCachePtr = OIIO::ImageCache::create();
-        
-        if (s_globalCachePtr) {
-            s_globalCachePtr->attribute("max_memory_MB", 2048.0f);
-            spdlog::debug("[SourceManager] OIIO ImageCache created: 2GB limit");
+    std::call_once(s_cache_init_flag, []() {
+        s_global_cache_ptr = OIIO::ImageCache::create();
+
+        if (s_global_cache_ptr) {
+            s_global_cache_ptr->attribute("max_memory_MB", 2048.0f);
+            spdlog::debug("[SourceManager::getGlobalCache]: OIIO ImageCache created: 2GB limit");
         } else {
-            spdlog::critical("[SourceManager] Failed to create OIIO ImageCache");
+            spdlog::critical("[SourceManager::getGlobalCache]: Failed to create OIIO ImageCache");
         }
     });
-    return s_globalCachePtr.get();
+    return s_global_cache_ptr.get();
 }
 
 SourceManager::SourceManager()
     : m_cache(getGlobalCache())
 {
     if (!m_cache) {
-        spdlog::critical("[SourceManager] Failed to get global ImageCache");
+        spdlog::critical("[SourceManager::SourceManager]: Failed to get global ImageCache");
         throw std::runtime_error("SourceManager: Initialization failed");
     }
 }
@@ -51,7 +77,7 @@ SourceManager::~SourceManager()
 std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::string_view path)
 {
     if (path.empty()) {
-        spdlog::warn("[SourceManager::loadFile] Empty file path");
+        spdlog::warn("[SourceManager::loadFile]: Empty file path");
         return std::unexpected(ErrorHandling::CoreError::FileNotFound);
     }
 
@@ -61,77 +87,259 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadFile(std::strin
         unloadInternal();
     }
 
-    spdlog::info("[SourceManager::loadFile] Loading: '{}'", path);
+    spdlog::info("[SourceManager::loadFile]: Loading: '{}'", path);
 
-    try {
-        // ============================================================
-        // Step 1: Load via OIIO ImageCache
-        // ============================================================
-        OIIO::ImageBuf src_buf(std::string(path), 0, 0, s_globalCachePtr);
-        
-        if (!src_buf.read(0, 0, true, OIIO::TypeDesc::FLOAT)) {
-            spdlog::error("[SourceManager::loadFile] Failed to read '{}': {}", 
-                          path, src_buf.geterror());
+    // Dispatch based on file type
+    if (isRawFile(path)) {
+        return loadRawFile(path);
+    } else if (isHeicFile(path)) {
+        return loadHeicFile(path);
+    }
+
+    return loadStandardFile(path);
+}
+
+bool SourceManager::isRawFile(std::string_view path) const
+{
+    static const std::array<std::string_view, 25> raw_extensions = {
+        ".nef", ".cr2", ".cr3", ".arw", ".dng", ".raw", ".rw2",
+        ".orf", ".sr2", ".raf", ".mrw", ".pef", ".srw", ".x3f",
+        ".3fr", ".iiq", ".kdc", ".mef", ".nrw", ".srw", ".crw",
+        ".mos", ".erf", ".dc2", ".dcr"
+    };
+
+    return hasExtension(path, raw_extensions);
+}
+
+bool SourceManager::isHeicFile(std::string_view path) const
+{
+    static const std::array<std::string_view, 3> heic_extensions = {
+        ".heic", ".heif", ".avif"
+    };
+
+    return hasExtension(path, heic_extensions);
+}
+
+std::expected<void, ErrorHandling::CoreError> SourceManager::loadRawFile(std::string_view path)
+{
+    spdlog::debug("[SourceManager::loadRawFile]: Processing RAW file: {}", path);
+
+    // ============================================================
+    // Configure OIIO/LibRaw with optimized settings
+    // ============================================================
+    ImageConfig::Raw::RawSettings settings;
+    settings.set_demosaic(ImageConfig::Raw::DemosaicAlgorithm::amaze);
+    settings.set_color_space(ImageConfig::Raw::RawColorSpace::prophoto_linear);
+    settings.set_highlight_mode(ImageConfig::Raw::HighlightMode::blend);
+    settings.set_balance_clamped(true);
+    settings.set_use_camera_wb(true);
+    settings.set_fbdd_noiserd(ImageConfig::Raw::FbddNoiseRd::light);
+    settings.set_camera_matrix(ImageConfig::Raw::CameraMatrixMode::always);
+
+    OIIO::ImageSpec config;
+    config.attribute("raw:Demosaic", settings.get_demosaic_string());
+    config.attribute("raw:ColorSpace", settings.get_color_space_string());
+    config.attribute("raw:HighlightMode", settings.get_highlight_mode_value());
+    config.attribute("raw:balance_clamped", static_cast<int>(settings.get_balance_clamped()));
+    config.attribute("raw:use_camera_matrix", settings.get_camera_matrix_value());
+    config.attribute("raw:use_camera_wb", static_cast<int>(settings.get_use_camera_wb()));
+    config.attribute("raw:use_auto_wb", static_cast<int>(settings.get_use_auto_wb()));
+    config.attribute("raw:fbdd_noiserd", settings.get_fbdd_noiserd_value());
+
+    // ============================================================
+    // Load via OIIO ImageCache
+    // ============================================================
+    auto buf_result = loadImageBuffer(path, &config);
+    if (!buf_result) {
+        spdlog::error("[SourceManager::loadRawFile]: Failed to load RAW file '{}': {}", path, buf_result.error());
+        return std::unexpected(buf_result.error());
+    }
+
+    // ============================================================
+    // Convert and store
+    // ============================================================
+    m_current_path = path;
+    auto result { convertToRgbaInternal(std::move(buf_result.value())) };
+
+    if (result) {
+        spdlog::info("[SourceManager::loadRawFile]: Loaded '{}': {}x{} RGBA_F32",
+                     path, m_image_buf->spec().width, m_image_buf->spec().height);
+    }
+
+    return result;
+}
+
+std::expected<void, ErrorHandling::CoreError> SourceManager::loadHeicFile(std::string_view path)
+{
+    spdlog::debug("[SourceManager::loadHeicFile]: Processing HEIC file: {}", path);
+
+    // ============================================================
+    // Configure OIIO/libheif with HEIC settings
+    // ============================================================
+    ImageConfig::Heic::HeicSettings settings;
+
+    OIIO::ImageSpec config;
+    config.attribute("oiio:reorient", settings.get_reorient_value());
+    config.attribute("oiio:UnassociatedAlpha", settings.get_unassociated_alpha_value());
+
+    // ============================================================
+    // Load via OIIO ImageCache
+    // ============================================================
+    auto buf_result = loadImageBuffer(path, &config);
+    if (!buf_result) {
+        spdlog::error("[SourceManager::loadHeicFile]: Failed to load HEIC file '{}': {}", path, buf_result.error());
+        return std::unexpected(buf_result.error());
+    }
+
+    // ============================================================
+    // Convert to linear (HEIC from smartphones are typically sRGB)
+    // ============================================================
+    auto [is_linear, cs_name] = Utils::analyzeColorSpace(buf_result->spec());
+
+    if (!is_linear && !cs_name.empty())
+    {
+        auto conversion { Utils::transformToColorSpace(*buf_result, "lin_rec709_scene") };
+        if (!conversion) {
+            spdlog::error("[SourceManager::loadHeicFile]: Color space conversion failed for '{}': {}", path, conversion.error());
+            return std::unexpected(conversion.error());
+        }
+
+    }
+    // ============================================================
+    // Convert and store
+    // ============================================================
+    m_current_path = path;
+    auto result { convertToRgbaInternal(std::move(buf_result.value())) };
+
+    if (result) {
+        spdlog::info("[SourceManager::loadHeicFile]: Loaded '{}': {}x{} RGBA_F32",
+                     path, m_image_buf->spec().width, m_image_buf->spec().height);
+    }
+
+    return result;
+}
+
+std::expected<void, ErrorHandling::CoreError> SourceManager::loadStandardFile(std::string_view path)
+{
+    spdlog::debug("[SourceManager::loadStandardFile]: Processing standard image: {}", path);
+
+    // ============================================================
+    // Load via OIIO ImageCache (no special config)
+    // ============================================================
+    auto buf_result = loadImageBuffer(path, nullptr);
+    if (!buf_result) {
+        spdlog::error("[SourceManager::loadStandardFile]: Failed to load standard file '{}': {}", path, buf_result.error());
+        return std::unexpected(buf_result.error());
+    }
+
+    // ============================================================
+    // Convert to linear if needed
+    // ============================================================
+    auto [is_linear, cs_name] = Utils::analyzeColorSpace(buf_result->spec());
+
+    if (!is_linear && !cs_name.empty())
+    {
+        auto conversion { Utils::transformToColorSpace(*buf_result, "lin_rec709_scene") };
+        if (!conversion) {
+            spdlog::error("[SourceManager::loadStandardFile]: Color space conversion failed for '{}': {}", path, conversion.error());
+            return std::unexpected(conversion.error());
+        }
+
+        auto [is_linear, cs_name] = Utils::analyzeColorSpace(buf_result->spec());
+
+        spdlog::debug("[SourceManager::loadStandardFile]: is linear: '{}' new space: '{}' ",
+                      is_linear, cs_name);
+    }
+
+    // ============================================================
+    // Convert and store
+    // ============================================================
+    m_current_path = path;
+    auto result = convertToRgbaInternal(std::move(buf_result.value()));
+
+    if (result) {
+        spdlog::info("[SourceManager::loadStandardFile]: Loaded '{}': {}x{} RGBA_F32",
+                     path, m_image_buf->spec().width, m_image_buf->spec().height);
+    }
+
+    return result;
+}
+
+std::expected<OIIO::ImageBuf, ErrorHandling::CoreError>
+SourceManager::loadImageBuffer(std::string_view path, const OIIO::ImageSpec* config)
+{
+    if (config)
+    {
+        // Config path: ImageInput::open applies attributes (RAW, HEIF)
+        auto in { OIIO::ImageInput::open(std::string(path), config) };
+        if (!in) {
+            spdlog::error("[SourceManager::loadImageBuffer]: Failed to open '{}': {}", path, OIIO::geterror());
             return std::unexpected(ErrorHandling::CoreError::DecodingError);
         }
 
-        // ============================================================
-        // Step 2: Get dimensions
-        // ============================================================
-        const Common::ImageDim w = static_cast<Common::ImageDim>(src_buf.spec().width);
-        const Common::ImageDim h = static_cast<Common::ImageDim>(src_buf.spec().height);
-        const Common::ImageChan src_ch = static_cast<Common::ImageChan>(src_buf.spec().nchannels);
+        OIIO::ImageSpec float_spec { in->spec() };
+        float_spec.set_format(OIIO::TypeDesc::FLOAT);
 
-        // ============================================================
-        // Step 3: Convert to RGBA_F32 (standard internal format)
-        // ============================================================
-        OIIO::ImageSpec target_spec(static_cast<int>(w), static_cast<int>(h), 4, OIIO::TypeDesc::FLOAT);
-        OIIO::ImageBuf rgba_buf(target_spec);
+        OIIO::ImageBuf buf(float_spec);
 
-        // Channel mapping for conversion
-        std::vector<int> channel_order = {0, 1, 2, 3};
-        std::vector<float> channel_values = {0.0f, 0.0f, 0.0f, 1.0f};
-
-        switch (src_ch) {
-            case 1:  // Grayscale → R=G=B=gray, A=1
-                channel_order = {0, 0, 0, -1};
-                break;
-            case 2:  // Gray+Alpha → RGB=gray, A=alpha
-                channel_order = {0, 0, 0, 1};
-                break;
-            case 3:  // RGB → RGB, A=1
-                channel_order = {0, 1, 2, -1};
-                break;
-            case 4:  // RGBA → direct copy
-            default:
-                channel_order = {0, 1, 2, 3};
-                break;
+        if (!in->read_image(0, 0, 0, -1, OIIO::TypeDesc::FLOAT, buf.localpixels())) {
+            spdlog::error("[SourceManager::loadImageBuffer]: Failed to read '{}': {}", path, in->geterror());
+            return std::unexpected(ErrorHandling::CoreError::DecodingError);
         }
 
-        if (!OIIO::ImageBufAlgo::channels(rgba_buf, src_buf, 4, channel_order, channel_values)) {
-            spdlog::error("[SourceManager::loadFile] Channel conversion failed: {}", rgba_buf.geterror());
-            return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
-        }
-
-        // ============================================================
-        // Step 4: Store final buffer
-        // ============================================================
-        m_image_buf = std::make_unique<OIIO::ImageBuf>(std::move(rgba_buf));
-        m_current_path = path;
-
-        spdlog::info("[SourceManager::loadFile] Loaded '{}': {}x{} RGBA_F32", 
-                     m_current_path, w, h);
-        return {};
-
-    } catch (const std::bad_alloc&) {
-        spdlog::critical("[SourceManager::loadFile] Allocation failed for '{}'", path);
-        m_image_buf.reset();
-        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
-    } catch (const std::exception& e) {
-        spdlog::critical("[SourceManager::loadFile] Exception: {}", e.what());
-        m_image_buf.reset();
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
+        in->close();
+        return buf;
     }
+
+    // Standard path: ImageCache
+    OIIO::ImageBuf buf(std::string(path), 0, 0, s_global_cache_ptr);
+    if (!buf.read(0, 0, true, OIIO::TypeDesc::FLOAT)) {
+        spdlog::error("[SourceManager::loadImageBuffer]: Failed to read '{}': {}", path, buf.geterror());
+        return std::unexpected(ErrorHandling::CoreError::DecodingError);
+    }
+
+    return buf;
+}
+
+std::expected<void, ErrorHandling::CoreError> SourceManager::convertToRgbaInternal(OIIO::ImageBuf&& src_buf)
+{
+    // ============================================================
+    // Get dimensions
+    // ============================================================
+    const Common::ImageDim w { static_cast<Common::ImageDim>(src_buf.spec().width) };
+    const Common::ImageDim h { static_cast<Common::ImageDim>(src_buf.spec().height) };
+    const Common::ImageChan src_ch { static_cast<Common::ImageChan>(src_buf.spec().nchannels) };
+
+    spdlog::debug("[SourceManager::convertToRgbaInternal]: {}x{} ({} channels)", w, h, src_ch);
+
+    // ============================================================
+    // Convert to RGBA_F32
+    // ============================================================
+    OIIO::ImageSpec target_spec(static_cast<int>(w), static_cast<int>(h), 4, OIIO::TypeDesc::FLOAT);
+    OIIO::ImageBuf rgba_buf(target_spec);
+
+    std::vector<int> channel_order = {0, 1, 2, 3};
+    std::vector<float> channel_values = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    switch (src_ch)
+    {
+    case 1:  channel_order = {0, 0, 0, -1}; break;
+    case 2:  channel_order = {0, 0, 0, 1}; break;
+    case 3:  channel_order = {0, 1, 2, -1}; break;
+    default: channel_order = {0, 1, 2, 3}; break;
+    }
+
+    if (!OIIO::ImageBufAlgo::channels(rgba_buf, src_buf, 4, channel_order, channel_values)) {
+        spdlog::error("[SourceManager::convertToRgbaInternal]: Channel conversion failed: {}", rgba_buf.geterror());
+        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+    }
+
+    // ============================================================
+    // Store final buffer
+    // ============================================================
+    m_image_buf = std::make_unique<OIIO::ImageBuf>(std::move(rgba_buf));
+
+    return {};
 }
 
 void SourceManager::unload()
@@ -143,7 +351,7 @@ void SourceManager::unload()
 void SourceManager::unloadInternal()
 {
     if (m_image_buf && m_image_buf->initialized()) {
-        spdlog::info("[SourceManager] Unloading '{}'", m_current_path);
+        spdlog::debug("[SourceManager::unloadInternal]: Unloading '{}'", m_current_path);
     }
     m_image_buf.reset();
     m_current_path.clear();
@@ -176,7 +384,7 @@ Common::ImageChan SourceManager::channels() const noexcept
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-SourceManager::getTile(Common::ImageDim x, Common::ImageDim y, 
+SourceManager::getTile(Common::ImageDim x, Common::ImageDim y,
                        Common::ImageDim width, Common::ImageDim height)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -196,27 +404,27 @@ SourceManager::getTile(Common::ImageDim x, Common::ImageDim y,
         static_cast<int>(y), static_cast<int>(y + height),
         0, 1,
         0, 4
-    );
+        );
 
     // Allocate result
-    const size_t dataSize = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
-    std::vector<float> data(dataSize);
+    const size_t data_size { static_cast<size_t>(width) * static_cast<size_t>(height) * 4 };
+    std::vector<float> data(data_size);
 
     if (!m_image_buf->get_pixels(roi, OIIO::TypeDesc::FLOAT, data.data())) {
-        spdlog::warn("[SourceManager::getTile] get_pixels failed: {}", m_image_buf->geterror());
+        spdlog::warn("[SourceManager::getTile]: get_pixels failed: {}", m_image_buf->geterror());
         return std::unexpected(ErrorHandling::CoreError::IOError);
     }
 
     // Create ImageRegion
-    auto region = std::make_unique<Common::ImageRegion>(
+    auto region { std::make_unique<Common::ImageRegion>(
         std::move(data),
         width,
         height,
         static_cast<Common::ImageChan>(4)
-    );
+        )};
+
     region->m_x = static_cast<Common::ImageCoord>(x);
     region->m_y = static_cast<Common::ImageCoord>(y);
-    region->m_format = Common::PixelFormat::RGBA_F32;
 
     return region;
 }
@@ -246,7 +454,7 @@ SourceManager::setTile(const Common::ImageRegion& tile)
         static_cast<int>(tile.m_y), static_cast<int>(tile.m_y + tile.m_height),
         0, 1,
         0, 4
-    );
+        );
 
     if (!m_image_buf->set_pixels(roi, OIIO::TypeDesc::FLOAT, tile.m_data.data())) {
         spdlog::error("[SourceManager::setTile] set_pixels failed: {}", m_image_buf->geterror());
@@ -264,8 +472,8 @@ std::optional<std::string> SourceManager::getMetadata(std::string_view key) cons
         return std::nullopt;
     }
 
-    const auto& spec = m_image_buf->spec();
-    const auto* attr = spec.find_attribute(std::string(key));
+    const auto& spec { m_image_buf->spec() };
+    const auto* attr { spec.find_attribute(std::string(key)) };
 
     return attr ? std::optional{attr->get_string()} : std::nullopt;
 }
