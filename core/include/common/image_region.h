@@ -123,6 +123,7 @@ struct ImageRegion {
         , m_width(w)
         , m_height(h)
         , m_channels(ch)
+        , m_format(PixelFormat::RGBA_F32) // Default format
     {}
 
     /**
@@ -142,6 +143,7 @@ struct ImageRegion {
         , m_width(w)
         , m_height(h)
         , m_channels(ch)
+        , m_format(PixelFormat::RGBA_F32) // Default format
     {}
 
     // ============================================================
