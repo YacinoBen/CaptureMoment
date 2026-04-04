@@ -18,3 +18,12 @@
  */
 #include "image_config/raw_settings.h"
 
+
+// ============================================================
+// 2. Heic Data Structures
+// ============================================================
+
+/**
+ * @brief HeicSettings structure representing the unprocessed settings for HEIF/HEIC/AVIF image loading.
+ */
+#include "image_config/heic_settings.h"
