@@ -14,12 +14,13 @@
 #include <QImage>
 #include <algorithm>
 #include <cstring>
+#include <QColorSpace>
 
 namespace CaptureMoment::UI::Rendering {
 
 // Constructor: Initializes the item and sets the flag for custom content.
 SGSImageItem::SGSImageItem(QQuickItem* parent)
-    : QQuickItem(parent) // Appel du constructeur de QQuickItem
+    : QQuickItem(parent)
 {
     // Indicate to Qt Quick that this item has custom content rendered via the scene graph.
     setFlag(QQuickItem::ItemHasContents, true);
@@ -78,7 +79,8 @@ void SGSImageItem::updateTile(std::unique_ptr<Core::Common::ImageRegion> tile)
 
         // Full replacement if same dimensions (most common case)
         if (tile->width() == m_full_image->width() &&
-            tile->height() == m_full_image->height()) {
+            tile->height() == m_full_image->height())
+        {
             // Copy data instead of move to avoid destructor issues
             const size_t data_size { tile->width() * tile->height() * tile->channels() };
             std::copy(tile->getBuffer().data(),
@@ -86,7 +88,8 @@ void SGSImageItem::updateTile(std::unique_ptr<Core::Common::ImageRegion> tile)
                       m_full_image->getBuffer().data());
             m_image_dirty = true;
             spdlog::info("[SGSImageItem::updateTile]: Full copy {}x{}", tile->width(), tile->height());
-        } else {
+        } else
+        {
             // Partial tile update
             if (tile->x() < 0 || tile->y() < 0 ||
                 tile->x() + tile->width() > m_full_image->width() ||
@@ -102,7 +105,8 @@ void SGSImageItem::updateTile(std::unique_ptr<Core::Common::ImageRegion> tile)
             const int tile_y { tile->y() } ;
             const int tile_h { static_cast<int>(tile->height()) };
 
-            for (int y = 0; y < tile_h; ++y) {
+            for (size_t y = 0; y < tile_h; ++y)
+            {
                 const float* src = tile->getBuffer().data() + y * row_size;
                 // FIXED: (tile_y + y) not (tile_x + y)
                 float* dst = m_full_image->getBuffer().data() +
@@ -124,73 +128,65 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
 {
     Q_UNUSED(data);
 
-    // Early exit if no valid image
     if (!isImageValid()) {
-        // Return existing node or nullptr
         return node;
     }
 
     auto* texture_node { static_cast<QSGSimpleTextureNode*>(node) };
 
-    // Cache dimensions BEFORE acquiring mutex to avoid nested locks
-    // (imageWidth()/imageHeight() also acquire the mutex)
-    int img_w {0};
-    int img_h {0};
-    bool needs_texture_update {false};
+    int img_w { 0 };
+    int img_h { 0 };
+    bool needs_texture_update { false };
     QImage new_qimage;
 
     {
         QMutexLocker lock(&m_image_mutex);
 
-        if (m_full_image && m_full_image->isValid()) {
+        if (m_full_image && m_full_image->isValid())
+        {
             img_w = static_cast<int>(m_full_image->width());
             img_h = static_cast<int>(m_full_image->height());
 
-            if (m_image_dirty) {
+            if (m_image_dirty)
+            {
                 needs_texture_update = true;
 
-                // Create QImage while holding the lock
-                const int ch { m_full_image->channels() };
-                QImage::Format format { (ch == 4) ? QImage::Format_RGBA8888 : QImage::Format_RGB888 };
-                new_qimage = QImage(img_w, img_h, format);
+                QImage linear_img(
+                    reinterpret_cast<const uchar*>(m_full_image->getBuffer().data()),
+                    img_w, img_h,
+                    img_w * 4 * static_cast<int>(sizeof(float)),
+                    QImage::Format_RGBA32FPx4
+                    );
 
-                const float* src { m_full_image->getBuffer().data() };
-                uchar* dst { new_qimage.bits() };
+                const QColorSpace linear_cs { QColorSpace::SRgbLinear };
+                linear_img.setColorSpace(linear_cs);
 
-                for (int i = 0; i < img_w * img_h * ch; ++i) {
-                    dst[i] = static_cast<uchar>(std::clamp(src[i], 0.0f, 1.0f) * 255.0f);
-                }
+                new_qimage = linear_img.convertedToColorSpace(QColorSpace::SRgb)
+                                 .convertToFormat(QImage::Format_RGBA8888);
 
                 m_image_dirty = false;
             }
         }
     }
 
-    // Check if window is valid (item must be in a window)
     QQuickWindow* win = window();
     if (!win) {
         spdlog::warn("[SGSImageItem::updatePaintNode]: No window attached");
         return node;
     }
 
-    // Create new node if needed
     if (!texture_node) {
         texture_node = new QSGSimpleTextureNode();
     }
 
-    // Update texture if needed
-    // NOTE: We create a NEW texture instead of deleting the old one
-    // The old texture will be cleaned up by Qt's scene graph when the node is removed
-    // or when we set a new texture with proper ownership
-    if (needs_texture_update && !new_qimage.isNull()) {
-        // Create texture from image (this is thread-safe with Qt's scene graph)
+    if (needs_texture_update && !new_qimage.isNull())
+    {
         QSGTexture* new_texture { win->createTextureFromImage(
             new_qimage,
             QQuickWindow::TextureHasAlphaChannel
             ) };
 
         if (new_texture) {
-            // Set the new texture - the node takes ownership
             texture_node->setTexture(new_texture);
             texture_node->setOwnsTexture(true);
         } else {
@@ -198,9 +194,8 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
         }
     }
 
-    // Update geometry if we have a valid texture
-    if (texture_node->texture()) {
-        // Use cached dimensions (img_w/img_h if updated, otherwise query base class)
+    if (texture_node->texture())
+    {
         float display_w, display_h;
         if (img_w > 0 && img_h > 0) {
             display_w = img_w * m_zoom;
