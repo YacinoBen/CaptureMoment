@@ -8,6 +8,7 @@
 #include "rendering/painted_image_item.h"
 #include <spdlog/spdlog.h>
 #include <QPainter>
+#include <QColorSpace>
 #include <QMutexLocker>
 #include <algorithm>
 
@@ -90,19 +91,17 @@ QImage PaintedImageItem::convertImageRegionToQImage(const Core::Common::ImageReg
 
     const int w { static_cast<int>(region.width()) };
     const int h { static_cast<int>(region.height()) };
-    const int ch { region.channels() };
 
-    QImage::Format format { (ch == 4) ? QImage::Format_RGBA8888 : QImage::Format_RGB888 };
-    QImage qimg(w, h, format);
+    QImage linear_img(
+        reinterpret_cast<const uchar*>(region.m_data.data()),
+        w, h,
+        w * 4 * static_cast<int>(sizeof(float)),
+        QImage::Format_RGBA32FPx4
+        );
+    linear_img.setColorSpace(QColorSpace(QColorSpace::SRgbLinear));
 
-    const float* src { region.m_data.data() };
-    uchar* dst = qimg.bits();
-
-    for (int i = 0; i < w * h * ch; ++i) {
-        dst[i] = static_cast<uchar>(std::clamp(src[i], 0.0f, 1.0f) * 255.0f);
-    }
-
-    return qimg;
+    return linear_img.convertedToColorSpace(QColorSpace(QColorSpace::SRgb))
+        .convertToFormat(QImage::Format_RGBA8888);
 }
 
 bool PaintedImageItem::isImagePaintValid() const
