@@ -11,6 +11,7 @@
 #include <string_view>
 #include <cstdint>
 #include <format>
+#include <fmt/core.h>
 
 namespace CaptureMoment::Core {
 
@@ -247,6 +248,21 @@ struct std::formatter<CaptureMoment::Core::ErrorHandling::CoreError> : std::form
     auto format(const CaptureMoment::Core::ErrorHandling::CoreError code, FormatContext& ctx) const
     {
         return std::formatter<std::string_view>::format(
+            CaptureMoment::Core::ErrorHandling::to_string(code), ctx);
+    }
+};
+
+/**
+ * @brief fmt::formatter specialization for CoreError.
+ * @details Enables direct formatting with spdlog/fmt (e.g., "{}", CoreError::FileNotFound).
+ */
+template <>
+struct fmt::formatter<CaptureMoment::Core::ErrorHandling::CoreError>
+    : fmt::formatter<std::string_view>
+{
+    template <typename FormatContext>
+    auto format(const CaptureMoment::Core::ErrorHandling::CoreError& code, FormatContext& ctx) const {
+        return fmt::formatter<std::string_view>::format(
             CaptureMoment::Core::ErrorHandling::to_string(code), ctx);
     }
 };
