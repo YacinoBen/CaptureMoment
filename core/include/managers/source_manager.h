@@ -103,6 +103,92 @@ private:
      * Assumes caller holds m_mutex.
      */
     [[nodiscard]] bool isLoaded_unsafe() const;
+
+
+    /**
+     * @brief Loads an image file via OIIO ImageCache into an ImageBuf (F32).
+     * @param path The file path to load.
+     * @param config Optional OIIO configuration attributes (for RAW, HEIF, etc.).
+     * @return The loaded ImageBuf on success, or a CoreError on failure.
+     */
+    [[nodiscard]] std::expected<OIIO::ImageBuf, ErrorHandling::CoreError>
+    loadImageBuffer(std::string_view path, const OIIO::ImageSpec* config = nullptr);
+
+    // ============================================================
+    // RAW File Handling
+    // ============================================================
+
+    /**
+     * @brief Checks if a file path refers to a RAW image format.
+     *
+     * Determines whether the file extension corresponds to a RAW camera format
+     * (e.g., .NEF, .CR2, .ARW, .DNG) that requires special processing.
+     *
+     * @param path The file path to check.
+     * @return true If the file is a RAW format.
+     * @return false If the file is a standard image format (JPEG, PNG, TIFF).
+     */
+    [[nodiscard]] bool isRawFile(std::string_view path) const;
+
+    /**
+     * @brief Checks if a file path refers to a HEIC image format.
+     *
+     * Determines whether the file extension corresponds to a HEIC format
+     * that may require special processing (e.g., reorientation).
+     *
+     * @param path The file path to check.
+     * @return true If the file is a HEIC format.
+     * @return false If the file is not a HEIC format.
+     */
+    [[nodiscard]] bool isHeicFile(std::string_view path) const;
+
+    /**
+     * @brief Loads a RAW image file with optimized LibRaw settings.
+     *
+     * This method handles RAW camera files (NEF, CR2, ARW, DNG, etc.) by configuring
+     * OIIO/LibRaw with appropriate settings for photo editing:
+     * - Full resolution output
+     * - AHD demosaicing algorithm
+     * - Linear color space (sRGB-linear)
+     * - Camera white balance preserved
+     * - Highlight recovery enabled
+     *
+     * @param path The path to the RAW file.
+     * @return std::expected<void, CoreError> Success or error code.
+     */
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> loadRawFile(std::string_view path);
+
+    /**
+     * @brief Loads a HEIC image file with optimized libheif settings.
+     *
+     * This method handles HEIC files, which often require special handling for
+     * orientation and alpha. It configures libheif to:
+     * - Automatically reorient based on EXIF metadata (recommended for smartphone photos).
+     * - Preserve unassociated alpha if present.
+     *
+     * @param path The path to the HEIC file.
+     * @return std::expected<void, CoreError> Success or error code.
+     */
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> loadHeicFile(std::string_view path);
+
+    /**
+     * @brief Loads a standard image file (JPEG, PNG, TIFF, etc.).
+     *
+     * This method handles non-RAW image formats using OIIO ImageCache.
+     * No special RAW processing is applied.
+     *
+     * @param path The path to the image file.
+     * @return std::expected<void, CoreError> Success or error code.
+     */
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> loadStandardFile(std::string_view path);
+
+    /**
+     * @brief Converts an OIIO ImageBuf to RGBA_F32 internal format.
+     *
+     * @param src_buf Source buffer (any format).
+     * @return std::expected<void, CoreError> Success or error code.
+     */
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> convertToRgbaInternal(OIIO::ImageBuf&& src_buf);
 };
 
 } // namespace Managers

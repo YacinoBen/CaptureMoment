@@ -13,8 +13,8 @@
 
 #pragma once
 
-#include <cstddef>  // Required for size_t
-#include <cstdint>  // Required for uint8_t
+#include <cstddef>
+#include <cstdint>
 
 namespace CaptureMoment::Core {
 
@@ -62,29 +62,6 @@ enum class PixelFormat : std::uint8_t {
      * - **Usage:** Common for image files that do not contain an alpha channel.
      */
     RGB_F32,
-
-    /**
-     * @brief 4-channel format: Red, Green, Blue, Alpha in 8-bit unsigned integer.
-     *     (BUGFIX: Original comment said 3-channel, corrected for RGBA).
-     *
-     * Each pixel is stored as 4 consecutive `uint8_t` values (0-255).
-     * - **Size per pixel:** 4 bytes (4 channels * 1 byte per uint8_t)
-     * - **Value range:** `[0, 255]` (corresponding to `[0.0f, 1.0f]` when normalized)
-     * - **Usage:** Standard format for image export to formats like PNG
-     *             where alpha is supported.
-     */
-    RGBA_U8,
-
-    /**
-     * @brief 3-channel format: Red, Green, Blue in 8-bit unsigned integer.
-     *
-     * Each pixel is stored as 3 consecutive `uint8_t` values (0-255).
-     * - **Size per pixel:** 3 bytes (3 channels * 1 byte per uint8_t)
-     * - **Value range:** `[0, 255]` (corresponding to `[0.0f, 1.0f]` when normalized)
-     * - **Usage:** Standard format for image export to formats like JPEG
-     *             where alpha is not supported and memory usage is a concern.
-     */
-    RGB_U8
 };
 
 /**
@@ -97,15 +74,11 @@ enum class PixelFormat : std::uint8_t {
 {
     switch(pf) {
     case PixelFormat::RGBA_F32:
-    case PixelFormat::RGBA_U8:
         return 4;
     case PixelFormat::RGB_F32:
-    case PixelFormat::RGB_U8:
         return 3;
     default:
-        // In C++23, one might use std::unreachable() here,
-        // but returning 0 is safer for robustness against bad casts.
-        return 0;
+        std::unreachable();
     }
 }
 
@@ -117,15 +90,7 @@ enum class PixelFormat : std::uint8_t {
  */
 [[nodiscard]] constexpr std::size_t getPixelSizeInBytes(PixelFormat fmt) noexcept
 {
-    // Cast explicitly to size_t to avoid signed/unsigned warnings
-    const std::size_t channels = static_cast<std::size_t>(getChannelCount(fmt));
-
-    if (fmt == PixelFormat::RGBA_F32 || fmt == PixelFormat::RGB_F32) {
-        return channels * sizeof(float);
-    } else {
-        // Assume U8 formats if not float (handles both RGB_U8 and RGBA_U8)
-        return channels * sizeof(std::uint8_t);
-    }
+    return static_cast<std::size_t>(getChannelCount(fmt)) * sizeof(float);
 }
 
 } // namespace Common

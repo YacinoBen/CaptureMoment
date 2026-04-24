@@ -38,15 +38,23 @@ The core functionality is split into specialized components: Managers handle res
 * **Problem:** Implementing image processing logic separately for CPU and multiple GPU APIs (CUDA, OpenCL, Metal, DX12, Vulkan) leads to massive code duplication and maintenance overhead.
 * **Solution:** Introduce the `IWorkingImageHardware` interface. Concrete implementations (`WorkingImageCPU_Halide`, `WorkingImageGPU_Halide` and its descendants like `WorkingImageCUDA_Halide`, `WorkingImageVulkan_Halide`) handle platform-specific details.
 * **Impact:**
-  * **Unified Processing Logic:** Algorithms (like the fused Halide pipeline execution) operate on the `IWorkingImageHardware` interface, oblivious to the underlying hardware.
+  * **Unified Processing Logic:** Algorithms (like the fused Halide pipeline execution and downsampling) operate on the `IWorkingImageHardware` interface, oblivious to the underlying hardware.
   * **Modularity:** Adding a new backend involves implementing the interface, without touching the core processing logic.
   * **Flexibility:** The system can dynamically choose the best backend (`AppConfig`, benchmarking) at runtime or initialization.
+  * **Performance:** The `downsample` method allows efficient generation of display-sized images, potentially leveraging GPU acceleration.
 
 ### `CaptureMoment::Core::ImageProcessing::WorkingImageHalide` (Base Class)
 
 * **Shared Infrastructure**: Base class providing common Halide buffer functionality for both CPU and GPU implementations.
 * **Memory Management**: Uses `std::unique_ptr<float[]>` (allocated via `std::make_unique_for_overwrite`) as backing store for Halide buffers, enabling in-place modifications without unnecessary copies and avoiding zero-initialization overhead during allocation.
 * **Pattern Explanation (Template Method):** Defines common steps for buffer creation and management, allowing subclasses to customize specific parts (e.g., GPU buffer allocation/deallocation).
+
+### `CaptureMoment::Core::ImageProcessing::WorkingImageData` (Base Class)
+
+*   **Raw Data Storage**: Provides the underlying `std::unique_ptr<float[]>` (`m_data`) and metadata (`m_width`, `m_height`, `m_channels`, `m_valid`) for CPU and GPU implementations.
+*   **Common Types**: Uses `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize` for its members.
+*   **Initialization Logic**: Contains the `initializeData` method, which handles the allocation and copying of pixel data from an `ImageRegion`, and sets the metadata.
+*   **State Management**: The `m_valid` flag is managed here and used by derived classes to determine the overall validity state.
 
 ### WorkingImage Refactoring
 
@@ -69,7 +77,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Impact:**
   * **Performance:** Dramatically reduces execution time by minimizing memory bandwidth usage and loop overhead.
   * **Quality:** Reduces cumulative floating-point errors by performing all calculations in a single pass.
-  * **Hardware Agnostic:** The seamlessly across different hardware backends.
+  * **Hardware Agnostic:** The fused pipeline system works seamlessly across different hardware backends.
 
 ### Operation Fusion Logic Update
 
@@ -137,7 +145,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 
 * **Pattern Explanation (Facade):** `FileSerializerManager` provides a simplified interface to the complex serialization subsystem (`IXmpProvider`, `IXmpPathStrategy`, `IFileSerializerWriter/Reader`).
 
-* **Usage:** ReFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
+* **Usage:** Relies on `CaptureMoment::Core::Serializer::OperationSerialization` for parameter conversion, which in turn uses generic conversion utilities from `CaptureMoment::Core::utils`.
 
 ---
 
@@ -147,6 +155,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Solution:**
   * Use `std::span<float>` for non-owning views of data, minimizing copies when passing buffers to algorithms (like Halide).
   * Use `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` for owning allocations (e.g., in `WorkingImageHalide`), avoiding zero-initialization overhead for large buffers that are immediately filled.
+  * Use move semantics (`std::move`) for transferring ownership of large objects like `std::vector` or `ImageRegion` between functions/components.
 * **Impact:**
   * **Performance:** Reduces allocation time and memory bandwidth usage.
   * **Safety:** RAII and smart pointers prevent leaks.
@@ -172,6 +181,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Optimized Scheduling:** Pipeline fusion creates single computational passes instead of multiple sequential operations.
 * **Backend Selection:** Runtime benchmarking automatically determines optimal CPU/GPU usage.
 * **Pipeline Fusion Optimization:** Fused Execution: Operations now support both sequential (`execute`) and fused (`appendToFusedPipeline`) execution patterns.
+* **Hardware-Accelerated Downsampling:** The `IWorkingImageHardware::downsample` method allows generating display-sized images efficiently, potentially on the GPU.
 
 ---
 
@@ -181,7 +191,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Solution:**
   * `StateImageManager` acts as the single authority for the current "working image".
   * Operations modify the image *in-place* on the `IWorkingImageHardware` managed by `WorkingImageContext`.
-  * Explicit synchronization points (e.g., waiting on futures from workers) ensure operations complete before dependent actions begin.
+  * Explicit synchronization points (e.g., waiting on futures from `PhotoEngine::applyOperations`) ensure operations complete before dependent actions begin.
 * **Impact:**
   * **Clarity:** Clear ownership and modification points.
   * **Consistency:** Ensures the displayed or saved image reflects the latest applied operations.
@@ -192,7 +202,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 
 * **Unit Tests:** Individual components (Operations, Factories, Utils) are tested in isolation using mocks for dependencies.
 * **Integration Tests:** Higher-level workflows (e.g., `StateImageManager::applyOperations`) are tested with real or near-real dependencies.
-* **Performance Tests:** Benchmark critical paths (pipeline execution, loading times) to monitor regressions.
+* **Performance Tests:** Benchmark critical paths (pipeline execution, loading times, downsampling) to monitor regressions.
 
 ---
 
@@ -208,22 +218,23 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 
 The codebase is structured using a clear namespace hierarchy to improve modularity and maintainability:
 
-- **`CaptureMoment::Core::Common`**: Contains fundamental data structures like `ImageRegion` and `PixelFormat`.
+- **`CaptureMoment::Core::Common`**: Contains fundamental data structures like `ImageRegion` and `PixelFormat`, and common types (`ImageTypes`).
 - **`CaptureMoment::Core::Engine`**: Contains the main orchestrator `PhotoEngine`.
 - **`CaptureMoment::Core::Managers`**: Contains resource managers like `StateImageManager`, `SourceManager`.
 - **`CaptureMoment::Core::Operations`**: Contains operation logic and descriptors.
 - **`CaptureMoment::Core::Factories`**: Contains factory classes like `OperationFactory`.
-- **`CaptureMoment::Core::ImageProcessing`**: Contains image buffer abstractions (`IWorkingImageHardware`) and processing helpers.
+- **`CaptureMoment::Core::ImageProcessing`**: Contains image buffer abstractions (`IWorkingImageHardware`, `WorkingImageData`, `WorkingImageHalide`) and processing helpers.
 - **`CaptureMoment::Core::Pipeline`**: Contains pipeline fusion and execution logic (`IPipelineExecutor`, `PipelineContext`).
 - **`CaptureMoment::Core::Strategies`**: Contains high-level processing strategies (`IPipelineManager`).
 - **`CaptureMoment::Core::Workers`**: Contains asynchronous processing workers (`IWorkerRequest`).
-- **`CaptureMoment::Core::Serialization`**: Contains serialization/deserialization logic (`FileSerializerManager`).
+- **`CaptureMoment::Core::Serialization`**: Contains serialization/deserialization logic (`FileSerializerManager`, `OperationSerialization`).
+- **`CaptureMoment::Core::utils`**: Contains generic utility functions (`toString`, `ImageConversion`).
 
 ---
 
 ### StateImageManager as Central Coordinator
 
-- **Exclusive Source Management:** `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`).
+- **Exclusive Source Management:** `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
 - **Simplified PhotoEngine:** `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
 
 ---
@@ -270,7 +281,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 - **Problem:** Displaying high-resolution images efficiently required CPU-side downsampling, which could be a bottleneck. The UI layer (`DisplayManager`) previously handled this itself, tightly coupling display logic with image processing details.
 - **Solution:** The `IWorkingImageHardware` interface (and its implementations like `WorkingImageCPU_Halide`, `WorkingImageGPU_Halide`) now exposes a dedicated `downsample(target_width, target_height)` method. This abstracts the *downsampling* operation behind the hardware abstraction layer.
 - **Impact:**
-  * **Core Integration:** The Core's `StateImageManager` and `Engine` now expose a new method `getDownsampledDisplayImage(width, height)`. `StateImageManager` delegates this call to `WorkingImageContext::getDownsampled` (renamed from `downsample` for clarity), which in turn invokes the `downsample` method on the active `IWorkingImageHardware` implementation.
+  * **Core Integration:** The Core's `StateImageManager` and `PhotoEngine` now expose a new method `getDownsampledDisplayImage(width, height)`. `StateImageManager` delegates this call to `WorkingImageContext::getDownsampled` (renamed from `downsample` for clarity), which in turn invokes the `downsample` method on the active `IWorkingImageHardware` implementation.
   * **UI Decoupling:** The `PhotoEngine` serves as the primary entry point for the UI layer (`ImageControllerBase`) to request a display-ready, downsampled image. `ImageControllerBase` calls `m_engine->getDownsampledDisplayImage(...)` and receives the result (as `std::unique_ptr<Common::ImageRegion>`), which it then passes to the `DisplayManager`. This cleanly separates the Core's processing responsibilities from the UI's display management.
   * **Performance:** For GPU implementations (`WorkingImageGPU_Halide`), this means the downsampling operation can be performed *directly on the GPU* using a specialized Halide pipeline before the smaller result buffer is transferred back to the CPU. This drastically reduces the amount of data transferred over the PCIe bus compared to transferring the full-resolution image and downsampling it on the CPU, leading to smoother UI interactions.
   * **Quality:** The CPU-side implementation (`WorkingImageCPU`) was also refined to use `OIIO::ImageBufAlgo::resize` (Lanczos3 filter) instead of `OIIO::ImageBufAlgo::resample` (bilinear), improving the visual quality of CPU-based downsampling.
@@ -334,6 +345,8 @@ The core library includes a flexible system for saving and loading the state of 
 
 * **`CaptureMoment::Core::Serializer::IFileSerializerReader/Writer`:** Interfaces for reading/writing the list of `OperationDescriptor`s from/to the XMP structure.
 
+* **`CaptureMoment::Core::Serializer::OperationSerialization`:** A namespace containing utility functions (`serializeParameter`, `deserializeParameter`) for converting `std::any` (or `std::variant`) parameter values within `OperationDescriptor` to/from string representations suitable for storage in XMP metadata, preserving type information. This module relies on **generic conversion utilities** from the `CaptureMoment::Core::utils` namespace.
+
 ### Benefits
 
 * **Flexibility:** The serialization layer (`FileSerializerManager`) can be managed and invoked independently by the UI layer (e.g., via `UISerializerManager` in the Qt module) without requiring `PhotoEngine` to hold a reference to it.
@@ -366,6 +379,7 @@ This interface represents an image used as a working buffer, abstracting its har
   * `exportToCPUCopy()`: Creates a CPU copy of the image data for display or saving.
   * `updateFromCPU(const ImageRegion&)`: Updates the working buffer from CPU data.
   * `isValid()`: Checks if the buffer is valid.
+  * `downsample(target_width, target_height)`: Generates a downsampled version of the image, potentially on the GPU.
 
 * **`WorkingImageGPU_Halide`**: Concrete implementation inheriting from `IWorkingImageGPU` and `WorkingImageHalide`. Combines GPU-specific logic (device transfers), raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`).
 
@@ -380,5 +394,6 @@ This interface represents an image used as a working buffer, abstracting its har
 
 * **`CaptureMoment::Core::Utils::ToStringConverter`**: A utility class using templates and `std::format` to provide a generic `toString` function for various types (e.g., enums like `CoreError`, floats, doubles, ints). This replaces multiple hand-written serialization functions within the core, promoting code reuse and consistency.
 
+* **`CaptureMoment::Core::utils::toString`**: A generic template function using C++20 Concepts (`ToStringablePrimitive`) for converting primitive types (int, float, double, bool) and strings to their string representation.
+
 * **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
-  

@@ -74,6 +74,7 @@ set(CORE_SOURCES
 
     # Utils
     src/utils/image_conversion.cpp
+    src/utils/color_space_utils.cpp
 )
 
 # Verify sources exist
