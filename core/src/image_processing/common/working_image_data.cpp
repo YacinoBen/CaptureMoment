@@ -10,7 +10,7 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(const Common::ImageRegion& cpu_image)
+std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(Common::ImageRegion&& cpu_image)
 {
     if (!cpu_image.isValid()) {
         spdlog::warn("[WorkingImageData::initializeData]: Input ImageRegion is invalid");
@@ -18,27 +18,20 @@ std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(c
     }
 
     try {
-        size_t required_size = static_cast<size_t>(cpu_image.m_width) *
-                               cpu_image.m_height *
-                               cpu_image.m_channels;
+        // Cache dimensions and validity
+        m_data = std::move(cpu_image.m_data);
 
-        // Check allocation size and use No-Init allocation
-        if (!m_data || m_data_size != required_size) {
-            m_data = std::make_unique_for_overwrite<float[]>(required_size);
-            m_data_size = required_size;
+        if (m_original_data.empty()) {
+            m_original_data = m_data;
         }
 
-        // Fast memory copy
-        std::memcpy(m_data.get(), cpu_image.m_data.data(), required_size * sizeof(float));
-
-        // Cache dimensions and validity
-        m_width = cpu_image.m_width;
-        m_height = cpu_image.m_height;
-        m_channels = cpu_image.m_channels;
+        m_width = cpu_image.width();
+        m_height = cpu_image.height();
+        m_channels = cpu_image.channels();
         m_valid = true;
 
-        spdlog::debug("[WorkingImageData::initializeData]: Copied {} elements ({}x{}, {} ch)",
-                      required_size, m_width, m_height, m_channels);
+        spdlog::debug("[WorkingImageData::initializeData]: Copied elements ({}x{}, {} ch)",
+                      m_width, m_height, m_channels);
 
         return {};
 
@@ -46,6 +39,21 @@ std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(c
         spdlog::critical("[WorkingImageData::initializeData]: Allocation failed: {}", e.what());
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     }
+}
+
+void WorkingImageData::restoreOriginalData()
+{
+    if (m_original_data.empty() || m_data.empty()) {
+        return;
+    }
+
+    if (m_original_data.size() != m_data.size()) {
+        spdlog::error("[WorkingImageData::restoreOriginalData]: Size mismatch! Original: {}, Working: {}",
+                      m_original_data.size(), m_data.size());
+        return;
+    }
+
+    std::memcpy(m_data.data(), m_original_data.data(), m_data.size() * sizeof(float));
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing

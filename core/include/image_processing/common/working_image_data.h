@@ -13,11 +13,6 @@
  * - Image metadata (width, height, channels, validity state)
  * - A shared initialization helper that handles allocation and copying from ImageRegion
  *
- * **Memory Management:**
- * The class uses `std::unique_ptr<float[]>` instead of `std::vector<float>` to enable
- * `std::make_unique_for_overwrite`, which skips zero-initialization. This significantly
- * reduces allocation time for large buffers (e.g., 400MB+ images).
- *
  * **Inheritance Hierarchy:**
  * @code
  * WorkingImageData (this class)
@@ -69,19 +64,24 @@ namespace ImageProcessing {
 class WorkingImageData {
 protected:
     /**
-     * @brief Internal storage for image pixel data.
+     * @brief Initializes the internal buffer by copying data from ImageRegion.
      *
      * @details
-     * Uses `std::unique_ptr<float[]>` with`std::make_unique_for_overwrite`, which allocates memory WITHOUT zero-initialization.
+     * Uses `std::vector<float>` for automatic memory management.
      * This optimization can save hundreds of milliseconds for large images.
      *
-     * **Ownership:** This pointer owns the allocated memory. Derived classes can read
+     * **Ownership:** This vector owns the allocated memory. Derived classes can read
      * and write directly to this buffer.
-     *
-     * **Lifecycle:** Allocated during `initializeAndCopyFrom()`, deallocated when
-     * the object is destroyed or when `exportToCPUMove()` is called.
+     *.
      */
-    std::unique_ptr<float[]> m_data;
+    std::vector<float> m_data;
+
+    /**
+     * @brief Original data from the ImageRegion used for initialization.
+     * Image non-destructive.
+     * This allows us to keep the original data intact and avoid unnecessary copying.
+     */
+    std::vector<float> m_original_data;
 
     /**
      * @brief Number of float elements stored in m_data.
@@ -133,7 +133,7 @@ protected:
     bool m_valid{false};
 
     /**
-     * @brief Allocates buffer and copies pixel data from an ImageRegion.
+     * @brief Initializes the internal buffer by copying data from ImageRegion
      *
      * @details
      * This method performs the following operations:
@@ -164,25 +164,32 @@ protected:
      *       metadata fields are populated
      * @post On failure: State unchanged
      *
-     * @note This method is protected and intended to be called by derived classes
-     *       during their `updateFromCPU()` implementation.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
-    initializeData(const Common::ImageRegion& cpu_image);
+    initializeData(Common::ImageRegion&& cpu_image);
 
     /**
      * @brief Returns a non-owning span over the pixel data.
      */
     [[nodiscard]] std::span<float> getDataSpan() noexcept {
-        return std::span<float>(m_data.get(), m_data_size);
+        return std::span<float>(m_data);
     }
 
     /**
      * @brief Returns a const non-owning span over the pixel data.
      */
     [[nodiscard]] std::span<const float> getDataSpan() const noexcept {
-        return std::span<const float>(m_data.get(), m_data_size);
+        return std::span<const float>(m_data);
     }
+
+    /**
+     * @brief Restores the original image data.
+     *
+     * @details
+     * This method copies the original image data back into the internal buffer,
+     * effectively undoing any modifications made to the image.
+     */
+    void restoreOriginalData();
 
     /**
      * @brief Protected default constructor.
