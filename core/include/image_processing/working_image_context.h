@@ -64,18 +64,7 @@ public:
      * @param original_tile The original image data to initialize the WorkingImage with.
      * @return true if preparation was successful, false if there was an error (e.g. creation failed).
      */
-    [[nodiscard]] bool prepare(std::unique_ptr<Common::ImageRegion>&& original_tile);
-
-    /**
-     * @brief Updates the existing WorkingImage with new image data.
-     * 
-     * This is used when we want to reuse the same WorkingImage instance but with different content.
-     * 
-     * @param original_tile The new image data to update the WorkingImage with.
-     * @return true if the update was successful, false if there was an error (e.g. no existing WorkingImage).
-     */
-
-    [[nodiscard]] bool update(const Common::ImageRegion& original_tile);
+    [[nodiscard]] bool prepare(std::unique_ptr<Common::ImageRegion> original_tile);
 
     /**
      * @brief Checks if a WorkingImage is ready for use.
