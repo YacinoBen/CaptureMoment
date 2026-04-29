@@ -149,7 +149,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadRawFile(std::st
     // ============================================================
     // Load via OIIO ImageCache
     // ============================================================
-    auto buf_result = loadImageBuffer(path, &config);
+    auto buf_result { loadImageBuffer(path, &config) };
     if (!buf_result) {
         spdlog::error("[SourceManager::loadRawFile]: Failed to load RAW file '{}': {}", path, buf_result.error());
         return std::unexpected(buf_result.error());
@@ -185,7 +185,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadHeicFile(std::s
     // ============================================================
     // Load via OIIO ImageCache
     // ============================================================
-    auto buf_result = loadImageBuffer(path, &config);
+    auto buf_result { loadImageBuffer(path, &config) };
     if (!buf_result) {
         spdlog::error("[SourceManager::loadHeicFile]: Failed to load HEIC file '{}': {}", path, buf_result.error());
         return std::unexpected(buf_result.error());
@@ -194,7 +194,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadHeicFile(std::s
     // ============================================================
     // Convert to linear (HEIC from smartphones are typically sRGB)
     // ============================================================
-    auto [is_linear, cs_name] = Utils::analyzeColorSpace(buf_result->spec());
+    auto [is_linear, cs_name] { Utils::analyzeColorSpace(buf_result->spec()) };
 
     if (!is_linear && !cs_name.empty())
     {
@@ -226,7 +226,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadStandardFile(st
     // ============================================================
     // Load via OIIO ImageCache (no special config)
     // ============================================================
-    auto buf_result = loadImageBuffer(path, nullptr);
+    auto buf_result { loadImageBuffer(path, nullptr) };
     if (!buf_result) {
         spdlog::error("[SourceManager::loadStandardFile]: Failed to load standard file '{}': {}", path, buf_result.error());
         return std::unexpected(buf_result.error());
@@ -235,7 +235,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadStandardFile(st
     // ============================================================
     // Convert to linear if needed
     // ============================================================
-    auto [is_linear, cs_name] = Utils::analyzeColorSpace(buf_result->spec());
+    auto [is_linear, cs_name] { Utils::analyzeColorSpace(buf_result->spec()) };
 
     if (!is_linear && !cs_name.empty())
     {
@@ -245,7 +245,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadStandardFile(st
             return std::unexpected(conversion.error());
         }
 
-        auto [is_linear, cs_name] = Utils::analyzeColorSpace(buf_result->spec());
+        auto [is_linear, cs_name] { Utils::analyzeColorSpace(buf_result->spec()) };
 
         spdlog::debug("[SourceManager::loadStandardFile]: is linear: '{}' new space: '{}' ",
                       is_linear, cs_name);
@@ -255,7 +255,7 @@ std::expected<void, ErrorHandling::CoreError> SourceManager::loadStandardFile(st
     // Convert and store
     // ============================================================
     m_current_path = path;
-    auto result = convertToRgbaInternal(std::move(buf_result.value()));
+    auto result { convertToRgbaInternal(std::move(buf_result.value())) };
 
     if (result) {
         spdlog::info("[SourceManager::loadStandardFile]: Loaded '{}': {}x{} RGBA_F32",
