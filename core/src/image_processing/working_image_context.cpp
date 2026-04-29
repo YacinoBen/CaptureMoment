@@ -15,13 +15,13 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-bool WorkingImageContext::prepare(std::unique_ptr<Common::ImageRegion>&& original_tile)
+bool WorkingImageContext::prepare(std::unique_ptr<Common::ImageRegion> original_tile)
 {
     if (!original_tile) {
         return false;
     }
 
-    auto new_image = WorkingImageFactory::create(std::move(*original_tile));
+    auto new_image { WorkingImageFactory::create(std::move(*original_tile)) };
 
     if (!new_image) {
         spdlog::error("[WorkingImageContext::prepare]: Failed to create WorkingImage.");
@@ -30,24 +30,6 @@ bool WorkingImageContext::prepare(std::unique_ptr<Common::ImageRegion>&& origina
 
     m_working_image = std::move(new_image);
     spdlog::debug("[WorkingImageContext::prepare]: Created new WorkingImage.");
-    return true;
-}
-
-bool WorkingImageContext::update(const Common::ImageRegion& original_tile)
-{
-    if (!m_working_image) {
-        spdlog::error("[WorkingImageContext::update]: No WorkingImage to update.");
-        return false;
-    }
-
-    auto result = m_working_image->updateFromCPU(original_tile);
-
-    if (!result) {
-        spdlog::warn("[WorkingImageContext::update]: updateFromCPU failed.");
-        return false;
-    }
-
-    spdlog::debug("[WorkingImageContext::update]: WorkingImage updated.");
     return true;
 }
 
