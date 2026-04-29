@@ -4,7 +4,10 @@
   "dependencies": [
     {
       "name": "openimageio",
-      "default-features": false
+      "default-features": false,
+      "features": [
+       { "name": "libraw"}, { "name": "jpegxl" }, { "name": "libheif" }, { "name": "openjpeg" }, { "name": "webp" }
+      ]
     },
     {
       "name": "spdlog",

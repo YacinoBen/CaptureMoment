@@ -34,15 +34,14 @@ std::unique_ptr<Common::ImageRegion> convert_RGBA_F32_to_RGBA_U8(const Common::I
     }
 
     // 4. Extract U8 data to ImageRegion
-    auto result = std::make_unique<Common::ImageRegion>();
-    result->m_x = input.m_x;
-    result->m_y = input.m_y;
-    result->m_width = input.m_width;
-    result->m_height = input.m_height;
-    result->m_channels = input.m_channels;
-    result->m_format = Common::PixelFormat::RGBA_U8;
+    auto result { std::make_unique<Common::ImageRegion>() };
+    result->m_x = input.x();
+    result->m_y = input.y();
+    result->m_width = input.width();
+    result->m_height = input.height();
+    result->m_channels = input.channels();
 
-    const size_t total_elements = static_cast<size_t>(input.m_width) * input.m_height * input.m_channels;
+    const size_t total_elements { static_cast<size_t>(input.width()) * input.height() * input.channels() };
     result->m_data.resize(total_elements);
 
     if (!dst_buf.get_pixels(OIIO::ROI::All(), OIIO::TypeDesc::UINT8, result->m_data.data())) {

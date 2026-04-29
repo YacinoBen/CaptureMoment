@@ -30,6 +30,7 @@
 // ============================================================
 #include "Halide.h"     // Halide library headers
 #include <spdlog/spdlog.h> // spdlog library headers
+#include <magic_enum/magic_enum.hpp> // magic_enum for enum-string conversions
 
 // ============================================================
 // 3. Internal Core Modules (Umbrella Headers Only)
@@ -45,7 +46,8 @@
 #include "common/error_handling/core_error.h" // Error handling types
 
 // 3b. Core Modules (Order might be less critical with umbrella headers)
-#include "common/common.h"            // Umbrella for common types/utils (if exists)
+#include "common/common.h"            // Umbrella for common types
+#include "utils/utils.h"              // Umbrella for utility functions
 #include "operations/operations.h"    // Operations and factories
 #include "image_processing/image_processing.h" // Hardware abstraction, factories, etc.
 #include "pipeline/pipeline.h"        // Pipeline executors, builders, etc.
@@ -55,12 +57,5 @@
 #include "engine/engine.h"           // Orchestrators like PhotoEngine
 #include "serializer/serializer.h"   // Serialization interfaces, providers, etc.
 #include "workers/workers.h"         // Worker interfaces, builders, registries, etc.
+#include "image_config/image_config.h"   // Image operation configuration structures
 
-
-// ============================================================
-// 4. Utility Headers (Could be included by internal modules)
-//    Placed here if not part of an umbrella header.
-//    Ensure utilities don't depend on other core modules.
-// ============================================================
-#include "utils/to_string_utils.h"   // Generic string conversion utilities
-#include "utils/image_conversion.h"  // Image format conversion utilities
