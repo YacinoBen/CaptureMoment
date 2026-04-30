@@ -39,7 +39,7 @@ public:
      * @brief Definition of a creator function.
      * @details A function that takes a source ImageRegion and returns a constructed object.
      */
-    using CreatorFunction = std::function<std::unique_ptr<IWorkingImageHardware>(const Common::ImageRegion&)>;
+    using CreatorFunction = std::function<std::unique_ptr<IWorkingImageHardware>(Common::ImageRegion&&)>;
 
 
     /**
@@ -54,7 +54,7 @@ public:
      * @return A unique pointer to the created object.
      */
     [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
-        const Common::ImageRegion& source_image
+        Common::ImageRegion&& source_image
         );
 
     /**
@@ -69,7 +69,7 @@ public:
      * @return A unique pointer to the created object.
      */
     [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
-        const Common::ImageRegion& source_image,
+        Common::ImageRegion&& source_image,
         Common::MemoryType backend
         );
 
@@ -86,7 +86,7 @@ public:
      */
     [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
         Common::MemoryType backend,
-        const Common::ImageRegion& source_image
+        Common::ImageRegion&& source_image
         );
 
     /**
