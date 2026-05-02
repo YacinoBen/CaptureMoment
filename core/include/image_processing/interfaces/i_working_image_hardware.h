@@ -51,11 +51,10 @@ public:
     /**
      * @brief Updates internal image data from a CPU-based ImageRegion.
      *
-     * @param cpu_image The source image data.
      * @return std::expected<void, std::error_code> Success or error.
      */
     [[nodiscard]] virtual std::expected<void, ErrorHandling::CoreError>
-    updateFromCPU(const Common::ImageRegion& cpu_image) = 0;
+    updateFromCPU() = 0;
 
     /**
      * @brief Exports current internal image data to a new CPU-based ImageRegion (Deep Copy).
@@ -87,6 +86,15 @@ public:
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) = 0;
+
+
+    /**
+     * @brief Restores the working buffer to the original source data.
+     * @details Must be called before a new pipeline execution to ensure
+     * operations start from the unmodified image.
+     */
+    virtual void resetToOriginal() = 0;
+
 
     /**
      * @brief Gets dimensions (width, height) of image data.
