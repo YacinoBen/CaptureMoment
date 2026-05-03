@@ -71,11 +71,10 @@ public:
      * This method creates a new internal copy of the provided image.
      * Since both source and destination are CPU-based, this is a standard memory copy.
      *
-     * @param cpu_image The source image data residing in CPU memory.
      * @return std::expected<void, std::error_code> Success or error code.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
-    updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    updateFromCPU() override;
 
     /**
      * @brief Exports current internal image data to a new CPU-based ImageRegion.
