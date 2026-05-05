@@ -13,21 +13,21 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-WorkingImageCPU_Halide::WorkingImageCPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image)
+WorkingImageCPU_Halide::WorkingImageCPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image) :
+    WorkingImageCPU(std::move(initial_image))
 {
-    if (initial_image && initial_image->isValid()) {
-        // Use move semantics to initialize efficiently
-        auto result = updateFromCPU(std::move(*initial_image));
 
-        if (!result) {
-            spdlog::error("[WorkingImageCPU_Halide]: Constructor failed to initialize. Reason: {}", ErrorHandling::to_string(result.error()));
-        } else {
-            spdlog::debug("[WorkingImageCPU_Halide]: Constructed and initialized with valid initial image ({}x{}, {} ch)",
-                          m_halide_buffer.width(), m_halide_buffer.height(), m_halide_buffer.channels());
-        }
-    } else {
-        spdlog::debug("[WorkingImageCPU_Halide]: Constructed with no initial image or invalid image data");
+    initializeHalide(getDataSpan(), m_width, m_height, m_channels);
+
+    if (!m_halide_buffer.defined()) {
+             spdlog::error("[WorkingImageCPU_Halide]: Failed to initialize Halide buffer from initial image.");
+             throw std::runtime_error("Halide init failed");
+        }  else {
+        spdlog::warn("[WorkingImageCPU_Halide]: Constructed with invalid initial image.");
     }
+
+    spdlog::debug("[WorkingImageCPU_Halide]: Constructed ({}x{}, {} ch, zero-copy).",
+                      m_width, m_height, m_channels);
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
@@ -72,20 +72,8 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
 
 
 std::expected<void,  ErrorHandling::CoreError>
-WorkingImageCPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
+WorkingImageCPU_Halide::updateFromCPU()
 {
-    if (!cpu_image.isValid()) {
-        spdlog::warn("[WorkingImageCPU_Halide::updateFromCPU]: Input ImageRegion is invalid");
-        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
-    }
-
-    auto result = initializeData(cpu_image);
-    if (!result) {
-        spdlog::error("[WorkingImageCPU_Halide::updateFromCPU]: Failed to initialize and copy from CPU image. Reason: {}",
-                    ErrorHandling::to_string(result.error()));
-        return std::unexpected(result.error());
-    }
-
     initializeHalide(getDataSpan(),
                      static_cast<int>(m_width),
                      static_cast<int>(m_height),
