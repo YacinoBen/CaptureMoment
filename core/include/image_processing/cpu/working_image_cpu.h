@@ -33,6 +33,10 @@ namespace ImageProcessing {
  */
 class WorkingImageCPU : public IWorkingImageHardware, public WorkingImageData {
 public:
+
+    /** @brief Constructor */
+
+    explicit WorkingImageCPU(std::unique_ptr<Common::ImageRegion> source_image);
     /**
      * @brief Virtual destructor.
      */
@@ -48,6 +52,13 @@ public:
      */
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) override;
+
+    /**
+     * @brief Restores the working buffer to the original source data.
+     * @details Must be called before a new pipeline execution to ensure
+     * operations start from the unmodified image.
+     */
+    void resetToOriginal() override;
 
 protected:
     /**
