@@ -39,11 +39,10 @@ public:
     /**
      * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.
      *
-     * @param cpu_image The source image data (const reference).
      * @return std::expected<void, std::error_code>. Void on success, error code on failure.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
-    updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    updateFromCPU() override;
 
     /**
      * @brief Exports internal data to a new ImageRegion.
