@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "image_processing/gpu/interfaces/i_working_image_gpu.h"
+#include "image_processing/gpu/working_image_gpu.h"
 #include "image_processing/halide/working_image_halide.h"
 #include "common/error_handling/core_error.h"
 
@@ -22,7 +22,7 @@ namespace ImageProcessing {
  * @brief Concrete implementation of WorkingImageGPU_Halide for image data stored on GPU.
  *
  * Architecture:
- * - Inherits IWorkingImageGPU: Provides the interface contract for GPU images.
+ * - Inherits WorkingImageGPU: Provides the GPU-specific interface and common GPU logic.
  * - Inherits WorkingImageHalide: Provides the shared Halide buffer logic.
  *
  * GPU Specifics:
@@ -30,7 +30,7 @@ namespace ImageProcessing {
  * - Uses `std::expected` for robust error reporting of GPU transfers.
  */
 
-class WorkingImageGPU_Halide final : public IWorkingImageGPU, public WorkingImageHalide {
+class WorkingImageGPU_Halide final : public WorkingImageGPU, public WorkingImageHalide {
 public:
     /**
      * @brief Constructs a WorkingImageGPU_Halide.
@@ -51,11 +51,10 @@ public:
      * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.
      * Includes a copy to the GPU device.
      *
-     * @param cpu_image The source image data.
      * @return std::expected<void, std::error_code>.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
-    updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    updateFromCPU() override;
 
     /**
      * @brief Exports current internal image data to a new CPU-based ImageRegion.
