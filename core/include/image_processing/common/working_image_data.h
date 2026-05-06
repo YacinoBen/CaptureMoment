@@ -62,7 +62,91 @@ namespace ImageProcessing {
  * - Shared allocation/copy logic to eliminate code duplication
  */
 class WorkingImageData {
-protected:
+
+public:
+
+    /**
+     * @brief Initializes the working image data from an ImageRegion.
+     *
+     * @details
+        * This constructor is protected to enforce that only derived classes can create instances.
+        * It initializes the internal buffer and metadata by copying data from the provided ImageRegion.
+     */
+    explicit WorkingImageData(std::unique_ptr<Common::ImageRegion> source);
+
+    virtual ~WorkingImageData() = default;
+
+    // Non-copyable by default (expensive), but movable
+    WorkingImageData(const WorkingImageData&) = delete;
+    WorkingImageData& operator=(const WorkingImageData&) = delete;
+    WorkingImageData(WorkingImageData&&) noexcept = default;
+    WorkingImageData& operator=(WorkingImageData&&) noexcept = default;
+
+    /**
+     * @brief Re-initializes the internal buffer with a new ImageRegion.
+     */
+    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
+    initializeData(Common::ImageRegion&& source_image);
+
+    /**
+     * @brief Returns a non-owning, CONST span over the ORIGINAL pixel data.
+     * @details This data must never be modified. It is used to reset the working buffer.
+     */
+    [[nodiscard]] std::span<const float> getOriginalDataSpan() const noexcept {
+        return std::span<const float>(m_original_data);
+    }
+
+    /**
+     * @brief Returns a non-owning, CONST span over the working pixel data.
+     * @details Use this when you need to read the current state without modifying it.
+     */
+    [[nodiscard]] std::span<const float> getWorkingDataSpan() const noexcept {
+        return std::span<const float>(m_data);
+    }
+
+    /**
+     * @brief Returns a non-owning, MUTABLE span over the working pixel data.
+     * @details This is the buffer where processing algorithms read and write.
+     */
+    [[nodiscard]] std::span<float> getWorkingDataSpan() noexcept {
+        return std::span<float>(m_data);
+
+    }
+
+    /**
+     * @brief Return the width of the image in pixels.
+     * @return The width in pixels.
+     */
+    [[nodiscard]] Common::ImageDim getWidth() const noexcept { return m_width; }
+
+    /**
+     * @brief Return the height of the image in pixels.
+     * @return The height in pixels.
+     */
+    [[nodiscard]] Common::ImageDim getHeight() const noexcept { return m_height; }
+
+    /**
+     * @brief Return the number of color channels in the image.
+     * @return The number of channels.
+     */
+    [[nodiscard]] Common::ImageChan getChannels() const noexcept { return m_channels; }
+
+    /**
+     * @brief Checks if the data buffer is valid and allocated.
+     * @return true if the buffer contains usable data, false otherwise.
+     */
+    [[nodiscard]] bool isValid() const noexcept { return m_valid; }
+
+    /**
+     * @brief Restores the original image data.
+     *
+     * @details
+     * This method copies the original image data back into the internal buffer,
+     * effectively undoing any modifications made to the image.
+     */
+    void restoreOriginalData();
+
+private:
     /**
      * @brief Initializes the internal buffer by copying data from ImageRegion.
      *
@@ -132,73 +216,6 @@ protected:
      */
     bool m_valid{false};
 
-    /**
-     * @brief Initializes the internal buffer by copying data from ImageRegion
-     *
-     * @details
-     * This method performs the following operations:
-     * 1. Validates the input ImageRegion
-     * 2. Calculates required buffer size (width × height × channels)
-     * 3. Allocates memory WITHOUT zero-initialization if size changed
-     * 4. Copies pixel data from ImageRegion to internal buffer
-     * 5. Populates metadata (width, height, channels, valid flag)
-     *
-     * **Performance:**
-     * - Uses `std::make_unique_for_overwrite` to skip zero-initialization
-     * - Reuses existing buffer if size matches (avoids reallocation)
-     * - Single `memcpy` for data transfer
-     *
-     * **Error Conditions:**
-     * - Returns `InvalidImageRegion` if input ImageRegion is not valid
-     * - Returns `AllocationFailed` if memory allocation fails
-     *
-     * @param cpu_image The source ImageRegion containing pixel data and metadata.
-     *                  Must be valid (isValid() returns true).
-     *
-     * @return `std::expected<void, CoreError>`:
-     *         - Success: empty void result
-     *         - Failure: CoreError indicating the failure reason
-     *
-     * @pre `cpu_image.isValid() == true`
-     * @post On success: `m_valid == true`, `m_data` contains pixel data,
-     *       metadata fields are populated
-     * @post On failure: State unchanged
-     *
-     */
-    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
-    initializeData(Common::ImageRegion&& cpu_image);
-
-    /**
-     * @brief Returns a non-owning span over the pixel data.
-     */
-    [[nodiscard]] std::span<float> getDataSpan() noexcept {
-        return std::span<float>(m_data);
-    }
-
-    /**
-     * @brief Returns a const non-owning span over the pixel data.
-     */
-    [[nodiscard]] std::span<const float> getDataSpan() const noexcept {
-        return std::span<const float>(m_data);
-    }
-
-    /**
-     * @brief Restores the original image data.
-     *
-     * @details
-     * This method copies the original image data back into the internal buffer,
-     * effectively undoing any modifications made to the image.
-     */
-    void restoreOriginalData();
-
-    /**
-     * @brief Protected default constructor.
-     *
-     * @details
-     * Prevents direct instantiation of this base class. Only derived classes
-     * can construct WorkingImageData as part of their inheritance chain.
-     */
-    WorkingImageData() = default;
 };
 
 } // namespace ImageProcessing
