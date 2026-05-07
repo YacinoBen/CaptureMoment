@@ -7,27 +7,44 @@
 
 #include "image_processing/common/working_image_data.h"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(Common::ImageRegion&& cpu_image)
+
+WorkingImageData::WorkingImageData(std::unique_ptr<Common::ImageRegion> source)
 {
-    if (!cpu_image.isValid()) {
+    if (!source || !source->isValid()) {
+        spdlog::warn("[WorkingImageData]: Invalid source image provided");
+        return;  // m_valid stays false, derived can check
+    }
+
+    auto result { initializeData(std::move(*source)) };
+    if (!result) {
+        spdlog::error("[WorkingImageData]: Init failed: {}",
+                         ErrorHandling::to_string(result.error()));
+    } else {
+        spdlog::debug("[WorkingImageData]: Initialized {}x{} ({} ch)",
+                         m_width, m_height, m_channels);
+    }
+}
+
+std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(Common::ImageRegion&& source_image)
+{
+    if (!source_image.isValid()) {
         spdlog::warn("[WorkingImageData::initializeData]: Input ImageRegion is invalid");
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     try {
         // Cache dimensions and validity
-        m_data = std::move(cpu_image.m_data);
+        m_data = std::move(source_image.m_data);
 
-        if (m_original_data.empty()) {
-            m_original_data = m_data;
-        }
+        m_original_data = m_data;
 
-        m_width = cpu_image.width();
-        m_height = cpu_image.height();
-        m_channels = cpu_image.channels();
+        m_width = source_image.width();
+        m_height = source_image.height();
+        m_channels = source_image.channels();
         m_valid = true;
 
         spdlog::debug("[WorkingImageData::initializeData]: Copied elements ({}x{}, {} ch)",
@@ -43,7 +60,7 @@ std::expected<void, ErrorHandling::CoreError> WorkingImageData::initializeData(C
 
 void WorkingImageData::restoreOriginalData()
 {
-    if (m_original_data.empty() || m_data.empty()) {
+    if (!m_valid || m_original_data.empty() || m_data.empty()) {
         return;
     }
 
@@ -53,7 +70,7 @@ void WorkingImageData::restoreOriginalData()
         return;
     }
 
-    std::memcpy(m_data.data(), m_original_data.data(), m_data.size() * sizeof(float));
+    std::ranges::copy(m_original_data.begin(), m_original_data.end(), m_data.begin());
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing
