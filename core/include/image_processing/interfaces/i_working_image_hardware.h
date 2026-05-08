@@ -24,15 +24,17 @@
 #include "common/error_handling/core_error.h"
 #include "common/types/image_types.h"
 
+#include "image_processing/common/image_view.h"
+
 #include <memory>
 #include <cstddef>
 #include <utility>
 #include <expected>
+#include <span>
 
 namespace CaptureMoment::Core {
 
 namespace ImageProcessing {
-
 /**
  * @interface IWorkingImageHardware
  * @brief Abstract interface representing an image used as a working buffer.
@@ -47,6 +49,22 @@ public:
      * @brief Virtual destructor.
      */
     virtual ~IWorkingImageHardware() = default;
+
+    /**
+     * @brief Binds a view of the image data to this hardware worker.
+     *
+     * @details
+     * Default implementation stores the view and validates the working data span.
+     * Derived classes (CPU, GPU) can override this to add hardware-specific initialization
+     * (e.g., VRAM upload), but MUST call this base method first.
+     *
+     * @param view The non-owning view containing data pointers and geometry.
+     * @return true if the working data span is valid.
+     */
+    [[nodiscard]] virtual bool bindView(const ImageView& view) {
+        m_view_data_image = view;
+        return !m_view_data_image.working_data.empty();
+    }
 
     /**
      * @brief Updates internal image data from a CPU-based ImageRegion.
@@ -87,39 +105,6 @@ public:
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) = 0;
 
-
-    /**
-     * @brief Restores the working buffer to the original source data.
-     * @details Must be called before a new pipeline execution to ensure
-     * operations start from the unmodified image.
-     */
-    virtual void resetToOriginal() = 0;
-
-
-    /**
-     * @brief Gets dimensions (width, height) of image data.
-     * @return {width, height}. Returns {0, 0} if invalid.
-     */
-    [[nodiscard]] virtual std::pair<Common::ImageDim, Common::ImageDim> getSize() const = 0;
-
-    /**
-     * @brief Gets number of color channels.
-     * @return Number of channels. Returns 0 if invalid.
-     */
-    [[nodiscard]] virtual Common::ImageChan getChannels() const = 0;
-
-    /**
-     * @brief Gets total number of pixels.
-     * @return width * height. Returns 0 if invalid.
-     */
-    [[nodiscard]] virtual Common::ImageSize getPixelCount() const = 0;
-
-    /**
-     * @brief Gets total number of data elements (pixels * channels).
-     * @return Total size. Returns 0 if invalid.
-     */
-    [[nodiscard]] virtual Common::ImageSize getDataSize() const = 0;
-
     /**
      * @brief Checks if the image data is valid.
      * @return true if valid.
@@ -137,6 +122,11 @@ protected:
      * @brief Protected constructor to enforce abstract nature.
      */
     IWorkingImageHardware() = default;
+
+    /**
+     * @brief The image view bound to this hardware worker.
+     */
+    ImageView m_view_data_image;
 };
 
 } // namespace ImageProcessing
