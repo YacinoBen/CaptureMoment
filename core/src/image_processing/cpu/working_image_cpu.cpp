@@ -14,123 +14,81 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-WorkingImageCPU::WorkingImageCPU(std::unique_ptr<Common::ImageRegion> source_image)
+bool WorkingImageCPU::isValid() const
 {
-    if (source_image && source_image->isValid())
-    {
-        auto result { initializeData(std::move(*source_image)) };
-
-        if (!result) {
-            spdlog::error("[WorkingImageCPU]: Constructor failed to initialize. Reason: {}", ErrorHandling::to_string(result.error()));
-        } else {
-            spdlog::debug("[WorkingImageCPU]: Constructed and initialized");
-        }
-    } else {
-        throw std::runtime_error("Failed to initialize working image data");
-    }
-}
-
-void WorkingImageCPU::resetToOriginal()
-{
-    if (!m_valid) {
-        spdlog::warn("[WorkingImageCPU::resetToOriginal]: Cannot reset, image is invalid.");
-        return;
-    }
-
-    WorkingImageData::restoreOriginalData();
-    spdlog::debug("[WorkingImageCPU::resetToOriginal]: Reset working image to original data.");
+    return !m_view_data_image.working_data.empty() && m_view_data_image.width > 0;
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim target_height)
 {
     // ============================================================
-    // Validate state
-    if (!m_valid || m_data.empty()) {
-        spdlog::warn("[WorkingImageCPU::downsample]: Image is invalid");
+    // Validate state (Utilisation directe de m_view, pas de getter)
+    // ============================================================
+    if (!isValid() || m_view_data_image.working_data.empty()) {
+        spdlog::warn("[WorkingImageCPU::downsample]: Image view is invalid");
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
-    // Validate target dimensions
     if (target_width == 0 || target_height == 0) {
-        spdlog::error("[WorkingImageCPU::downsample]: Invalid target dimensions: {}x{}",
-                      target_width, target_height);
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
     try {
-
         // ============================================================
-        if (m_width == target_width && m_height == target_height)
+        if (m_view_data_image.width == target_width && m_view_data_image.height == target_height)
         {
-            spdlog::debug("[WorkingImageCPU::downsample]: No downsample required (dimensions match). Skipping OIIO.");
-            std::vector<float> data = m_data;
+            spdlog::debug("[WorkingImageCPU::downsample]: No downsample required.");
 
-            auto region { std::make_unique<Common::ImageRegion>(
-                std::move(data),
-                static_cast<int>(m_width),
-                static_cast<int>(m_height),
-                static_cast<int>(m_channels)
-            )};
-
-        spdlog::debug("[WorkingImageCPU::downsample]: {}x{}x{} → {}x{}x{} (no resample)",
-            m_width, m_height, m_channels,
-            target_width, target_height, m_channels);
-            return region;
+            // Utilisation directe de m_view_data_image pour la copie
+            return std::make_unique<Common::ImageRegion>(
+                m_view_data_image.working_data,
+                static_cast<int>(m_view_data_image.width),
+                static_cast<int>(m_view_data_image.height),
+                static_cast<int>(m_view_data_image.channels)
+            );
         }
 
         // ============================================================
-        // Step 1: Create source buffer (Zero-Copy view)
+        // Step 1: Create source buffer (Zero-Copy view via m_view_data_image)
         // ============================================================
         OIIO::ImageSpec src_spec(
-            static_cast<int>(m_width),
-            static_cast<int>(m_height),
-            static_cast<int>(m_channels),
+            static_cast<int>(m_view_data_image.width),
+            static_cast<int>(m_view_data_image.height),
+            static_cast<int>(m_view_data_image.channels),
             OIIO::TypeDesc::FLOAT
             );
-        OIIO::ImageBuf src_buf(src_spec, getDataSpan().data());
+        // On donne le pointeur brut du span directement à OIIO
+        OIIO::ImageBuf src_buf(src_spec, m_view_data_image.working_data.data());
 
         // ============================================================
-        // Step 2: Create destination buffer on pre-allocated memory (Zero-Copy)
+        // Step 2 & 3: Allocate dest and Resample
         // ============================================================
-
-        std::vector<float> result_data(target_width * target_height * m_channels);
+        std::vector<float> result_data(target_width * target_height * m_view_data_image.channels);
 
         OIIO::ImageSpec dst_spec(
             static_cast<int>(target_width),
             static_cast<int>(target_height),
-            static_cast<int>(m_channels),
+            static_cast<int>(m_view_data_image.channels),
             OIIO::TypeDesc::FLOAT
             );
         OIIO::ImageBuf dst_buf(dst_spec, result_data.data());
 
-        // ============================================================
-        // Step 3: Fast resample (writes directly to result_data)
-        // ============================================================
-        bool success { OIIO::ImageBufAlgo::resample(dst_buf, src_buf, true) };
-
-        if (!success || !dst_buf.initialized()) {
-            spdlog::error("[WorkingImageCPU::downsample]: OIIO resample failed: {}",
-                          OIIO::geterror());
+        if (!OIIO::ImageBufAlgo::resample(dst_buf, src_buf, true)) {
+            spdlog::error("[WorkingImageCPU::downsample]: OIIO resample failed: {}", OIIO::geterror());
             return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
 
         // ============================================================
-        // Step 4: Create ImageRegion (no copy, move semantics)
+        // Step 4: Create ImageRegion (move semantics)
         // ============================================================
-
-        auto region { std::make_unique<Common::ImageRegion>(
+        return std::make_unique<Common::ImageRegion>(
             std::move(result_data),
             static_cast<int>(target_width),
             static_cast<int>(target_height),
-            static_cast<int>(m_channels)
-            )};
+            static_cast<int>(m_view_data_image.channels)
+        );
 
-        spdlog::debug("[WorkingImageCPU::downsample]: {}x{}x{} → {}x{}x{}",
-                      m_width, m_height, m_channels,
-                      target_width, target_height, m_channels);
-
-        return region;
     }
     catch (const std::bad_alloc& e) {
         spdlog::critical("[WorkingImageCPU::downsample]: Allocation failed: {}", e.what());
