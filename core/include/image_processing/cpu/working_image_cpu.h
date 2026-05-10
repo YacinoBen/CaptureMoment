@@ -14,7 +14,6 @@
 #pragma once
 
 #include "image_processing/interfaces/i_working_image_hardware.h"
-#include "image_processing/common/working_image_data.h"
 
 namespace CaptureMoment::Core {
 
@@ -31,40 +30,22 @@ namespace ImageProcessing {
  * This class ensures that all CPU-based implementations provide the core functionality
  * defined by IWorkingImageHardware.
  */
-class WorkingImageCPU : public IWorkingImageHardware, public WorkingImageData {
+class WorkingImageCPU : public IWorkingImageHardware {
 public:
 
     /** @brief Constructor */
+    WorkingImageCPU() = default;
 
-    explicit WorkingImageCPU(std::unique_ptr<Common::ImageRegion> source_image);
     /**
      * @brief Virtual destructor.
      */
     virtual ~WorkingImageCPU() = default;
 
-    /**
-     * @brief Exports a downscaled version of the image directly from GPU.
-     *
-     * @details
-     * For CPU: Performs downsample on CPU.
-     *
-     * This is the preferred method for display purposes.
-     */
+    [[nodiscard]] bool isValid() const override;
+    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::CPU_RAM; };
+
     [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) override;
-
-    /**
-     * @brief Restores the working buffer to the original source data.
-     * @details Must be called before a new pipeline execution to ensure
-     * operations start from the unmodified image.
-     */
-    void resetToOriginal() override;
-
-protected:
-    /**
-     * @brief Protected constructor to enforce abstract nature.
-     */
-    WorkingImageCPU() = default;
 };
 
 } // namespace ImageProcessing
