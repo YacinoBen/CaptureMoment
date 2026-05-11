@@ -1,10 +1,18 @@
 /**
  * @file working_image_cpu_default.h
- * @brief Default concrete implementation of IWorkingImageCPU using standard CPU memory (std::vector<float>).
+ * @brief Default concrete implementation of IWorkingImageCPU using standard CPU memory.
  *
- * This class holds image data within standard CPU memory (RAM) using a
- * Common::ImageRegion structure. It implements IWorkingImageCPU interface
- * specifically for standard CPU-based storage and operations.
+ * @details
+ * This class is the simplest implementation of `WorkingImageHardware`.
+ * It does not utilize specific acceleration hardware (like Halide or SIMD),
+ * relying on standard C++ operations and OIIO (inherited from WorkingImageCPU).
+ *
+ * **Architecture:**
+ * Unlike specific backends (like Halide), this class relies 100% on the ImageView
+ * provided by the WorkingImageContext. It does not allocate or own any image memory itself.
+ *
+ * **Usage:**
+ * This backend is typically used as a safe fallback if hardware-specific backends fail to load.
  *
  * @author CaptureMoment Team
  * @date 2026
@@ -14,9 +22,9 @@
 
 #include "image_processing/cpu/working_image_cpu.h"
 #include "common/error_handling/core_error.h"
+
 #include <memory>
 #include <expected>
-#include <utility>
 
 namespace CaptureMoment::Core {
 
@@ -24,142 +32,34 @@ namespace ImageProcessing {
 
 /**
  * @class WorkingImageCPU_Default
- * @brief Default concrete implementation of IWorkingImageCPU for image data stored in standard CPU RAM.
- *
- * @details
- * This class serves as simplest implementation of `IWorkingImageHardware`.
- * It stores data directly in a `Common::ImageRegion` (which wraps a `std::vector<float>`).
- * It does not utilize specific acceleration hardware (like Halide or SIMD) directly,
- * relying on standard C++ operations.
- *
- * **Memory Management:**
- * The class holds the image data internally using `std::shared_ptr<Common::ImageRegion>`.
- * This allows the `exportToCPUShared()` method to provide a non-owning, efficient reference
- * to the internal data for read-only operations elsewhere in the pipeline.
- *
- * **Usage:**
- * This backend is typically used as a fallback, for simple operations,
- * or when specific hardware optimizations are not required or available.
+ * @brief Fallback CPU backend operating directly on the Context's memory view.
  */
 class WorkingImageCPU_Default final : public WorkingImageCPU {
 public:
-    /**
-     * @brief Constructs a WorkingImageCPU_Default object.
-     *
-     * @details
-     * Accepts a `std::unique_ptr` to transfer ownership of the initial image data.
-     * This enables Move Semantics, avoiding a deep copy of the pixel data during initialization.
-     *
-     * @param initial_image Optional initial image data (unique_ptr).
-     *                       If not provided or invalid, the object starts in an invalid state.
-     */
-    explicit WorkingImageCPU_Default(std::unique_ptr<Common::ImageRegion> initial_image = nullptr);
+    /** @brief Default constructor. */
+    WorkingImageCPU_Default() = default;
 
-    /**
-     * @brief Virtual destructor.
-     */
+    /** @brief Virtual destructor. */
     ~WorkingImageCPU_Default() override = default;
 
     // ============================================================
-    // IWorkingImageHardware Interface Implementation
+    // IWorkingImageHardware Overrides
     // ============================================================
 
     /**
-     * @brief Updates internal image data from a CPU-based ImageRegion.
-     *
-     * @details
-     * This method creates a new internal copy of the provided image.
-     * Since both source and destination are CPU-based, this is a standard memory copy.
-     *
-     * @return std::expected<void, std::error_code> Success or error code.
+     * @brief No-op for Default CPU.
+     * @details Since this backend operates directly on the Context's RAM via the bound view,
+     * any changes made by the Context are already visible. No copy is required.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU() override;
 
     /**
-     * @brief Exports current internal image data to a new CPU-based ImageRegion.
-     *
-     * @details
-     * This method creates a **new** ImageRegion instance on the heap and copies
-     * the internal image data into it. The caller receives unique ownership of the result.
-     *
-     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
-     *         Unique pointer to copied data on success, or error code on failure.
+     * @brief Exports current working data to a new CPU-based ImageRegion.
+     * @details Creates a deep copy of the data currently pointed to by the bound view.
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     exportToCPUCopy() override;
-
-    /**
-     * @brief Exports a shared reference to current internal image data.
-     *
-     * @details
-     * This method provides a shared pointer to the internal ImageRegion object.
-     * This is a **shallow copy** operation (increases reference count).
-     * The returned shared pointer points to the same underlying data managed by
-     * this WorkingImageCPU_Default object.
-     *
-     * @return std::expected<std::shared_ptr<Common::ImageRegion>, std::error_code>
-     *         Shared pointer to internal data on success, or error code if invalid.
-     */
-    [[nodiscard]] std::expected<std::shared_ptr<Common::ImageRegion>, ErrorHandling::CoreError> exportToCPUShared() const;
-
-    /**
-     * @brief Gets dimensions (width, height) of internal image data.
-     *
-     * @return std::pair<Common::ImageDim, Common::ImageDim> Width and height. Returns {0, 0} if invalid.
-     */
-    [[nodiscard]] std::pair<Common::ImageDim, Common::ImageDim> getSize() const override;
-
-    /**
-     * @brief Gets number of color channels.
-     *
-     * @return Common::ImageChan Number of channels. Returns 0 if invalid.
-     */
-    [[nodiscard]] Common::ImageChan getChannels() const override;
-
-    /**
-     * @brief Gets total number of pixels.
-     *
-     * @return Common::ImageSize width * height. Returns 0 if invalid.
-     */
-    [[nodiscard]] Common::ImageSize getPixelCount() const override;
-
-    /**
-     * @brief Gets total number of data elements (pixels * channels).
-     *
-     * @return Common::ImageSize Total size. Returns 0 if invalid.
-     */
-    [[nodiscard]] Common::ImageSize getDataSize() const override;
-
-    /**
-     * @brief Checks if internal image data is valid.
-     *
-     * @return true if internal ImageRegion is loaded and contains valid data, false otherwise.
-     */
-    [[nodiscard]] bool isValid() const override
-    {
-        return m_image_data && m_image_data->isValid();
-    };
-
-    /**
-     * @brief Gets memory type where image data resides.
-     *
-     * @return MemoryType::CPU_RAM.
-     */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override
-    {
-        return Common::MemoryType::CPU_RAM;
-    };
-
-private:
-    /**
-     * @brief Shared pointer to internal ImageRegion holding CPU image data.
-     *
-     * @details
-     * Stored as shared to allow efficient `exportToCPUShared()` functionality
-     * without forcing deep copies or complex ownership transfers.
-     */
-    std::shared_ptr<Common::ImageRegion> m_image_data;
 };
 
 } // namespace ImageProcessing
