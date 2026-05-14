@@ -11,15 +11,9 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-void WorkingImageGPU::resetToOriginal()
+bool WorkingImageGPU::isValid() const
 {
-    if (!m_valid) {
-        spdlog::warn("[WorkingImageGPU::resetToOriginal]: Cannot reset, image is invalid.");
-        return;
-    } 
-    
-    WorkingImageData::restoreOriginalData();
-    spdlog::debug("[WorkingImageGPU::resetToOriginal]: Reset working image to original data.");
+    return !m_view_data_image.working_data.empty() && m_view_data_image.width > 0;
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing
