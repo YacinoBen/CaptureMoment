@@ -47,6 +47,12 @@ public:
      */
     [[nodiscard]] Halide::Buffer<float> getHalideBuffer() const { return m_halide_buffer; };
 
+    /**
+     * @brief Checks if the Halide buffer is defined.
+     * @return true if m_halide_buffer.defined() returns true.
+     */
+    [[nodiscard]] bool isHalideBufferValid() const noexcept;
+
 protected:
     /**
      * @brief Internal Halide buffer holding the image data.
@@ -103,12 +109,6 @@ protected:
      * @return width × height × channels (total float elements), or 0 if buffer undefined.
      */
     [[nodiscard]] Common::ImageSize getDataSizeByHalide() const noexcept;
-
-    /**
-     * @brief Checks if the Halide buffer is defined.
-     * @return true if m_halide_buffer.defined() returns true.
-     */
-    [[nodiscard]] bool isHalideBufferValid() const noexcept;
 };
 
 } // namespace ImageProcessing
