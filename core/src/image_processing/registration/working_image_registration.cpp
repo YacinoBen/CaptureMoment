@@ -25,19 +25,18 @@ void registerDefaultBackends()
     // 1. Register CPU Backend (Halide)
     WorkingImageFactory::registerCreator(
         Common::MemoryType::CPU_RAM,
-        [](const Common::ImageRegion& img) {
+        []() {
             spdlog::debug("[WorkingImageRegistration::registerDefaultBackends]: Creating CPU Halide Backend");
-            // Note: WorkingImageCPU_Halide takes unique_ptr, so we wrap the copy in one.
-            return std::make_unique<WorkingImageCPU_Halide>(std::make_unique<Common::ImageRegion>(img));
+            return std::make_unique<WorkingImageCPU_Halide>();
         }
     );
 
     // 2. Register GPU Backend (Halide)
     WorkingImageFactory::registerCreator(
         Common::MemoryType::GPU_MEMORY,
-        [](const Common::ImageRegion& img) {
+        []() {
             spdlog::debug("[WorkingImageRegistration::registerDefaultBackends]: Creating GPU Halide Backend");
-            return std::make_unique<WorkingImageGPU_Halide>(std::make_unique<Common::ImageRegion>(img));
+            return std::make_unique<WorkingImageGPU_Halide>();
         }
     );
 
