@@ -1,6 +1,6 @@
 /**
  * @file working_image_cpu_halide.h
- * @brief Concrete implementation of IWorkingImageCPU using Halide for CPU processing.
+ * @brief implementation of of image working buffer on CPU using Halide for processing.
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -8,6 +8,7 @@
 #pragma once
 #include "image_processing/halide/working_image_halide.h"
 #include "image_processing/cpu/working_image_cpu.h"
+#include "image_processing/common/image_view.h"
 
 #include <memory>
 #include <expected>
@@ -25,81 +26,32 @@ namespace ImageProcessing {
 
 class WorkingImageCPU_Halide final : public WorkingImageCPU, public WorkingImageHalide {
 public:
-    /**
-     * @brief Constructs a WorkingImageCPU_Halide.
-     * @param initial_image Optional initial image data. Ownership is transferred via move.
-     */
-    explicit WorkingImageCPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image = nullptr);
+    /** @brief Default constructor  */
+    WorkingImageCPU_Halide() = default;
 
-    /**
-     * @brief Virtual destructor.
-     */
     ~WorkingImageCPU_Halide() override = default;
 
     /**
-     * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.
-     *
-     * @return std::expected<void, std::error_code>. Void on success, error code on failure.
+     * @brief Binds the view and initializes the zero-copy Halide buffer.
+     */
+    [[nodiscard]] bool bindView(const ImageView& view) override;
+
+    /**
+     * @brief No-op for CPU Halide.
+     * @details Since the Halide buffer is bound directly to the Context's RAM via 
+     * the span in bindView(), any changes to the CPU data are automatically reflected. 
+     * No re-initialization is required.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU() override;
 
-    /**
-     * @brief Exports internal data to a new ImageRegion.
-     *
-     * Performs a deep copy. The caller receives unique ownership.
-     *
-     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
-     *         Unique pointer to data on success, error code on failure.
-     */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
     exportToCPUCopy() override;
 
     /**
-     * @brief Gets the dimensions (width, height) of the internal Halide buffer.
-     *
-     * @return A pair containing the width (first) and height (second) of the image.
-     *         Returns {0, 0} if the internal Halide buffer is invalid or not loaded.
+     * @brief Checks if the CPU view AND the Halide buffer are valid.
      */
-    [[nodiscard]] std::pair<Common::ImageDim, Common::ImageDim> getSize() const override;
-
-    /**
-     * @brief Gets the number of color channels of the internal Halide buffer.
-     *
-     * @return The number of channels (e.g., 3 for RGB, 4 for RGBA). Returns 0
-     *         if the internal Halide buffer is invalid or not loaded.
-     */
-    [[nodiscard]] Common::ImageChan getChannels() const override;
-
-    /**
-     * @brief Gets the total number of pixels in the internal Halide buffer.
-     *
-     * @return The product of width and height. Returns 0 if the internal Halide buffer is invalid or not loaded.
-     */
-    [[nodiscard]] Common::ImageSize getPixelCount() const override;
-
-    /**
-     * @brief Gets the total number of data elements (pixels * channels) in the internal Halide buffer.
-     *
-     * @return The product of pixel count and channel count. Returns 0 if the internal Halide buffer
-     *         or channel count is invalid.
-     */
-    [[nodiscard]] Common::ImageSize getDataSize() const override;
-
-    /**
-     * @brief Checks if the internal Halide buffer data is in a valid state.
-     *
-     * @return true if the internal Halide buffer is allocated and contains valid data, false otherwise.
-     */
-    [[nodiscard]] bool isValid() const override { return m_valid && m_halide_buffer.defined(); };
-
-    /**
-     * @brief Gets the memory type where the image data resides.
-     *
-     * @return MemoryType::CPU_RAM, indicating the data is stored in main CPU RAM via Halide.
-     */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::CPU_RAM; };
-
+    [[nodiscard]] bool isValid() const override { return  WorkingImageCPU::isValid() && isHalideBufferValid(); };
 private:
 
     /**
