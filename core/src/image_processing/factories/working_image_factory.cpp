@@ -12,18 +12,17 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
-    Common::ImageRegion&& source_image)
+std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create()
 {
     auto backend { Config::AppConfig::instance().getProcessingBackend() };
     
     spdlog::trace("[WorkingImageFactory::create]: Using global backend config: {}", static_cast<int>(backend));
     
-    return create(backend, std::move(source_image));
+    return create(backend);
 }
+
 std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
-    Common::MemoryType backend,
-    Common::ImageRegion&& source_image
+    Common::MemoryType backend
     )
 {
     // Look up creator for the requested backend
@@ -35,10 +34,9 @@ std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
         return nullptr;
     }
 
-    // Execute creator function
     try {
         auto creator { it->second };
-        return creator(std::move(source_image));
+        return creator();
     } catch (const std::exception& e) {
         spdlog::critical("[WorkingImageFactory::create]: Exception thrown by creator for backend {}: {}",
                          static_cast<int>(backend), e.what());
