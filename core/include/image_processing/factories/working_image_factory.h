@@ -8,9 +8,10 @@
 
 #pragma once
 
+
 #include "image_processing/interfaces/i_working_image_hardware.h"
-#include "common/image_region.h"
 #include "common/types/memory_type.h"
+
 #include <memory>
 #include <functional>
 #include <unordered_map>
@@ -28,18 +29,17 @@ namespace ImageProcessing {
  * This allows new backends (e.g., `WorkingImageCUDA`, `WorkingImageTPU`) to be registered
  * at startup from anywhere in the codebase, without modifying this factory class.
  *
- * **Supported Implementations:**
- * - `WorkingImageCPU_Halide`: CPU-backed image using Halide buffers.
- * - `WorkingImageGPU_Halide`: GPU-backed image using Halide buffers (CUDA/Vulkan/etc.).
- * - `Add others`.
+ * **Architecture Note:**
+ * The factory creates EMPTY hardware abstractions. Data binding is handled separately
+ * by the WorkingImageContext. This ensures the factory remains decoupled from memory management.
  */
 class WorkingImageFactory {
 public:
     /**
      * @brief Definition of a creator function.
-     * @details A function that takes a source ImageRegion and returns a constructed object.
+     * @details A function that takes NO arguments and returns a constructed empty hardware object.
      */
-    using CreatorFunction = std::function<std::unique_ptr<IWorkingImageHardware>(Common::ImageRegion&&)>;
+    using CreatorFunction = std::function<std::unique_ptr<IWorkingImageHardware>()>;
 
 
     /**
@@ -50,12 +50,9 @@ public:
      * to determine the preferred backend (CPU or GPU) and delegates to the
      * specific create method.
      *
-     * @param source_image The source image data.
-     * @return A unique pointer to the created object.
+     * @return A unique pointer to the created empty object.
      */
-    [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
-        Common::ImageRegion&& source_image
-        );
+    [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create();
 
     /**
      * @brief Creates a working image forcing a specific backend.
@@ -65,28 +62,10 @@ public:
      * specific effects, or debugging).
      *
      * @param backend The hardware backend to force.
-     * @param source_image The source image data.
-     * @return A unique pointer to the created object.
+     * @return A unique pointer to the created empty object, or nullptr on failure.
      */
     [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
-        Common::ImageRegion&& source_image,
         Common::MemoryType backend
-        );
-
-    /**
-     * @brief Creates a new IWorkingImageHardware instance using registered creators.
-     *
-     * @details
-     * Looks up the registered creator for the given `backend` type.
-     * If no creator is found, logs an error and returns nullptr.
-     *
-     * @param backend The desired hardware backend (CPU_RAM or GPU_MEMORY).
-     * @param source_image The source image data residing in CPU memory.
-     * @return A unique pointer to the created object, or nullptr on failure.
-     */
-    [[nodiscard]] static std::unique_ptr<IWorkingImageHardware> create(
-        Common::MemoryType backend,
-        Common::ImageRegion&& source_image
         );
 
     /**
@@ -97,7 +76,7 @@ public:
      * It replaces the need to modify the factory class source code.
      *
      * @param type The MemoryType this creator handles.
-     * @param creator The function that creates the object.
+     * @param creator The function that creates the empty object.
      */
     static void registerCreator(
         Common::MemoryType type,
@@ -112,5 +91,4 @@ private:
 };
 
 } // namespace ImageProcessing
-
 } // namespace CaptureMoment::Core
