@@ -13,46 +13,51 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-WorkingImageCPU_Halide::WorkingImageCPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image) :
-    WorkingImageCPU(std::move(initial_image))
+bool WorkingImageCPU_Halide::bindView(const ImageView& view)
 {
-
-    initializeHalide(getDataSpan(), m_width, m_height, m_channels);
-
-    if (!m_halide_buffer.defined()) {
-             spdlog::error("[WorkingImageCPU_Halide]: Failed to initialize Halide buffer from initial image.");
-             throw std::runtime_error("Halide init failed");
-        }  else {
-        spdlog::warn("[WorkingImageCPU_Halide]: Constructed with invalid initial image.");
+    // 1. Bind the view to the CPU base class (stores spans and geometry)
+    if (!WorkingImageCPU::bindView(view)) {
+        return false;
     }
 
-    spdlog::debug("[WorkingImageCPU_Halide]: Constructed ({}x{}, {} ch, zero-copy).",
-                      m_width, m_height, m_channels);
+    // 2. Sécurité pointeur pour Halide
+    if (m_view_data_image.working_data.data() == nullptr) {
+        spdlog::error("[WorkingImageCPU_Halide::bindView]: View data pointer is null.");
+        return false;
+    }
+
+    // 3. On relie le pointeur de la vue au buffer Halide (Zero-Copy)
+    initializeHalide(m_view_data_image.working_data, m_view_data_image.width, m_view_data_image.height, m_view_data_image.channels);
+
+    if (!m_halide_buffer.defined()) {
+        spdlog::error("[WorkingImageCPU_Halide::bindView]: Failed to initialize Halide buffer.");
+        return false;
+    }
+
+    spdlog::debug("[WorkingImageCPU_Halide::bindView]: Bound and initialized Halide ({}x{}, {} ch).",
+                  m_view_data_image.width, m_view_data_image.height, m_view_data_image.channels);
+    return true;
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU_Halide::convertHalideToImageRegion()
 {
-    try {
-        auto cpu_image_copy = std::make_unique<Common::ImageRegion>();
+ try {
+        auto cpu_image_copy { std::make_unique<Common::ImageRegion>() };
 
-        // Set dimensions and format from the Halide buffer
-        cpu_image_copy->m_width = static_cast<int>(m_halide_buffer.width());
-        cpu_image_copy->m_height = static_cast<int>(m_halide_buffer.height());
-        cpu_image_copy->m_channels = static_cast<int>(m_halide_buffer.channels());
-        cpu_image_copy->m_format = Common::PixelFormat::RGBA_F32; // Assuming F32 for now
+        auto [w, h] = getSizeByHalide();
+        cpu_image_copy->m_width = static_cast<int>(w);
+        cpu_image_copy->m_height = static_cast<int>(h);
+        cpu_image_copy->m_channels = static_cast<int>(getChannelsByHalide());
+        cpu_image_copy->m_format = Common::PixelFormat::RGBA_F32;
 
-        std::span<const float> data_span = getDataSpan();
-        if (data_span.empty()) {
-            spdlog::warn("[WorkingImageCPU_Halide::convertHalideToImageRegion]: Data span is empty, cannot export");
+        // On copie depuis le span de la vue (qui pointe vers la RAM du Context)
+        if (m_view_data_image.working_data.empty()) {
             return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
         }
-
-        // Deep copy from unique_ptr back to ImageRegion's vector
-        cpu_image_copy->m_data.assign(data_span.begin(), data_span.end());
+        cpu_image_copy->m_data.assign(m_view_data_image.working_data.begin(), m_view_data_image.working_data.end());
 
         if (!cpu_image_copy->isValid()) {
-            spdlog::warn("[WorkingImageCPU_Halide::convertHalideToImageRegion]: Created ImageRegion is invalid after copying data");
             return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
         }
 
@@ -62,11 +67,11 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
         return cpu_image_copy;
 
     } catch (const std::bad_alloc& e) {
-        spdlog::critical("[WorkingImageCPU_Halide::convertHalideToImageRegion]: Failed to allocate memory: {}", e.what());
+        spdlog::critical("[WorkingImageCPU_Halide::convertHalideToImageRegion]: Allocation failed: {}", e.what());
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
-        } catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         spdlog::critical("[WorkingImageCPU_Halide::convertHalideToImageRegion]: Exception: {}", e.what());
-            return std::unexpected(ErrorHandling::CoreError::Unexpected);
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 }
 
@@ -74,15 +79,7 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
 std::expected<void,  ErrorHandling::CoreError>
 WorkingImageCPU_Halide::updateFromCPU()
 {
-    initializeHalide(getDataSpan(),
-                     static_cast<int>(m_width),
-                     static_cast<int>(m_height),
-                     static_cast<int>(m_channels));
-
-
-    spdlog::debug("[WorkingImageCPU_Halide::updateFromCPU]: Updated from CPU image ({}x{}, {} ch)",
-                      m_width, m_height, m_channels);
-
+    // No-op : Halide buffer is directly bound to the CPU data via bindView. Any changes to the CPU data are automatically reflected in Halide. We just need to ensure the buffer is valid.
     return {}; // Success
 }
 
@@ -95,38 +92,6 @@ WorkingImageCPU_Halide::exportToCPUCopy()
     }
 
     return convertHalideToImageRegion();
-}
-
-std::pair<Common::ImageDim, Common::ImageDim> WorkingImageCPU_Halide::getSize() const
-{
-    if (!isValid()) {
-        return {0, 0};
-    }
-    return getSizeByHalide();
-}
-
-Common::ImageChan WorkingImageCPU_Halide::getChannels() const
-{
-    if (!isValid()) {
-        return 0;
-    }
-    return getChannelsByHalide();
-}
-
-Common::ImageSize WorkingImageCPU_Halide::getPixelCount() const
-{
-    if (!isValid()) {
-        return 0;
-    }
-    return getPixelCountByHalide();
-}
-
-Common::ImageSize WorkingImageCPU_Halide::getDataSize() const
-{
-    if (!isValid()) {
-        return 0;
-    }
-    return getDataSizeByHalide();
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing
