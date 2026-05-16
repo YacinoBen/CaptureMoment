@@ -40,7 +40,7 @@ public:
      * @brief Checks if the GPU buffer is valid and allocated.
      */
     [[nodiscard]] bool isValid() const override;
-    
+
     /**
      * @brief Gets the memory type where data resides.
      */
