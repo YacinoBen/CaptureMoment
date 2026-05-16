@@ -1,6 +1,6 @@
 /**
  * @file working_image_gpu_halide.h
- * @brief Concrete implementation of IWorkingImageGPU
+ * @brief Concrete implementation of image working buffer on GPU using Halide for processing.
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -10,6 +10,7 @@
 #include "image_processing/gpu/working_image_gpu.h"
 #include "image_processing/halide/working_image_halide.h"
 #include "common/error_handling/core_error.h"
+#include "image_processing/common/image_view.h"
 
 #include <memory>
 #include <expected>
@@ -19,8 +20,10 @@ namespace CaptureMoment::Core {
 namespace ImageProcessing {
 
 /**
- * @brief Concrete implementation of WorkingImageGPU_Halide for image data stored on GPU.
+ * @class WorkingImageGPU_Halide
+ * @brief Concrete implementation of WorkingImageGPU using Halide for processing.
  *
+ * @details
  * Architecture:
  * - Inherits WorkingImageGPU: Provides the GPU-specific interface and common GPU logic.
  * - Inherits WorkingImageHalide: Provides the shared Halide buffer logic.
@@ -29,41 +32,38 @@ namespace ImageProcessing {
  * - Manages Host-to-Device (updateFromCPU) and Device-to-Host (exportToCPUCopy) transfers.
  * - Uses `std::expected` for robust error reporting of GPU transfers.
  */
-
 class WorkingImageGPU_Halide final : public WorkingImageGPU, public WorkingImageHalide {
 public:
-    /**
-     * @brief Constructs a WorkingImageGPU_Halide.
-     * @param initial_image Optional initial image data. Ownership is transferred via move.
-     */
-    explicit WorkingImageGPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image = nullptr);
+    /** @brief Default constructor  */
+    WorkingImageGPU_Halide() = default;
 
-    /**
-     * @brief Virtual destructor.
-     */
     ~WorkingImageGPU_Halide() override = default;
 
-    // ============================================================
-    // IWorkingImageHardware Interface Implementation
-    // ============================================================
+    /**
+     * @brief Binds the view and initializes the Halide buffer on the device.
+     */
+    [[nodiscard]] bool bindView(const ImageView& view) override;
 
     /**
-     * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.
-     * Includes a copy to the GPU device.
+     * @brief Updates internal image data by uploading from the CPU view to the GPU device.
      *
-     * @return std::expected<void, std::error_code>.
+     * @return std::expected<void, CoreError>. Void on success, error on failure.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
     updateFromCPU() override;
 
     /**
-     * @brief Exports current internal image data to a new CPU-based ImageRegion.
-     * Includes a copy from the GPU device to Host memory.
+     * @brief Exports current internal image data by downloading from the GPU device to Host memory.
      *
-     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, CoreError>.
      */
-    [[maybe_unused]] [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     exportToCPUCopy() override;
+
+    /**
+     * @brief Checks if the GPU view AND the Halide buffer are valid.
+     */
+    [[nodiscard]] bool isValid() const override;
 
     /**
      * @brief Exports a downscaled version of the image directly from GPU.
@@ -74,53 +74,8 @@ public:
      *
      * This is the preferred method for display purposes.
      */
-    [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) override;
-
-    /**
-     * @brief Gets the dimensions (width, height) of the internal GPU image data.
-     *
-     * @return A pair containing the width (first) and height (second) of the image.
-     *         Returns {0, 0} if the internal GPU image data is invalid or not loaded.
-     */
-    [[nodiscard]] std::pair<Common::ImageDim, Common::ImageDim> getSize() const override;
-
-    /**
-     * @brief Gets the number of color channels of the internal GPU image data.
-     *
-     * @return The number of channels (e.g., 3 for RGB, 4 for RGBA). Returns 0
-     *         if the internal GPU image data is invalid or not loaded.
-     */
-    [[nodiscard]] Common::ImageChan getChannels() const override;
-
-    /**
-     * @brief Gets the total number of pixels in the internal GPU image data.
-     *
-     * @return The product of width and height. Returns 0 if the internal GPU image data is invalid or not loaded.
-     */
-    [[nodiscard]] Common::ImageSize getPixelCount() const override;
-
-    /**
-     * @brief Gets the total number of data elements (pixels * channels) in the internal GPU image data.
-     *
-     * @return The product of pixel count and channel count. Returns 0 if the internal GPU image data
-     *         or channel count is invalid.
-     */
-    [[nodiscard]] Common::ImageSize getDataSize() const override;
-
-    /**
-     * @brief Checks if the internal GPU image data is in a valid state.
-     *
-     * @return true if the internal GPU buffer is allocated and contains valid data, false otherwise.
-     */
-    [[nodiscard]] bool isValid() const override { return m_valid && m_halide_buffer.defined(); };
-
-    /**
-     * @brief Gets the memory type where the image data resides.
-     *
-     * @return MemoryType::GPU_MEMORY, indicating the data is stored in GPU memory.
-     */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::GPU_MEMORY;};
 };
 
 } // namespace ImageProcessing
