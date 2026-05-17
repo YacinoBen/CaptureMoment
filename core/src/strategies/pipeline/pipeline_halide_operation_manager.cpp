@@ -18,7 +18,7 @@ PipelineHalideOperationManager::PipelineHalideOperationManager()
     Core::Operations::OperationRegistry::registerAll(*m_operation_factory);
     spdlog::debug("PipelineHalideOperationManager: Constructed with Pipeline and Worker contexts.");
     
-    auto base_executor = Pipeline::PipelineBuilder::build(Pipeline::PipelineType::HalideOperation);
+    auto base_executor { Pipeline::PipelineBuilder::build(Pipeline::PipelineType::HalideOperation) };
 
     if (!base_executor) {
         spdlog::error("PipelineHalideOperationManager::PipelineHalideOperationManager: Builder returned null.");
@@ -26,7 +26,7 @@ PipelineHalideOperationManager::PipelineHalideOperationManager()
     }
 
     // Downcasting to the concrete type. This is safe because we know the builder returns the correct type for this pipeline.
-    auto* concrete_ptr = dynamic_cast<Pipeline::OperationPipelineExecutor*>(base_executor.get());
+    auto* concrete_ptr { dynamic_cast<Pipeline::OperationPipelineExecutor*>(base_executor.get()) };
     
     if (!concrete_ptr) {
         spdlog::error("PipelineHalideOperationManager::PipelineHalideOperationManager: Critical type mismatch.");
@@ -41,20 +41,21 @@ PipelineHalideOperationManager::PipelineHalideOperationManager()
 void PipelineHalideOperationManager::init(std::vector<Operations::OperationDescriptor>&& operations)
 {
     // 1. Detect structural changes (type, name, enabled) vs value changes (params)
-    bool structure_changed = true;
+    bool structure_changed { true };
 
     spdlog::debug("[PipelineHalideOperationManager::init]: m_last_operations.size() = {}, operations.size() = {}",
                   m_last_operations.size(), operations.size());
 
     if (m_last_operations.size() == operations.size()) {
         structure_changed = false;
-        for (size_t i = 0; i < operations.size(); ++i) {
+        for (size_t i = 0; i < operations.size(); ++i)
+        {
 
             // Compare type, name, enabled. Ignore params for this check.
             spdlog::debug("[PipelineHalideOperationManager::init]: Op[{}]: | last=({},{}) | new=({},{})",
                           operations[i].id,m_last_operations[i].name, m_last_operations[i].enabled, operations[i].name, operations[i].enabled);
 
-            if (operations[i].id != m_last_operations[i].id &&
+            if (operations[i].id != m_last_operations[i].id ||
                 operations[i].enabled != m_last_operations[i].enabled) {
                 structure_changed = true;
                 spdlog::debug("[PipelineHalideOperationManager::init]: Structure change detected at index {}", i);
