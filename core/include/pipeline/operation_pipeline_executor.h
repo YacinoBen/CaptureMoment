@@ -16,17 +16,18 @@
  * @date 2026
  */
 
-#pragma once
 
-#include "operations/interfaces/i_operation_fusion_logic.h"
+#pragma once
 
 #include "pipeline/interfaces/i_pipeline_executor.h"
 #include "pipeline/interfaces/i_halide_pipeline_executor.h"
+#include "image_processing/halide/working_image_halide.h"
 #include "operations/operation_descriptor.h"
 #include "operations/operation_factory.h"
 #include "common/types/memory_type.h"
 
 #include <vector>
+#include <unordered_map>
 #include <memory>
 
 namespace CaptureMoment::Core {
@@ -63,8 +64,8 @@ public:
      *
      * @details
      * This is the entry point for the generic `IPipelineExecutor` interface.
-     * It performs a dynamic cast to determine if the image is CPU or GPU Halide-compatible
-     * and dispatches to the template method `executeWithConcreteHalide`.
+     * It performs a dynamic cast to check if the underlying backend supports Halide,
+     * and dispatches to the fast execution path.
      *
      * @param[in,out] working_image The hardware-agnostic image to process.
      * @return true if execution succeeded, false otherwise.
@@ -81,7 +82,7 @@ public:
      * @param[in,out] buffer The `Halide::Buffer<float>` pointing to image data (Must be 4-channel).
      * @return true if pipeline executed successfully.
      */
-    [[nodiscard]] virtual bool executeOnHalideBuffer(Halide::Buffer<float>& buffer) override;
+    [[nodiscard]] bool executeOnHalideBuffer(Halide::Buffer<float>& buffer) override;
 
     /**
      * @brief Updates the list of operations and rebuilds the graph.
@@ -176,12 +177,11 @@ private:
     void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const;
 
     /**
-     * @brief Helper template to execute on specific image types.
-     *
-     * @tparam ConcreteImage Type (e.g., WorkingImageCPU_Halide).
+     * @brief Executes the compiled pipeline on a specific Halide backend instance.
+     * @param halide_image The Halide backend image to execute on.
+     * @return true if execution succeeded, false otherwise.
      */
-    template<typename ConcreteImage>
-    [[nodiscard]] bool executeWithConcreteHalide(ConcreteImage& concrete_image);
+    [[nodiscard]] bool executeOnHalideBackend(ImageProcessing::WorkingImageHalide& halide_image);
 };
 
 } // namespace Pipeline
