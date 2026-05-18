@@ -44,12 +44,6 @@
  */
 #include "pipeline/operation_pipeline_executor.h"
 
-/**
- * @brief Concrete implementation for executing a pipeline sequentially as a fallback.
- * Provides a generic execution path when optimized pipelines are not suitable.
- */
-#include "pipeline/fallback_pipeline_executor.h"
-
 // ============================================================
 // 3. Core Infrastructure (The "Factory")
 // ============================================================
