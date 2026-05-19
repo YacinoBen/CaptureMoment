@@ -64,83 +64,6 @@ Halide::Func applyHighlightsAdjustment(
 }
 
 // ============================================================================
-// IOperation Implementation
-// ============================================================================
-
-std::expected<void, ErrorHandling::CoreError> OperationHighlights::execute(
-    ImageProcessing::IWorkingImageHardware& working_image,
-    const OperationDescriptor& descriptor)
-{
-    // Step 1: Validation
-    if (!working_image.isValid()) {
-        spdlog::warn("OperationHighlights::execute: Invalid working image provided");
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    if (!descriptor.enabled) {
-        spdlog::trace("OperationHighlights::execute: Operation is disabled, skipping");
-        return {};
-    }
-
-    // Step 2: Extract Parameters
-    auto value_res = descriptor.getParam<float>("value");
-    if (!value_res) {
-        spdlog::error("OperationHighlights::execute: Failed to get 'value' parameter");
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    }
-    float highlights_value = value_res.value();
-
-    // Step 3: No-Op Optimization
-    if (std::abs(highlights_value - OperationHighlights::DEFAULT_HIGHLIGHTS_VALUE) < std::numeric_limits<float>::epsilon()) {
-        spdlog::trace("OperationHighlights::execute: Value is default, skipping");
-        return {};
-    }
-
-    // Step 4: Clamp Value
-    highlights_value = std::clamp(highlights_value, OperationHighlights::MIN_HIGHLIGHTS_VALUE, OperationHighlights::MAX_HIGHLIGHTS_VALUE);
-    spdlog::debug("OperationHighlights::execute: Applying highlights with value={:.2f}", highlights_value);
-
-    // Step 5: Export & Execute
-    auto cpu_copy_result = working_image.exportToCPUCopy();
-    if (!cpu_copy_result) {
-        spdlog::error("OperationHighlights::execute: Failed to export working image to CPU");
-        return std::unexpected(cpu_copy_result.error());
-    }
-    auto& cpu_region_ptr = cpu_copy_result.value();
-
-    try {
-        Halide::Var x, y, c;
-        std::span<float> data_span = cpu_region_ptr->getBuffer();
-
-        Halide::Buffer<float> input_buf(
-            data_span.data(),
-            static_cast<int>(cpu_region_ptr->m_width),
-            static_cast<int>(cpu_region_ptr->m_height),
-            static_cast<int>(cpu_region_ptr->m_channels)
-            );
-
-        Halide::Param<float> temp_param;
-        temp_param.set(highlights_value);
-
-        auto highlights_func = applyHighlightsAdjustment(input_buf, temp_param, x, y, c);
-        highlights_func.compute_root().parallel(y).vectorize(x, 8);
-        highlights_func.realize(input_buf);
-
-        auto update_res = working_image.updateFromCPU(std::move(*cpu_region_ptr));
-        if (!update_res) {
-            spdlog::error("OperationHighlights::execute: Failed to update working image from CPU");
-            return std::unexpected(update_res.error());
-        }
-
-        return {};
-
-    } catch (const std::exception& e) {
-        spdlog::critical("OperationHighlights::execute: Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    }
-}
-
-// ============================================================================
 // IOperationFusionLogic Implementation
 // ============================================================================
 
@@ -157,31 +80,6 @@ const Halide::Param<float>& param_highlights = param;
     // Halide's optimizer will simplify the math if the highlights adjustment is effectively zero.
     spdlog::trace("OperationHighlights::appendToFusedPipeline: Fusing with Halide Param (In-Graph Clamped)");
     return applyHighlightsAdjustment(input_func, param_highlights, x, y, c);
-}
-
-// ============================================================================
-// IOperationDefaultLogic Implementation
-// ============================================================================
-
-std::expected<void, ErrorHandling::CoreError> OperationHighlights::executeOnImageRegion(
-    Common::ImageRegion& region,
-    const OperationDescriptor& params
-    ) const
-{
-    if (!region.isValid()) {
-        spdlog::error("[OperationHighlights] executeOnImageRegion: Invalid ImageRegion.");
-        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
-    }
-
-    auto value_res = params.getParam<float>("value");
-    if (!value_res) {
-        spdlog::warn("[OperationHighlights] executeOnImageRegion: Param 'value' missing, skipping.");
-        return {};
-    }
-
-    // TODO implement with OpenImageIO or OpenCV Or manually. To determine
-
-    return {};
 }
 
 } // namespace CaptureMoment::Core::Operations

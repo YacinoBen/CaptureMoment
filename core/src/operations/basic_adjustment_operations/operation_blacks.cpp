@@ -65,90 +65,6 @@ Halide::Func applyBlacksAdjustment(
 }
 
 // ============================================================================
-// IOperation Implementation
-// ============================================================================
-
-std::expected<void, ErrorHandling::CoreError> OperationBlacks::execute(
-    ImageProcessing::IWorkingImageHardware& working_image,
-    const OperationDescriptor& descriptor)
-{
-    // Step 1: Validation
-    if (!working_image.isValid()) {
-        spdlog::warn("OperationBlacks::execute: Invalid working image provided");
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    if (!descriptor.enabled) {
-        spdlog::trace("OperationBlacks::execute: Operation is disabled, skipping");
-        return {};
-    }
-
-    // Step 2: Extract Parameters
-    auto value_res = descriptor.getParam<float>("value");
-    if (!value_res) {
-        spdlog::error("OperationBlacks::execute: Failed to get 'value' parameter");
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    }
-    float blacks_value = value_res.value();
-
-    // Step 3: No-Op Optimization
-    if (std::abs(blacks_value - OperationBlacks::DEFAULT_BLACKS_VALUE) < std::numeric_limits<float>::epsilon()) {
-        spdlog::trace("OperationBlacks::execute: Value is default, skipping");
-        return {};
-    }
-
-    // Step 4: Clamp Value
-    blacks_value = std::clamp(blacks_value, OperationBlacks::MIN_BLACKS_VALUE, OperationBlacks::MAX_BLACKS_VALUE);
-    spdlog::debug("OperationBlacks::execute: Applying blacks adjustment with value={:.2f}", blacks_value);
-
-    // Step 5: Export & Execute
-    auto cpu_copy_result = working_image.exportToCPUCopy();
-    if (!cpu_copy_result) {
-        spdlog::error("OperationBlacks::execute: Failed to export working image to CPU");
-        return std::unexpected(cpu_copy_result.error());
-    }
-    auto& cpu_region_ptr = cpu_copy_result.value();
-
-    try {
-        Halide::Var x, y, c;
-        std::span<float> data_span = cpu_region_ptr->getBuffer();
-
-        Halide::Buffer<float> input_buf(
-            data_span.data(),
-            static_cast<int>(cpu_region_ptr->m_width),
-            static_cast<int>(cpu_region_ptr->m_height),
-            static_cast<int>(cpu_region_ptr->m_channels)
-            );
-
-        Halide::Param<float> temp_param;
-        temp_param.set(blacks_value);
-
-        auto blacks_func = applyBlacksAdjustment(input_buf, temp_param, x, y, c);
-        blacks_func.compute_root().parallel(y).vectorize(x, 8);
-        blacks_func.realize(input_buf);
-
-        // Update Working Image
-        auto update_res = working_image.updateFromCPU(std::move(*cpu_region_ptr));
-        if (!update_res) {
-            spdlog::error("OperationBlacks::execute: Failed to update working image from CPU");
-            return std::unexpected(update_res.error());
-        }
-
-        return {};
-
-    } catch (const Halide::CompileError& e) {
-        spdlog::critical("OperationBlacks::execute: Halide Compile Error: {}", e.what());
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    } catch (const Halide::RuntimeError& e) {
-        spdlog::critical("OperationBlacks::execute: Halide Runtime Error: {}", e.what());
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    } catch (const std::exception& e) {
-        spdlog::critical("OperationBlacks::execute: Unexpected Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    }
-}
-
-// ============================================================================
 // IOperationFusionLogic Implementation
 // ============================================================================
 
@@ -162,31 +78,6 @@ Halide::Func OperationBlacks::appendToFusedPipeline(
 {
     spdlog::trace("OperationBlacks::appendToFusedPipeline: Fusing with Halide Param");
     return applyBlacksAdjustment(input_func, param, x, y, c);
-}
-
-// ============================================================================
-// IOperationDefaultLogic Implementation
-// ============================================================================
-
-std::expected<void, ErrorHandling::CoreError> OperationBlacks::executeOnImageRegion(
-    Common::ImageRegion& region,
-    const OperationDescriptor& params
-    ) const
-{
-    if (!region.isValid()) {
-        spdlog::error("[OperationBlacks] executeOnImageRegion: Invalid ImageRegion.");
-        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
-    }
-
-    auto value_res = params.getParam<float>("value");
-    if (!value_res) {
-        spdlog::warn("[OperationBlacks] executeOnImageRegion: Param 'value' missing, skipping.");
-        return {};
-    }
-
-    // TODO implement with OpenImageIO or OpenCV Or manually. To determine
-
-    return {};
 }
 
 } // namespace CaptureMoment::Core::Operations
