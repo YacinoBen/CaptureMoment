@@ -64,11 +64,6 @@
  */
 #include "operations/operation_ranges.h"
 
-/**
- * @brief Pipeline executor for applying a list of operations.
- */
-#include "operations/operation_pipeline.h"
-
 // ============================================================
 // Concrete Operation Implementations
 // ============================================================
