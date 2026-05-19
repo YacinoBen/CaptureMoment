@@ -13,7 +13,6 @@ set(CORE_SOURCES
 
     # Operations
     src/operations/operation_factory.cpp
-    src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
 
     # Image Processing
@@ -49,7 +48,6 @@ set(CORE_SOURCES
     # Pipeline
     src/pipeline/operation_pipeline_executor.cpp
     src/pipeline/pipeline_builder.cpp
-    src/pipeline/fallback_pipeline_executor.cpp
     src/pipeline/pipeline_registry.cpp
     src/pipeline/pipeline_context.cpp
 
