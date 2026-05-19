@@ -47,83 +47,6 @@ Halide::Func applyBrightnessAdjustment(
 }
 
 // ============================================================================
-// IOperation Implementation
-// ============================================================================
-
-std::expected<void, ErrorHandling::CoreError> OperationBrightness::execute(
-    ImageProcessing::IWorkingImageHardware& working_image,
-    const OperationDescriptor& descriptor)
-{
-    // Step 1: Validation
-    if (!working_image.isValid()) {
-        spdlog::warn("OperationBrightness::execute: Invalid working image provided");
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    if (!descriptor.enabled) {
-        spdlog::trace("OperationBrightness::execute: Operation is disabled, skipping");
-        return {};
-    }
-
-    // Step 2: Extract Parameters
-    auto value_res = descriptor.getParam<float>("value");
-    if (!value_res) {
-        spdlog::error("OperationBrightness::execute: Failed to get 'value' parameter");
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    }
-    float brightness_value = value_res.value();
-
-    // Step 3: No-Op Optimization
-    if (std::abs(brightness_value - OperationBrightness::DEFAULT_BRIGHTNESS_VALUE) < std::numeric_limits<float>::epsilon()) {
-        spdlog::trace("OperationBrightness::execute: Value is default, skipping");
-        return {};
-    }
-
-    // Step 4: Clamp Value
-    brightness_value = std::clamp(brightness_value, OperationBrightness::MIN_BRIGHTNESS_VALUE, OperationBrightness::MAX_BRIGHTNESS_VALUE);
-    spdlog::debug("OperationBrightness::execute: Applying brightness with value={:.2f}", brightness_value);
-
-    // Step 5: Export & Execute
-    auto cpu_copy_result = working_image.exportToCPUCopy();
-    if (!cpu_copy_result) {
-        spdlog::error("OperationBrightness::execute: Failed to export working image to CPU");
-        return std::unexpected(cpu_copy_result.error());
-    }
-    auto& cpu_region_ptr = cpu_copy_result.value();
-
-    try {
-        Halide::Var x, y, c;
-        std::span<float> data_span = cpu_region_ptr->getBuffer();
-
-        Halide::Buffer<float> input_buf(
-            data_span.data(),
-            static_cast<int>(cpu_region_ptr->m_width),
-            static_cast<int>(cpu_region_ptr->m_height),
-            static_cast<int>(cpu_region_ptr->m_channels)
-            );
-
-        Halide::Param<float> temp_param;
-        temp_param.set(brightness_value);
-
-        auto brightness_func = applyBrightnessAdjustment(input_buf, temp_param, x, y, c);
-        brightness_func.compute_root().parallel(y).vectorize(x, 8);
-        brightness_func.realize(input_buf);
-
-        auto update_res = working_image.updateFromCPU(std::move(*cpu_region_ptr));
-        if (!update_res) {
-            spdlog::error("OperationBrightness::execute: Failed to update working image from CPU");
-            return std::unexpected(update_res.error());
-        }
-
-        return {};
-
-    } catch (const std::exception& e) {
-        spdlog::critical("OperationBrightness::execute: Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::CoreError::Unexpected);
-    }
-}
-
-// ============================================================================
 // IOperationFusionLogic Implementation
 // ============================================================================
 
@@ -139,31 +62,6 @@ Halide::Func OperationBrightness::appendToFusedPipeline(
     // Halide's optimizer (Constant Folding) will handle the math if the value is 0.
     spdlog::trace("OperationBrightness::appendToFusedPipeline: Fusing with Halide Param (In-Graph Clamped)");
     return applyBrightnessAdjustment(input_func, param, x, y, c);
-}
-
-// ============================================================================
-// IOperationDefaultLogic Implementation
-// ============================================================================
-
-std::expected<void, ErrorHandling::CoreError> OperationBrightness::executeOnImageRegion(
-    Common::ImageRegion& region,
-    const OperationDescriptor& params
-    ) const
-{
-    if (!region.isValid()) {
-        spdlog::error("[OperationBrightness] executeOnImageRegion: Invalid ImageRegion.");
-        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
-    }
-
-    auto value_res = params.getParam<float>("value");
-    if (!value_res) {
-        spdlog::warn("[OperationBrightness] executeOnImageRegion: Param 'value' missing, skipping.");
-        return {};
-    }
-
-    // TODO implement with OpenImageIO or OpenCV Or manually. To determine
-
-    return {};
 }
 
 } // namespace CaptureMoment::Core::Operations
