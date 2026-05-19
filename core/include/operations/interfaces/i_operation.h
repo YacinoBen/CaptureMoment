@@ -49,35 +49,6 @@ public:
      */
     [[nodiscard]] virtual const char* name() const = 0;
 
-    /**
-     * @brief Executes the operation on a hardware-agnostic working image.
-     *
-     * This is the core method where the image processing logic resides.
-     * The operation should read parameters from @p params and modify the
-     * working image in-place.
-     *
-     * @param working_image The image buffer to modify (in-place), abstracting CPU/GPU.
-     * @param params The configuration/settings for this execution.
-     * @return std::expected<void, CoreError>
-     *         Returns void on success, or a specific CoreError code on failure.
-     */
-    [[nodiscard]] virtual std::expected<void, ErrorHandling::CoreError> execute(
-        ImageProcessing::IWorkingImageHardware& working_image,
-        const OperationDescriptor& params
-        ) = 0;
-
-    /**
-     * @brief Indicates if this operation supports GPU acceleration (e.g., via Halide).
-     * @return true if GPU implementation is available.
-     */
-    [[nodiscard]] virtual bool canRunOnGPU() const { return false; }
-
-    /**
-     * @brief Indicates if this operation is thread-safe.
-     * If true, multiple threads can call execute() on different regions simultaneously.
-     * @return true by default.
-     */
-    [[nodiscard]] virtual bool isThreadSafe() const { return true; }
 };
 
 } // namespace Operations
