@@ -36,9 +36,9 @@
 #include "operations/interfaces/i_operation_fusion_logic.h"
 
 /**
- * @brief Interface for CPU fallback logic.
+ * @brief Interface for Single operation.
  */
-#include "operations/interfaces/i_operation_default_logic.h"
+#include "operations/interfaces/i_single_operation.h"
 
 /**
  * @brief Enumeration of supported operation types.
