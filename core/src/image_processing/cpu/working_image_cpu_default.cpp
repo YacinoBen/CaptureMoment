@@ -10,11 +10,6 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-std::expected<void, ErrorHandling::CoreError> WorkingImageCPU_Default::updateFromCPU()
-{
-    return {};
-}
-
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU_Default::exportToCPUCopy()
 {

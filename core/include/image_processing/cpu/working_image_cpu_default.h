@@ -45,15 +45,6 @@ public:
     // ============================================================
     // IWorkingImageHardware Overrides
     // ============================================================
-
-    /**
-     * @brief No-op for Default CPU.
-     * @details Since this backend operates directly on the Context's RAM via the bound view,
-     * any changes made by the Context are already visible. No copy is required.
-     */
-    [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
-    updateFromCPU() override;
-
     /**
      * @brief Exports current working data to a new CPU-based ImageRegion.
      * @details Creates a deep copy of the data currently pointed to by the bound view.

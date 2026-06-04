@@ -27,8 +27,6 @@
 #include "image_processing/common/image_view.h"
 
 #include <memory>
-#include <cstddef>
-#include <utility>
 #include <expected>
 #include <span>
 
@@ -65,14 +63,6 @@ public:
         m_view_data_image = view;
         return !m_view_data_image.working_data.empty();
     }
-
-    /**
-     * @brief Updates internal image data from a CPU-based ImageRegion.
-     *
-     * @return std::expected<void, std::error_code> Success or error.
-     */
-    [[nodiscard]] virtual std::expected<void, ErrorHandling::CoreError>
-    updateFromCPU() = 0;
 
     /**
      * @brief Exports current internal image data to a new CPU-based ImageRegion (Deep Copy).
