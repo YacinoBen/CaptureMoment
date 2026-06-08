@@ -8,8 +8,6 @@
 #include "image_processing/cpu/working_image_cpu_halide.h"
 
 #include <spdlog/spdlog.h>
-#include <utility>
-#include <cstring>
 
 namespace CaptureMoment::Core::ImageProcessing {
 
@@ -20,13 +18,13 @@ bool WorkingImageCPU_Halide::bindView(const ImageView& view)
         return false;
     }
 
-    // 2. Sécurité pointeur pour Halide
+    // 2. Check the view data pointer before initializing Halide
     if (m_view_data_image.working_data.data() == nullptr) {
         spdlog::error("[WorkingImageCPU_Halide::bindView]: View data pointer is null.");
         return false;
     }
 
-    // 3. On relie le pointeur de la vue au buffer Halide (Zero-Copy)
+    // 3. Initialize the Halide buffer to reference the CPU data (zero-copy)
     initializeHalide(m_view_data_image.working_data, m_view_data_image.width, m_view_data_image.height, m_view_data_image.channels);
 
     if (!m_halide_buffer.defined()) {
@@ -51,7 +49,6 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
         cpu_image_copy->m_channels = static_cast<int>(getChannelsByHalide());
         cpu_image_copy->m_format = Common::PixelFormat::RGBA_F32;
 
-        // On copie depuis le span de la vue (qui pointe vers la RAM du Context)
         if (m_view_data_image.working_data.empty()) {
             return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
         }
@@ -73,14 +70,6 @@ WorkingImageCPU_Halide::convertHalideToImageRegion()
         spdlog::critical("[WorkingImageCPU_Halide::convertHalideToImageRegion]: Exception: {}", e.what());
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
-}
-
-
-std::expected<void,  ErrorHandling::CoreError>
-WorkingImageCPU_Halide::updateFromCPU()
-{
-    // No-op : Halide buffer is directly bound to the CPU data via bindView. Any changes to the CPU data are automatically reflected in Halide. We just need to ensure the buffer is valid.
-    return {}; // Success
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
