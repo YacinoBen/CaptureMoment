@@ -36,7 +36,7 @@ bool WorkingImageContext::prepare(std::unique_ptr<Common::ImageRegion> original_
         return false;
     }
 
-    // 2. Create the Hardware Worker (Factory no longer needs ImageRegion!)
+    // 2. Create the Hardware Worker
     auto new_hardware { WorkingImageFactory::create() };
 
     if (!new_hardware) {
