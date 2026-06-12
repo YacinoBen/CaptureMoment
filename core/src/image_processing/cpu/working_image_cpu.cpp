@@ -35,12 +35,14 @@ WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim targ
     }
 
     try {
+
+        spdlog::debug("[WorkingImageCPU::downsample]: Start downsample.");
+
         // ============================================================
         if (m_view_data_image.width == target_width && m_view_data_image.height == target_height)
         {
             spdlog::debug("[WorkingImageCPU::downsample]: No downsample required.");
 
-            // Utilisation directe de m_view_data_image pour la copie
             return std::make_unique<Common::ImageRegion>(
                 m_view_data_image.working_data,
                 static_cast<int>(m_view_data_image.width),
@@ -82,6 +84,9 @@ WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim targ
         // ============================================================
         // Step 4: Create ImageRegion (move semantics)
         // ============================================================
+
+        spdlog::debug("WorkingImageCPU::downsample]: Downsample successful, creating ImageRegion from {}x{} to {}x{}.",
+                      m_view_data_image.width, m_view_data_image.height, target_width, target_height);
         return std::make_unique<Common::ImageRegion>(
             std::move(result_data),
             static_cast<int>(target_width),
