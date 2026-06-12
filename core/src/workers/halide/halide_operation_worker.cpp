@@ -22,14 +22,14 @@ std::future<bool> HalideOperationWorker::execute(
 
     // 1. Retrieve the specific manager from the context
     // We use the context to avoid passing the manager directly as a parameter.
-    auto& halide_manager = context.getHalideManager();
+    auto& halide_manager { context.getHalideManager() };
 
     // 2. Wrap the execution in a future
     // Since the manager's execute() is synchronous (blocks until done),
     // we use std::async to create a future that runs this logic.
     // This satisfies the IWorkerRequest interface requirement.
     return std::async(std::launch::deferred, [&halide_manager, &working_image]() {
-        bool success = halide_manager.execute(working_image);
+        bool success { halide_manager.execute(working_image) };
         
         if (!success) {
             spdlog::error("[HalideOperationWorker] Execution failed.");
