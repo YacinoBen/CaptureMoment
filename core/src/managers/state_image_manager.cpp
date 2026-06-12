@@ -106,7 +106,7 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingIm
     }
 
     // 2. Export to CPU memory
-    auto cpu_copy_result = working_image_hw->exportToCPUCopy();
+    auto cpu_copy_result { working_image_hw->exportToCPUCopy() };
     if (!cpu_copy_result) {
         spdlog::error("[StateImageManager::commitWorkingImageToSource]: CPU export failed: {}",
                        ErrorHandling::to_string(cpu_copy_result.error()));
