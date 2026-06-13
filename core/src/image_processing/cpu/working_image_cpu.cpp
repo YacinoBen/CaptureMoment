@@ -22,9 +22,6 @@ bool WorkingImageCPU::isValid() const
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim target_height)
 {
-    // ============================================================
-    // Validate state (Utilisation directe de m_view, pas de getter)
-    // ============================================================
     if (!isValid() || m_view_data_image.working_data.empty()) {
         spdlog::warn("[WorkingImageCPU::downsample]: Image view is invalid");
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
