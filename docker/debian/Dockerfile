@@ -29,7 +29,7 @@ RUN aqt install-qt linux desktop 6.10.2 --outputdir /opt/qt -m qtdeclarative -m 
 # ==============================================================================
 # Configuration for CMake and library paths
 # ==============================================================================
-ENV CMAKE_PREFIX_PATH="/opt/exiv2;/opt/oiio"
+ENV CMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/exiv2;/opt/oiio"
 ENV LD_LIBRARY_PATH="/opt/exiv2/lib:/opt/oiio/lib"
 
 # ==============================================================================

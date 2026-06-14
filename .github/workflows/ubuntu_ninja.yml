@@ -101,7 +101,9 @@ jobs:
           --preset ${{ matrix.preset }} \
           -DBUILD_DESKTOP_UI:BOOL=ON \
           ${TESTS_FLAG} \
-          -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+          -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+          -DQt6_DIR=/opt/qt/6.10.2/gcc_64/lib/cmake/Qt6
+
 
         shell: bash
 
