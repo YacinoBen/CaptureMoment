@@ -20,7 +20,7 @@ jobs:
       packages: write
 
     outputs:
-      repo_lower: ${{ steps.lowercase_step.outputs.repo_lower }}
+      image_uri: ${{ steps.meta.outputs.tags }}
 
     steps:
       - name: Checkout
@@ -37,13 +37,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/ubuntu-gcc
+          tags: |
+            type=raw,value=latest
       - name: Build and Push the Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/debian/Dockerfile
           push: true
-          tags: ghcr.io/${{ steps.lowercase_step.outputs.repo_lower }}/ubuntu-gcc:latest
+          tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -55,7 +62,7 @@ jobs:
     if: needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped'
     runs-on: ubuntu-latest
 
-    container: ghcr.io/${{ needs.build-docker.outputs.repo_lower }}/ubuntu-gcc:latest
+    container: ${{ needs.build-docker.outputs.image_uri }}
     strategy:
       matrix:
         build-type: [Release, Debug]
