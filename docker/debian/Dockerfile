@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     libpng-dev libuhd-dev libraw-dev libopencv-core-dev libopencv-imgproc-dev \
     libjxl-dev libheif-dev libpystring-dev libtiff-dev libimath-dev \
     libopenexr-dev libopencolorio-dev \
+    libyaml-cpp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
