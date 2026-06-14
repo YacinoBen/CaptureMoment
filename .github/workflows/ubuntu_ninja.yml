@@ -102,9 +102,9 @@ jobs:
           -DBUILD_DESKTOP_UI:BOOL=ON \
           ${TESTS_FLAG} \
           -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
-          -DQt6_DIR=/opt/qt/6.10.2/gcc_64/lib/cmake/Qt6
+          -DQt6_DIR=/opt/qt/6.10.2/gcc_64/lib/cmake/Qt6 \
           -DOpenImageIO_DIR=/opt/oiio/lib/cmake/OpenImageIO \
-          -DExiv2_DIR=/opt/exiv2/lib/cmake/exiv2
+          -Dexiv2_DIR=/opt/exiv2/lib/cmake/exiv2
 
         shell: bash
 
