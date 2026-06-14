@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     libxml2-utils libz-dev zlib1g-dev libjpeg-dev libfreetype-dev \
     libpng-dev libuhd-dev libraw-dev libopencv-core-dev libopencv-imgproc-dev \
     libjxl-dev libheif-dev libpystring-dev libtiff-dev libimath-dev \
-    libopenexr-dev libopencolorio-dev libjpeg-turbo8-dev \
+    libopenexr-dev libopencolorio-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
@@ -29,6 +29,12 @@ RUN pip3 install --break-system-packages cmake aqtinstall halide
 # Install Qt framework
 # ==============================================================================
 RUN aqt install-qt linux desktop 6.10.2 --base /opt/qt -m qtshadertools
+
+# ==============================================================================
+# Configuration for CMake and library paths
+# ==============================================================================
+ENV CMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/exiv2;/opt/oiio"
+ENV LD_LIBRARY_PATH="/opt/exiv2/lib:/opt/oiio/lib"
 
 # ==============================================================================
 # Install magic_enum
@@ -53,11 +59,6 @@ RUN git clone https://github.com/Exiv2/exiv2.git /tmp/exiv2-src && \
     rm -rf /tmp/*
 
 # ==============================================================================
-# Intermediate environment setup for OpenImageIO dependencies
-# ==============================================================================
-ENV CMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/exiv2"
-
-# ==============================================================================
 # Build and install OpenImageIO
 # ==============================================================================
 RUN git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src && \
@@ -72,11 +73,5 @@ RUN git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/
     cmake --build build --parallel $(nproc) && \
     cmake --install build && \
     rm -rf /tmp/*
-
-# ==============================================================================
-# Final environment pathways for the application build
-# ==============================================================================
-ENV CMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/exiv2;/opt/oiio"
-ENV LD_LIBRARY_PATH="/opt/exiv2/lib:/opt/oiio/lib:${LD_LIBRARY_PATH}"
 
 WORKDIR /app
