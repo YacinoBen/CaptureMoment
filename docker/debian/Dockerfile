@@ -16,11 +16,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ==============================================================================
-# Upgrade package manager
-# ==============================================================================
-RUN pip3 install --upgrade --break-system-packages pip
-
-# ==============================================================================
 # Install Python core packages
 # ==============================================================================
 RUN pip3 install --break-system-packages cmake aqtinstall halide
