@@ -9,11 +9,8 @@
 
 #include "image_processing/interfaces/i_working_image_hardware.h"
 
-#include <memory>
-#include <cstddef>
-
 namespace CaptureMoment::Core {
-    
+
 namespace ImageProcessing {
 
 /**
@@ -21,11 +18,10 @@ namespace ImageProcessing {
  *
  * @details
  * This interface defines the base contract for all working image implementations
- * that store their data on the GPU. Specific GPU backend implementations
- * (e.g., Halide GPU, CUDA, OpenCL) should inherit from this interface.
- * It ensures that all GPU-based implementations provide the core functionality
- * defined by IWorkingImageHardware.
+ * that store their data on the GPU. It implements the downsample contract
+ * by delegating the math to a generic IGpuComputeBackend.
  */
+
 class WorkingImageGPU : public IWorkingImageHardware {
 public:
     /** @brief Constructor */
@@ -43,10 +39,34 @@ public:
 
     /**
      * @brief Gets the memory type where data resides.
+     * @return Common::MemoryType::GPU_MEMORY for GPU-based working images.
      */
     [[nodiscard]] Common::MemoryType getMemoryType() const override {
         return Common::MemoryType::GPU_MEMORY;
     }
+
+    /**
+     * @brief Exports current internal image data by downloading from the GPU device to Host memory.
+     *
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, CoreError>.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    exportToCPUCopy() override;
+
+
+    /**
+     * @brief Transfers the image data to GPU VRAM.
+     * @return std::expected<void, std::error_code> Success or error.
+     */
+    [[nodiscard]] virtual std::expected<void, ErrorHandling::CoreError>
+    transferToVRAM() = 0;
+
+protected:
+    /**
+     * @brief A pure method that specific backends (Halide, Vulkan, etc.) must implement.
+     * @details Its only but: force the synchronization VRAM
+     */
+    [[nodiscard]] virtual bool downloadDeviceToHost() = 0;
 };
 
 } // namespace ImageProcessing
