@@ -12,7 +12,6 @@
 #include "image_processing/common/image_view.h"
 #include <spdlog/spdlog.h>
 #include <expected>
-#include <span>
 
 namespace CaptureMoment::Core::ImageProcessing {
 
