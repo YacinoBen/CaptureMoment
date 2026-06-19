@@ -37,29 +37,11 @@ public:
      */
     [[nodiscard]] bool bindView(const ImageView& view) override;
 
-
-    /**
-     * @brief Exports current internal image data to a new CPU-based ImageRegion..
-     *
-     * @return std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
-     */
-    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
-    exportToCPUCopy() override;
-
     /**
      * @brief Checks if the CPU view AND the Halide buffer are valid.
      * @return true if both the CPU view and Halide buffer are valid.
      */
     [[nodiscard]] bool isValid() const override { return  WorkingImageCPU::isValid() && isHalideBufferValid(); };
-private:
-
-    /**
-     * @brief Helper to convert Halide buffer to ImageRegion.
-     *
-     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
-     */
-    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    convertHalideToImageRegion();
 };
 
 } // namespace ImageProcessing
