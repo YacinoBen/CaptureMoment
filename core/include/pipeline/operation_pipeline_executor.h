@@ -16,19 +16,16 @@
  * @date 2026
  */
 
-
 #pragma once
 
 #include "pipeline/interfaces/i_pipeline_executor.h"
 #include "pipeline/interfaces/i_halide_pipeline_executor.h"
-#include "image_processing/halide/working_image_halide.h"
 #include "operations/operation_descriptor.h"
 #include "operations/operation_factory.h"
 #include "common/types/memory_type.h"
 
 #include <vector>
 #include <unordered_map>
-#include <memory>
 
 namespace CaptureMoment::Core {
 
@@ -174,14 +171,7 @@ private:
      * @details
      * Called during the build phase to optimize `m_output_func`.
      */
-    void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const;
-
-    /**
-     * @brief Executes the compiled pipeline on a specific Halide backend instance.
-     * @param halide_image The Halide backend image to execute on.
-     * @return true if execution succeeded, false otherwise.
-     */
-    [[nodiscard]] bool executeOnHalideBackend(ImageProcessing::WorkingImageHalide& halide_image);
+    void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c, const Halide::Target& target) const;
 };
 
 } // namespace Pipeline
