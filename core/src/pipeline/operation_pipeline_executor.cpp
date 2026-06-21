@@ -9,6 +9,8 @@
 #include "operations/interfaces/i_operation_fusion_logic.h"
 #include "operations/operation_factory.h"
 #include "config/app_config.h"
+#include "image_processing/gpu/working_image_gpu_halide.h"
+#include "image_processing/cpu/working_image_cpu_halide.h"
 
 #include <spdlog/spdlog.h>
 
@@ -128,14 +130,11 @@ void OperationPipelineExecutor::buildOperationChain()
         }
     }
 
-    // Apply scheduling (CPU or GPU)
-    applyScheduling(output_func, x, y, c);
-
-    // Use compile_jit(target), otherwise the pipeline defaults to CPU
-    // even if gpu_tile() was applied. We must compile for the actual target.
-
     Halide::Target target { Config::AppConfig::getHalideTarget() };
     spdlog::info("OperationPipelineExecutor::buildOperationChain: Compiling for target: {}", target.to_string());
+
+    // Apply scheduling (CPU or GPU)
+    applyScheduling(output_func, x, y, c, target);
 
     try {
         // Compile JIT with the GPU target (e.g., Vulkan)
@@ -159,14 +158,15 @@ void OperationPipelineExecutor::buildOperationChain()
     }
 }
 
-void OperationPipelineExecutor::applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const
+void OperationPipelineExecutor::applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c, const Halide::Target& target) const
 {
-    if (m_backend == Common::MemoryType::GPU_MEMORY)
-    {
+        if (target.has_gpu_feature())
+        {
         spdlog::trace("OperationPipelineExecutor::applyScheduling: Applying GPU scheduling.");
         Halide::Var xo, yo, xi, yi;
         pipeline.gpu_tile(x, y, xo, yo, xi, yi, 16, 16);
-    } else
+    }
+    else
     {
         spdlog::trace("OperationPipelineExecutor::applyScheduling: Applying CPU scheduling.");
         Halide::Var var_x, var_y;
@@ -180,26 +180,37 @@ bool OperationPipelineExecutor::execute(ImageProcessing::IWorkingImageHardware& 
         return true;
     }
 
-    auto* halide_impl { dynamic_cast<ImageProcessing::WorkingImageHalide*>(&working_image) };
+    spdlog::debug("[OperationPipelineExecutor::execute]: m_chain_built: {}", m_chain_built);
 
-    if (!halide_impl) {
-        spdlog::error("OperationPipelineExecutor::execute: Provided working image is not a Halide backend.");
-        return false;
+    if (m_backend == Common::MemoryType::GPU_MEMORY)
+    {
+        auto* gpu_impl{dynamic_cast<ImageProcessing::WorkingImageGPU_Halide*>(&working_image)};
+        if (!gpu_impl) {
+            spdlog::error("[OperationPipelineExecutor::execute]: Not a GPU backend.");
+            return false;
+        }
+        if (!gpu_impl->isHalideBufferValid()) {
+            spdlog::error("[OperationPipelineExecutor::execute]: Halide buffer invalid after VRAM transfer.");
+            return false;
+        }
+        gpu_impl->resetExecutionBuffer();
+        Halide::Buffer<float>& working_buffer{gpu_impl->getExecutionBuffer()};
+        return executeOnHalideBuffer(working_buffer);
     }
-
-    return executeOnHalideBackend(*halide_impl);
-}
-
-bool OperationPipelineExecutor::executeOnHalideBackend(ImageProcessing::WorkingImageHalide& halide_image)
-{
-    if (!halide_image.isHalideBufferValid()) {
-        spdlog::error("OperationPipelineExecutor::executeOnHalideBackend: Halide buffer is undefined.");
-        return false;
+    else
+    {
+        auto* cpu_impl{dynamic_cast<ImageProcessing::WorkingImageCPU_Halide*>(&working_image)};
+        if (!cpu_impl) {
+            spdlog::error("[OperationPipelineExecutor::execute]: Not a CPU backend.");
+            return false;
+        }
+        if (!cpu_impl->isHalideBufferValid()) {
+            spdlog::error("[OperationPipelineExecutor::execute]: Halide buffer invalid.");
+            return false;
+        }
+        Halide::Buffer<float>& working_buffer{cpu_impl->getHalideBuffer()};
+        return executeOnHalideBuffer(working_buffer);
     }
-
-    Halide::Buffer<float> working_buffer { halide_image.getHalideBuffer() };
-
-    return executeOnHalideBuffer(working_buffer);
 }
 
 bool OperationPipelineExecutor::executeOnHalideBuffer(Halide::Buffer<float>& buffer)
@@ -220,8 +231,6 @@ bool OperationPipelineExecutor::executeOnHalideBuffer(Halide::Buffer<float>& buf
                      target.to_string());
 
         // 3. Execute the pipeline on the correct device (CPU or GPU)
-        // For GPU: buffer must already be on device (done in WorkingImageGPU_Halide::updateFromCPU)
-        // realize() will execute the GPU kernel
         m_pipeline.realize(buffer, target);
         return true;
     }
