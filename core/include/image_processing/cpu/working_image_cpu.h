@@ -46,6 +46,14 @@ public:
 
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) override;
+
+    /**
+     * @brief Exports current internal image data to a new CPU-based ImageRegion..
+     *
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
+    exportToCPUCopy() override;
 };
 
 } // namespace ImageProcessing
