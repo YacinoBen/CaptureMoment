@@ -73,7 +73,7 @@ WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim targ
             );
         OIIO::ImageBuf dst_buf(dst_spec, result_data.data());
 
-        if (!OIIO::ImageBufAlgo::resample(dst_buf, src_buf, true)) {
+        if (!OIIO::ImageBufAlgo::resample(dst_buf, src_buf, false)) {
             spdlog::error("[WorkingImageCPU::downsample]: OIIO resample failed: {}", OIIO::geterror());
             return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
         }
