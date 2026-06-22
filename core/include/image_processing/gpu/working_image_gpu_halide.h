@@ -103,7 +103,7 @@ private:
     void buildDownsamplePipeline();
 
     // --- GPU Memory Management ---
-    Halide::Buffer<float> m_original_halide_buffer;
+    Halide::Buffer<float> m_original_halide_buffer; ///<< Halide buffer for original data (on GPU)
 
     // --- Pipelines Halide ---
     Halide::Pipeline m_reset_pipeline; ///< Halide pipeline for resetting the working buffer from the original buffer
