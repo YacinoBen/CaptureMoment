@@ -12,7 +12,7 @@
 #pragma once
 
 #include "strategies/pipeline/interfaces/i_pipeline_manager.h"
-#include "pipeline/operation_pipeline_executor.h"
+#include "pipeline/operations/operation_pipeline_executor.h"
 #include "operations/operation_factory.h"
 #include "operations/operation_descriptor.h"
 
