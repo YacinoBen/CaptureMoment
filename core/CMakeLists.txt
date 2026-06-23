@@ -46,7 +46,9 @@ set(CORE_SOURCES
     src/serializer/operation_serialization.cpp
 
     # Pipeline
-    src/pipeline/operation_pipeline_executor.cpp
+    src/pipeline/operations/operation_pipeline_executor.cpp
+    src/pipeline/operations/operation_pipeline_executor_cpu.cpp
+    src/pipeline/operations/operation_pipeline_executor_gpu.cpp
     src/pipeline/pipeline_builder.cpp
     src/pipeline/pipeline_registry.cpp
     src/pipeline/pipeline_context.cpp
