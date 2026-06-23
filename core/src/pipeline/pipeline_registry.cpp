@@ -6,7 +6,8 @@
  */
 
 #include "pipeline/pipeline_registry.h"
-#include "pipeline/operation_pipeline_executor.h"
+#include "pipeline/operations/operation_pipeline_executor_cpu.h"
+#include "pipeline/operations/operation_pipeline_executor_gpu.h"
 #include "pipeline/pipeline_builder.h"
 
 #include <spdlog/spdlog.h>
@@ -26,10 +27,19 @@ void PipelineRegistry::registerHalideExecutors() {
     spdlog::debug("PipelineRegistry: Registering Halide operation executors");
 
     // Halide Fused Operations
-     PipelineBuilder::registerCreator(PipelineType::HalideOperation, []() {
-        return std::make_unique<OperationPipelineExecutor>();
-    });
-    spdlog::trace("PipelineRegistry: Registered HalideOperation Executor");
+    const auto backend {Config::AppConfig::instance().getProcessingBackend()};
+
+    if (backend == Common::MemoryType::GPU_MEMORY) {
+        PipelineBuilder::registerCreator(PipelineType::HalideOperation, []() {
+            return std::make_unique<OperationPipelineExecutorGPU>();
+        });
+        spdlog::trace("PipelineRegistry: Registered HalideOperation Executor (GPU)");
+    } else {
+        PipelineBuilder::registerCreator(PipelineType::HalideOperation, []() {
+            return std::make_unique<OperationPipelineExecutorCPU>();
+        });
+        spdlog::trace("PipelineRegistry: Registered HalideOperation Executor (CPU)");
+    }
 }
 
 void PipelineRegistry::registerAIExecutors() {
