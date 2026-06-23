@@ -39,14 +39,16 @@ public:
      */
     virtual ~IHalidePipelineExecutor() = default;
 
+protected:
     /**
      * @brief Executes the compiled pipeline directly on a Halide buffer.
      *
-     * @param[in,out] buffer The Halide buffer pointing to image data.
-     *                       Must be a 4-channel Float32 buffer to match `m_input`.
+     * @param[in,out] input_buffer The Halide buffer pointing to input image data.
+     *                              Must be a 4-channel Float32 buffer to match `m_input`.
+     * @param[out] output_buffer The Halide buffer pointing to output image data.
      * @return true if pipeline executed successfully.
      */
-    [[nodiscard]] virtual bool executeOnHalideBuffer(Halide::Buffer<float>& buffer) = 0;
+    [[nodiscard]] virtual bool executeOnHalideBuffer(Halide::Buffer<float>& input_buffer, Halide::Buffer<float>& output_buffer) = 0;
 
 protected:
     /**
@@ -54,7 +56,7 @@ protected:
      * @details
      * Initializes the shared ImageParam with the application standard:
      * - Type: Float(32)
-     * - Dimensions: 4 (x, y, c) where c is {R, G, B, A}
+     * - Dimensions: 3 (x, y, c) where c is {R, G, B, A}
      */
     IHalidePipelineExecutor()
         : m_input(Halide::Float(32), 3){}
