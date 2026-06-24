@@ -69,6 +69,17 @@ public:
     [[nodiscard]] Halide::Buffer<float>& getExecutionBuffer();
 
     /**
+     * @brief Checks if the original GPU buffer is valid.
+     */
+    [[nodiscard]] bool isOriginalHalideBufferValid() const { return m_original_halide_buffer.defined(); };
+
+    /**
+     * @brief Provides access to the Halide buffer containing the original image on GPU.
+     * @return Reference to the Halide::Buffer<float> used as input source.
+     */
+    [[nodiscard]] Halide::Buffer<float>& getOriginalHalideBuffer() { return m_original_halide_buffer; };
+
+    /**
      * @brief Synchronizes the GPU buffer back to Host RAM.
      * @details Called only during a "Commit" or final export to update the CPU state.
      */
