@@ -142,7 +142,7 @@ WorkingImageGPU_Halide::downsample(Common::ImageDim target_width, Common::ImageD
 
     try {
         if (m_view_data_image.width == target_width && m_view_data_image.height == target_height) {
-            return exportToCPUCopy();
+            return getFullResImage();
         }
 
         if (!m_downsample_built) {

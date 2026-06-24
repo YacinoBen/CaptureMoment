@@ -50,7 +50,7 @@ public:
      * @details Creates a deep copy of the data currently pointed to by the bound view.
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUCopy() override;
+    getFullResImage() override;
 };
 
 } // namespace ImageProcessing

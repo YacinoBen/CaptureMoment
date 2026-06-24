@@ -51,7 +51,7 @@ public:
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, CoreError>.
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUCopy() override;
+    getFullResImage() override;
 
 
     /**

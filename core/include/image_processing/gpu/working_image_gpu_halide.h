@@ -29,7 +29,7 @@ namespace ImageProcessing {
  * - Inherits WorkingImageHalide: Provides the shared Halide buffer logic.
  *
  * GPU Specifics:
- * - Manages Host-to-Device (transfertToVRAM) and Device-to-Host (exportToCPUCopy) transfers.
+ * - Manages Host-to-Device (transfertToVRAM) and Device-to-Host (getFullResImage) transfers.
  * - Uses `std::expected` for robust error reporting of GPU transfers.
  */
 class WorkingImageGPU_Halide final : public WorkingImageGPU, public WorkingImageHalide {
