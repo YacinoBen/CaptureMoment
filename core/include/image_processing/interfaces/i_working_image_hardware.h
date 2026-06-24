@@ -73,15 +73,14 @@ public:
      *
      * **Performance Note:**
      * This method involves memory allocation and data copying. For large images,
-     * prefer `exportToCPUMove()` when the working image data is no longer needed.
      *
      * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>
      *         Unique pointer to copied data on success.
      *
      * @see exportToCPUMove() For zero-copy transfer when working image can be invalidated.
      */
-    [[maybe_unused]] [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUCopy() = 0;
+    [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    getFullResImage() = 0;
 
     /**
      * @brief Exports a downscaled version of the image directly from GPU.

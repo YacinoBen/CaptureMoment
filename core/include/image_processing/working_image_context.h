@@ -91,7 +91,7 @@ public:
     /**
      * @brief Exports the WorkingImage data to CPU.
      *
-     * Calls exportToCPUCopy() on the managed WorkingImage to retrieve
+     * Calls getFullResImage()on the managed WorkingImage to retrieve
      * the processed image data.
      *
      * @return ImageRegion containing the exported data.

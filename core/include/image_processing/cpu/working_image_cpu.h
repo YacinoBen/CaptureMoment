@@ -53,7 +53,7 @@ public:
      * @return std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
      */
     [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
-    exportToCPUCopy() override;
+    getFullResImage() override;
 };
 
 } // namespace ImageProcessing

@@ -103,10 +103,10 @@ WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim targ
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-WorkingImageCPU::exportToCPUCopy()
+WorkingImageCPU::getFullResImage()
 {
    if (!isValid()) {
-        spdlog::warn("[WorkingImageCPU::exportToCPUCopy]: Current image is invalid, cannot export");
+        spdlog::warn("[WorkingImageCPU::getFullResImage]: Current image is invalid, cannot export");
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
@@ -125,16 +125,16 @@ WorkingImageCPU::exportToCPUCopy()
             return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
         }
 
-        spdlog::debug("[WorkingImageCPU::exportToCPUCopy]: Exported ImageRegion ({}x{}, {} ch)",
+        spdlog::debug("[WorkingImageCPU::getFullResImage]: Exported ImageRegion ({}x{}, {} ch)",
                       cpu_image_copy->m_width, cpu_image_copy->m_height, cpu_image_copy->m_channels);
 
         return cpu_image_copy;
 
     } catch (const std::bad_alloc& e) {
-        spdlog::critical("[WorkingImageCPU::exportToCPUCopy]: Allocation failed: {}", e.what());
+        spdlog::critical("[WorkingImageCPU::getFullResImage]: Allocation failed: {}", e.what());
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     } catch (const std::exception& e) {
-        spdlog::critical("[WorkingImageCPU::exportToCPUCopy]: Exception: {}", e.what());
+        spdlog::critical("[WorkingImageCPU::getFullResImage]: Exception: {}", e.what());
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 }

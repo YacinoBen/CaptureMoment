@@ -17,20 +17,23 @@ bool WorkingImageGPU::isValid() const
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-WorkingImageGPU::exportToCPUCopy()
+WorkingImageGPU::getFullResImage()
 {
     if (!isValid()) {
+        spdlog::warn("[WorkingImageGPU::getFullResImage]: Invalid working image. Cannot export to CPU.");
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
     // Download the GPU buffer to Host RAM (m_view_data_image.working_data)
     if (!downloadDeviceToHost()) {
+        spdlog::warn("[WorkingImageGPU::getFullResImage]: Failed to download GPU buffer to Host memory.");
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
     try {
         // Create a deep copy of the working data into a new ImageRegion
-        auto cpu_image_copy{std::make_unique<Common::ImageRegion>()};
+        auto cpu_image_copy {std::make_unique<Common::ImageRegion>()};
+
         cpu_image_copy->m_data.assign(m_view_data_image.working_data.begin(), m_view_data_image.working_data.end());
 
         cpu_image_copy->m_width = static_cast<int>(m_view_data_image.width);
@@ -43,6 +46,7 @@ WorkingImageGPU::exportToCPUCopy()
         }
 
         return cpu_image_copy;
+
     } catch (const std::bad_alloc&) {
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     } catch (const std::exception& e) {

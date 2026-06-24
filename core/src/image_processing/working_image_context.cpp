@@ -95,7 +95,7 @@ WorkingImageContext::getWorkingImageAsRegion() const
     if (!m_working_image) {
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
-    return m_working_image->exportToCPUCopy();
+    return m_working_image->getFullResImage();
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
