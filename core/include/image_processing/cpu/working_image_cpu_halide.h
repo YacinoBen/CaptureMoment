@@ -42,6 +42,21 @@ public:
      * @return true if both the CPU view and Halide buffer are valid.
      */
     [[nodiscard]] bool isValid() const override { return  WorkingImageCPU::isValid() && isHalideBufferValid(); };
+
+    /**
+     * @brief isOriginalHalideBufferValid
+     * @return true if the Halide buffer for original data is valid (defined), false otherwise.
+     */
+    [[nodiscard]] bool isOriginalHalideBufferValid() const { return m_halide_original_buffer.defined(); }
+
+    /**
+     * @brief Returns a reference to the Halide buffer for original data (on CPU).
+     * @return Reference to the Halide::Buffer<float> for original data.
+     */
+    [[nodiscard]] Halide::Buffer<float>& getOriginalHalideBuffer() { return m_halide_original_buffer; }
+
+private:
+    Halide::Buffer<float> m_halide_original_buffer; ///< Halide buffer for original data (on CPU)
 };
 
 } // namespace ImageProcessing
