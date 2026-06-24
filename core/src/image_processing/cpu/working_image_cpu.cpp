@@ -28,6 +28,7 @@ WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim targ
     }
 
     if (target_width == 0 || target_height == 0) {
+        spdlog::error("[WorkingImageCPU::downsample]: Target dimensions are invalid ({}x{})", target_width, target_height);
         return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
     }
 
@@ -57,7 +58,7 @@ WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim targ
             static_cast<int>(m_view_data_image.channels),
             OIIO::TypeDesc::FLOAT
             );
-        // On donne le pointeur brut du span directement à OIIO
+
         OIIO::ImageBuf src_buf(src_spec, m_view_data_image.working_data.data());
 
         // ============================================================
@@ -90,7 +91,6 @@ WorkingImageCPU::downsample(Common::ImageDim target_width, Common::ImageDim targ
             static_cast<int>(target_height),
             static_cast<int>(m_view_data_image.channels)
         );
-
     }
     catch (const std::bad_alloc& e) {
         spdlog::critical("[WorkingImageCPU::downsample]: Allocation failed: {}", e.what());
