@@ -211,7 +211,6 @@ void StateImageManager::launchProcessing(
 
     // 6. Get the current working image (snapshot) and pass it to the worker.
     auto working_image { m_working_image_context->getWorkingImage() };
-    m_working_image_context->resetToOriginal();
 
     // 7. Execute the processing asynchronously.
     // Note: We pass a raw reference since working_image_to_use is kept alive by m_working_image
