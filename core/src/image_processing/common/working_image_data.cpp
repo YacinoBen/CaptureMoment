@@ -20,7 +20,7 @@ WorkingImageData::WorkingImageData(std::unique_ptr<Common::ImageRegion> source)
     }
 
     auto result { initializeData(std::move(*source)) };
-    if (!result) {
+    if (!result.has_value()) {
         spdlog::error("[WorkingImageData]: Init failed: {}",
                          ErrorHandling::to_string(result.error()));
     } else {
