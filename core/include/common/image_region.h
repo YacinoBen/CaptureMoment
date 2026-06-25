@@ -119,11 +119,10 @@ struct ImageRegion {
      * @note Format defaults to PixelFormat::RGBA_F32.
      */
     ImageRegion(std::vector<float>&& data, ImageDim w, ImageDim h, ImageChan ch)
-        : m_data(std::move(data))
-        , m_width(w)
+        : m_width(w)
         , m_height(h)
-        , m_channels(ch)
-        , m_format(PixelFormat::RGBA_F32) // Default format
+        , m_channels(ch),
+        m_data(std::move(data))
     {}
 
     /**
@@ -144,11 +143,10 @@ struct ImageRegion {
      * @note Format defaults to PixelFormat::RGBA_F32.
      */
     ImageRegion(std::span<const float> data_span, ImageDim w, ImageDim h, ImageChan ch)
-        : m_data(data_span.begin(), data_span.end())
-        , m_width(w)
+        : m_width(w)
         , m_height(h)
         , m_channels(ch)
-        , m_format(PixelFormat::RGBA_F32)
+        , m_data(data_span.begin(), data_span.end())
     {}
 
     /**
@@ -168,7 +166,6 @@ struct ImageRegion {
         , m_width(w)
         , m_height(h)
         , m_channels(ch)
-        , m_format(PixelFormat::RGBA_F32) // Default format
     {}
 
     // ============================================================
