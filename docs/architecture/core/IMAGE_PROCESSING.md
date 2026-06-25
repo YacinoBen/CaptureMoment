@@ -2,160 +2,147 @@
 
 ## Overview
 
-The image processing architecture in CaptureMoment is designed to be **hardware-agnostic**, **high-performance**, and **extensible**. It abstracts the underlying hardware (CPU or GPU) behind clean interfaces, allowing the same processing pipeline to run efficiently on different platforms without code changes.
+The image processing architecture in CaptureMoment is designed to be **hardware-agnostic**, **high-performance**, and **non-destructive**. It abstracts the underlying hardware (CPU or GPU) behind clean interfaces, allowing the same processing pipeline to run efficiently on different platforms without code changes.
 
-The core innovation is the `IWorkingImageHardware` interface, which represents an image buffer that can reside in CPU RAM or GPU memory. All operations and higher-level pipelines interact with this interface, making the hardware location transparent to the processing logic.
+The core innovation revolves around the `IWorkingImageHardware` interface and the `WorkingImageContext` lifecycle manager. Data ownership is centralized in `WorkingImageData`, while hardware workers operate on zero-copy `ImageView` spans. This separation enables explicit memory control, pipeline pre-compilation, and instant non-destructive resets without re-reading source files.
+
+---
 
 ## Key Components
 
 ### 1. `IWorkingImageHardware` (Abstract Interface)
 
-This is the central abstraction that enables hardware-agnostic processing.
+This is the central abstraction that enables hardware-agnostic processing. It defines the contract for interacting with an image buffer, regardless of its physical location.
 
 **Key Methods:**
-- `virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> exportToCPUCopy() const = 0;`
-  - Creates a CPU copy of the image data for display, saving, or debugging.
-- `virtual std::expected<void, ErrorHandling::CoreError> updateFromCPU(const Common::ImageRegion& cpu_region) = 0;`
-  - Updates the working buffer from CPU data (used for initialization and loading).
+- `virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> getFullResImage() const = 0;`
+  - Creates a deep CPU copy of the full-resolution processed image data for display, saving, or committing to source.
+- `virtual bool bindView(const ImageView& view) = 0;`
+  - Attaches a non-owning view of image data (working span, original span, and dimensions) to the hardware worker. Enables zero-copy processing.
 - `virtual bool isValid() const = 0;`
-  - Checks if the buffer is valid and ready for processing.
-- `virtual std::pair<size_t, size_t> getSize() const = 0;`
-  - Returns the width and height of the image.
-- `virtual size_t getChannels() const = 0;`
-  - Returns the number of channels (e.g., 4 for RGBA).
-- `virtual size_t getDataSize() const = 0;`
-  - Returns the total number of elements (width × height × channels).
-- `virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> downsample(size_t target_width, size_t target_height) = 0;`
-  - Exports a *downscaled* version of the image directly from the hardware buffer. This is the **preferred method for display purposes** as it avoids transferring large amounts of data when only a smaller preview is needed, often performing the downsampling *on the GPU* before transfer.
+  - Checks if the buffer/view is valid and ready for processing.
+- `virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError> downsample(Common::ImageDim target_width, Common::ImageDim target_height) = 0;`
+  - Exports a downscaled version of the image. GPU implementations perform this directly on the device before transferring the small result, minimizing PCIe bandwidth.
 
-### 2. Base Classes
+### 2. `ImageView` (Zero-Copy View)
 
-#### `WorkingImageData`
+A lightweight, non-owning structure that bridges `WorkingImageContext` (data owner) and hardware workers.
 
-- **Purpose:** Base class providing raw pixel data storage (`std::unique_ptr<float[]>`) and metadata (width, height, channels, validity state `m_valid`) for all working image implementations.
-- **Responsibilities:**
-  - Manages the underlying pixel data buffer using `std::unique_ptr<float[]>` allocated via `std::make_unique_for_overwrite` to avoid zero-initialization overhead.
-  - Stores image dimensions and channel count.
-  - Maintains a `m_valid` flag indicating the state of the raw data.
-  - Provides `initializeData` for buffer setup and `getDataSpan` for safe access via `std::span`.
-
-#### `WorkingImageHalide`
-
-- **Purpose:** Base class providing shared Halide buffer (`Halide::Buffer<float>`) logic for both CPU and GPU implementations.
-- **Responsibilities:**
-  - Holds the `Halide::Buffer<float>` object.
-  - Provides `initializeHalide(std::span<float>, ...)` to create a zero-copy view of external data obtained from `WorkingImageData`.
-  - Offers specific getters for dimensions/channels based on the Halide buffer (`getSizeByHalide`, `getChannelsByHalide`, etc.).
-
-### 3. Concrete Implementations
-
-#### `WorkingImageCPU` (Concrete Base Class)
-
-- **Inherits From:** `IWorkingImageHardware`, `WorkingImageData`
-- **Purpose:** Concrete base class for CPU-specific implementations, combining the hardware interface with raw data management.
-
-#### `WorkingImageCPU_Halide`
-
-- **Inherits From:** `WorkingImageCPU`, `WorkingImageHalide`
-- **Backend:** CPU using Halide buffers.
-- **Storage:** Raw data managed by `WorkingImageData`, Halide buffer view managed by `WorkingImageHalide`.
-- **Performance:** Optimized for CPU parallelism using Halide's vectorization and tiling.
-- **Use Case:** Default backend, fallback when GPU is unavailable or slower.
-
-#### `IWorkingImageGPU` (Abstract Interface)
-
-- **Inherits From:** `IWorkingImageHardware`, `WorkingImageData`
-- **Purpose:** Abstract interface for GPU-specific implementations, combining the hardware interface with raw data management.
-
-#### `WorkingImageGPU_Halide`
-
-- **Inherits From:** `IWorkingImageGPU`, `WorkingImageHalide`
-- **Backend:** GPU using Halide with GPU scheduling.
-- **Storage:** Raw data managed by `WorkingImageData`, Halide buffer view managed by `WorkingImageHalide`. The buffer is scheduled to reside in GPU memory.
-- **Performance:** Leverages GPU parallelism for compute-intensive operations.
-- **Use Case:** Primary backend when GPU benchmarking shows performance advantage.
-- **`downsample` Implementation:** Performs the downsampling operation directly on the GPU using a dedicated Halide pipeline before transferring only the smaller result to the CPU.
-
-### 4. `WorkingImageFactory` (Factory Pattern)
-
-This factory encapsulates the creation logic for `IWorkingImageHardware` instances.
-
-**Key Method:**
 ```cpp
-static std::unique_ptr<IWorkingImageHardware> create(
-    Common::MemoryType backend,
-    const Common::ImageRegion& source_image
-);
-```
-
-
-**Benefits:**
-* **Single Responsibility:** Centralizes creation logic.
-* **No Duplication:** Both StateImageManager and PhotoTask use the same factory.
-* **Easy Testing:** Mock implementations can be injected for unit tests.
-
-### 5. Backend Selection System
-**MemoryType (Enum)**. Defines the available memory types:
-* CPU_RAM: Process on CPU.
-* GPU_MEMORY: Process on GPU.
-
-#### AppConfig (Singleton)
-Stores the selected backend globally:
-```cpp
-class AppConfig {
-public:
-    static AppConfig& instance();
-    void setProcessingBackend(Common::MemoryType backend);
-    Common::MemoryType getProcessingBackend() const;
+struct ImageView {
+    std::span<float> working_data;        ///< Mutable span for processing
+    std::span<const float> original_data; ///< Const span for non-destructive reset
+    Common::ImageDim width{0};
+    Common::ImageDim height{0};
+    Common::ImageChan channels{0};
 };
 ```
 
-#### BenchmarkingBackendDecider
-Performs runtime benchmarking to determine the optimal backend:
-Priority Order:
-* **Hardware-Specific:** CUDA (for NVIDIA GPUs)
-* **OS-Specific:** DirectX12 (Windows), Metal (macOS)
-* **Cross-Platform:** Vulkan (Windows, Linux, Android)
-* **Fallback/Legacy:** OpenCL (widely supported but often slower)
+- **Purpose:** Eliminates data duplication. Hardware backends bind to these spans once during initialization, and all subsequent operations read/write directly to the shared memory.
 
-##### Benchmark Logic:
-Tests each supported backend in priority order.
-Compares execution time against CPU baseline.
-Applies a 10% margin to favor CPU when differences are negligible (to avoid GPU memory transfer overhead).
-Stores the result in AppConfig for the entire application lifecycle.
+### 3. Base Classes
 
-### 6. Integration with Higher-Level Components
-**Operation Execution:**
+#### `WorkingImageData`
 
-Operations accept **IWorkingImageHardware&** the concrete implementations (e.g.,**WorkingImageCPU_Halide**,**WorkingImageGPU_Halide**) to perform their calculations, often leveraging the **Halide::Buffer<float>** obtained via **getHalideBuffer()** (which comes from **WorkingImageHalide**).
+- **Purpose:** Owns the CPU RAM buffers and manages image metadata.
 
-**Pipeline Integration:**
-Higher-level pipeline executors (like **OperationPipelineExecutor**) receive an **IWorkingImageHardware&**, perform a dynamic_cast to determine the concrete type (e.g., **WorkingImageCPU_Halide**** or **WorkingImageGPU_Halide***), and then call methods like isValid, getSize, getChannels on the concrete object. They then cast the object to WorkingImageHalide& to access getHalideBuffer() for binding to the Halide pipeline.
+- **Responsibilities:**
+  - Maintains `std::vector<float> m_data` (working buffer) and `std::vector<float> m_original_data` (source cache).
+  - Provides `initializeData(Common::ImageRegion&&)` for setup and `restoreOriginalData()` (via `std::ranges::copy`) for instant non-destructive resets.
+  - Exposes accessors: `getWorkingDataSpan()`, `getOriginalDataSpan()`, `getWidth()`, `getHeight()`, `getChannels()`, `isValid()`
 
-This interaction relies heavily on the methods defined in WorkingImageHalide and WorkingImageData, demonstrating how the architecture separates data management and Halide-specific logic into reusable base classes.
+#### `WorkingImageHalide`  (Shared Halide Logic)
+
+- **Purpose:**Provides common Halide buffer functionality for both CPU and GPU implementations.
+- **Responsibilities:**
+  - Holds `Halide::Buffer<float>`.
+  - `initializeHalide(std::span<float>, ...)` creates a zero-copy Halide view over external memory.
+  - `isHalideBufferValid()` checks buffer definition state.
+
+### 4. Concrete Implementations
+
+#### `WorkingImageCPU` & `WorkingImageCPU_Halide`
+
+- **Inherits From:** `WorkingImageCPU_Halide` → `WorkingImageCPU` → `IWorkingImageHardware` + `WorkingImageData` + `WorkingImageHalide`
+- **Purpose:**  Default fallback backend. Data is bound directly to CPU RAM via `bindView()`.
+
+**Key Additions:**
+  - `getOriginalHalideBuffer()` & `isOriginalHalideBufferValid()`: Expose the original data buffer for non-destructive pipeline execution.
+  - CPU scheduling uses optimized split/parallel/vectorize directives.
+
+#### `WorkingImageCPU_Halide` & `WorkingImageGPU_Halide`
+- **Inherits From:** `WorkingImageGPU_Halide` → `WorkingImageGPU` → `IWorkingImageHardware` + `WorkingImageData` + `WorkingImageHalide`
+- **Purpose:** High-performance GPU backend with explicit VRAM management.
+**Key Additions:**
+  - `transferToVRAM()`: Pre-compiles and caches Halide pipelines (`m_reset_pipeline`, `m_downsample_pipeline`) for GPU execution.
+  - `resetExecutionBuffer()`: Restores GPU working buffer from original buffer via cached pipeline.
+  - `getExecutionBuffer()`: Returns reference to GPU buffer for direct pipeline realization.
+  - `syncToHostRAM()`: Forces explicit GPU→CPU synchronization.
+  - `downloadDeviceToHost()`: Protected method for backend-specific transfer logic.
+  - `downsample`: Uses pre-compiled Catmull-Rom cubic resampling pipeline with GPU tiling.
+
+### 5. Lifecycle & Factory Management
+
+#### `WorkingImageFactory` (Registry Pattern)
+
+- **Responsibility:** Creates empty hardware abstractions based on `AppConfig` backend settings.
+- **Signature Change:** Creator functions are now parameterless: `std::function<std::unique_ptr<IWorkingImageHardware>()>`.
+- **Impact:** Decouples object instantiation from data management. The factory returns an uninitialized worker; data binding happens later via `bindView()`.
 
 
-### 7. UI Integration
-The UI layer remains completely unaware of the hardware abstraction:
-* **PhotoEngine::getWorkingImageAsRegion():** Exports the current working image to CPU for display using exportToCPUCopy() or the optimized downsample() method.
-* **DisplayManager:** Receives ImageRegion objects and handles downsampling/zoom/pan. It can now preferentially use downsample() from IWorkingImageHardware for efficiency.
-* **Rendering Items:** Work exclusively with CPU data (ImageRegion).
-This ensures the UI code stays simple and focused on presentation logic.
-#### Performance Considerations (UI):
-The downsample method on IWorkingImageHardware implementations (especially WorkingImageGPU_Halide) performs the downsampling operation on the hardware (GPU) before transferring only the smaller result to the CPU, significantly reducing transfer time for display previews.
+#### `WorkingImageContext` (Context Pattern)
+- Responsibility: Central coordinator for the image processing lifecycle.
+- Workflow in `prepare()`:
+  1. Creates `WorkingImageData` (owns CPU RAM).
+  2. Creates hardware worker via ``WorkingImageFactory`.
+  3. Constructs  `ImageView` from owned data.
+  4. Calls  `worker->bindView(view)` to attach zero-copy spans.
+- Non-Destructive Reset: `resetToOriginal()` calls `WorkingImageData::restoreOriginalData()`. Changes are instantly visible to the bound hardware worker via shared `std::span`.
 
-#### Extensibility
-##### Adding New Backends
-To add a new backend (e.g., CUDA native, OpenCV):
-* Create a new class implementing **IWorkingImageHardware**.
-* Consider inheriting from **WorkingImageData** and/or **WorkingImageHalide** if the new backend shares similar data management or Halide integration patterns.
-* Add the backend to **WorkingImageFactory::create()**.
-* Update BenchmarkingBackendDecider to include the new backend in its priority order.
+### 6. Pipeline Execution Architecture
+#### `OperationPipelineExecutor` (Abstract Base)
+- **Role:** Defines contract for fused Halide pipeline execution.
+- **Key Methods:**
+  - **init(operations, factory)**: Builds and compiles the fused graph.
+  - **updateRuntimeParams(operations)**: Updates `Halide::Param<float>` values without recompilation.
+  - **executeOnHalideBuffer(input, output)**: Executes pipeline with separate input and output buffers, enabling non-destructive processing and dimension-changing operations.
 
-##### Operation Implementation
-Operations can choose their level of backend integration:
-* **Generic Approach:** Use **exportToCPUCopy()** and **updateFromCPU()** for maximum compatibility.
-* **Optimized Approach:** Cast to specific implementations (e.g., **WorkingImageCPU_Halide**, **WorkingImageGPU_Halide**) for direct buffer access and performance, leveraging the **Halide::Buffer<float>** provided by **WorkingImageHalide**.
+#### Backend-Specific Executors
+- **OperationPipelineExecutorCPU:** Applies CPU scheduling (`split(y, yo, yi, 32).parallel(yo).vectorize(x, 8)`). Retrieves original/working buffers from `WorkingImageCPU_Halide`.
+- **OperationPipelineExecutorGPU:** Applies GPU scheduling via `gpu_tile()` when `target.has_gpu_feature()` is true. Calls `resetExecutionBuffer()` before execution.
+- **Selection:** `PipelineRegistry::registerHalideExecutors()` queries `AppConfig::getProcessingBackend()` at startup and registers the appropriate executor with PipelineBuilder.
+
+
+### 7. Backend Selection System
+#### `AppConfig` (**Singleton**)
+Stores the selected backend globally: **CPU_RAM** or **GPU_MEMORY**.
+
+#### `BenchmarkingBackendDecider`
+Performs runtime benchmarking at application startup to determine optimal backend:
+- Tests supported backends against CPU baseline.
+- Applies a performance margin to avoid GPU overhead for negligible gains.
+- Stores result in `AppConfig` for the entire lifecycle.
+
+### 8. UI Integration & Performance Considerations
+The UI layer remains completely unaware of hardware specifics:
+- **PhotoEngine::getWorkingImageAsRegion():** Calls `getFullResImage()` on the active hardware worker to export processed data to CPU.
+- **DisplayManager:** Receives `ImageRegion` objects, handles zoom/pan, and preferentially requests downscaled previews via `IWorkingImageHardware::downsample()`.
+- **Rendering Items:** Work exclusively with CPU ImageRegion data.
+
+#### Performance Benefits (UI)
+GPU `downsample()` executes entirely on the device, transferring only the small result buffer to RAM. This drastically reduces PCIe traffic and enables smooth, real-time zoom/pan interactions even with 50MP+ source files. CPU `downsample()` uses `OIIO::ImageBufAlgo::resample` with optimized tiling for quality and speed.
+
+### 9. Extensibility Guide
+#### Adding a New Backend
+1. Create a new class inheriting from `IWorkingImageHardware` (and optionally `WorkingImageData`/`WorkingImageHalide`).
+2. Implement `bindView()`, `getFullResImage()`, `isValid()`, and `downsample()` on GPU.
+3. Register a creator lambda in `WorkingImageRegistration::registerDefaultBackends()`.
+4. Update `BenchmarkingBackendDecider` to include it in priority order.
+
+#### Adding a New Operation
+1. Implement `IOperationFusionLogic` and define `appendToFusedPipeline()`.
+2. Register in `OperationRegistry::registerAll()`.
+3. The fused pipeline system automatically integrates it without modifying executor logic.
 
 
 ## GPU Backend Requirements

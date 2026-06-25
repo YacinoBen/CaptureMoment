@@ -8,9 +8,9 @@ The CaptureMoment core library is designed with modularity, high performance, an
 
 A fundamental principle of this architecture is the segregation of data storage from processing logic. Core data structures are kept simple and easy to handle:
 
-* **`CaptureMoment::Core::Common::ImageRegion`**: A Plain Old Data (POD) struct representing a rectangular region of an image. It holds raw pixel data (`std::vector<float>`), dimensions (`m_width`, `m_height`), channel count (`m_channels`), and coordinates (`m_x`, `m_y`). Designed as a value type for efficient copying/moving by value (e.g., returning from a SourceManager), although deep copies of `m_data` are expensive. Prefer passing by `std::span<float>` in algorithms that only read data. Includes `isValid()` for overflow-safe integrity checks.
+* **`CaptureMoment::Core::Common::ImageRegion`**: A Plain Old Data (POD) struct representing a rectangular region of an image. It holds raw pixel data (`std::vector<float>`), dimensions (`m_width`, `m_height`), channel count (`m_channels`), and coordinates (`m_x`, `m_y`). Designed as a value type for efficient copying/moving by value. Includes `isValid()` for overflow-safe integrity checks and safe accessors (`width()`, `height()`, `channels()`). Provides `getBuffer()` returning `std::span<float>` for zero-copy algorithm access. Includes a dedicated constructor `ImageRegion(std::span<const float>, ImageDim, ImageDim, ImageChan)` for efficient creation from non-owning views.
 
-* **`CaptureMoment::Core::Operations::OperationDescriptor`**: A POD struct holding parameters for a single operation instance (e.g., `OperationType`, `OperationParams`, `uint64_t id`). It acts as a configuration snapshot passed to `IOperation` implementations. Designed as a value type for easy storage and transmission.
+* **`CaptureMoment::Core::Operations::OperationDescriptor`**: A POD struct holding parameters for a single operation instance (e.g., `OperationType`, `OperationParams`, `uint64_t id`). It acts as a configuration snapshot passed to `IOperation` implementations. Designed as a value type for easy storage and transmission. The `id` field provides a stable, unique key for pipeline caching and structural change detection.
 
 * **`CaptureMoment::Core::Common::OperationParams`**: A POD struct containing the specific parameters for an operation (e.g., `float brightness`, `float contrast`).
 
@@ -29,7 +29,7 @@ The core functionality is split into specialized components: Managers handle res
   * **Testability:** Mock implementations of `ISourceManager` can be used for unit tests.
   * **Abstraction:** The rest of the application is insulated from OIIO's specific complexities.
 
-* **Implementation (`SourceManager`):** The concrete implementation uses industry-standard tools like OpenImageIO (OIIO) to handle diverse file formats and efficient caching via `OIIO::ImageBuf` and `OIIO::ImageCache rest of the application from OIIO's specific complexities.
+* **Implementation (`SourceManager`):** The concrete implementation uses industry-standard tools like OpenImageIO (OIIO) to handle diverse file formats and efficient caching via `OIIO::ImageBuf` and `OIIO::ImageCache`, insulating the rest of the application from OIIO's specific complexities.
 
 ---
 
@@ -49,24 +49,31 @@ The core functionality is split into specialized components: Managers handle res
 * **Memory Management**: Uses `std::unique_ptr<float[]>` (allocated via `std::make_unique_for_overwrite`) as backing store for Halide buffers, enabling in-place modifications without unnecessary copies and avoiding zero-initialization overhead during allocation.
 * **Pattern Explanation (Template Method):** Defines common steps for buffer creation and management, allowing subclasses to customize specific parts (e.g., GPU buffer allocation/deallocation).
 
-### `CaptureMoment::Core::ImageProcessing::WorkingImageData` (Base Class)
+### `CaptureMoment::Core::ImageProcessing::WorkingImageData` (Central Data Owner)
 
-*   **Raw Data Storage**: Provides the underlying `std::unique_ptr<float[]>` (`m_data`) and metadata (`m_width`, `m_height`, `m_channels`, `m_valid`) for CPU and GPU implementations.
-*   **Common Types**: Uses `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize` for its members.
-*   **Initialization Logic**: Contains the `initializeData` method, which handles the allocation and copying of pixel data from an `ImageRegion`, and sets the metadata.
-*   **State Management**: The `m_valid` flag is managed here and used by derived classes to determine the overall validity state.
+* **Raw Data Storage**: Provides the underlying `std::vector<float>` (`m_data` for working buffer, `m_original_data` for source cache) and metadata (`m_width`, `m_height`, `m_channels`, `m_valid`) for CPU and GPU implementations.
+* **Common Types**: Uses `Common::ImageDim`, `Common::ImageChan`, `Common::ImageSize` for its members.
+* **Initialization Logic**: Contains the `initializeData(Common::ImageRegion&&)` method, which handles the allocation and copying of pixel data from an `ImageRegion` using move semantics, and sets the metadata.
+* **State Management**: The `m_valid` flag is managed here and used by derived classes to determine the overall validity state. Provides `restoreOriginalData()` to copy `m_original_data` back to `m_data` using `std::ranges::copy`.
+
+### `CaptureMoment::Core::ImageProcessing::ImageView` (Zero-Copy View)
+
+* **Role**: Lightweight, non-owning structure containing `std::span<float>` for working data, `std::span<const float>` for original data, and geometry metadata.
+* **Purpose**: Enables efficient binding of external memory (from `WorkingImageContext`) to hardware workers without transferring ownership or copying data.
 
 ### WorkingImage Refactoring
 
-* **New Base Classes:** Introduced `WorkingImageData` (for raw data and metadata) and `WorkingImageHalide` (for shared Halide logic).
-* **Hierarchical Structure:** Concrete implementations like `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide` now inherit from specific base classes (`WorkingImageCPU`/`IWorkingImageGPU`) which themselves inherit from `IWorkingImageHardware` and `WorkingImageData`. They also inherit from `WorkingImageHalide`.
-* **Unified Buffer Initialization:** `WorkingImageHalide::initializeHalide` now accepts a `std::span<float>` for safer and more flexible buffer view creation.
+* **New Base Classes & Architecture**: Introduced `WorkingImageData` (for raw data and metadata) and `WorkingImageHalide` (for shared Halide logic). `IWorkingImageHardware` now exposes `bindView(const ImageView&)` to attach data views instead of passing `ImageRegion` at construction.
+* **Hierarchical Structure**: Concrete implementations like `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide` now inherit from specific base classes (`WorkingImageCPU`/`WorkingImageGPU`) which themselves inherit from `IWorkingImageHardware`, `WorkingImageData`, and `WorkingImageHalide`.
+* **Unified Buffer Initialization**: `WorkingImageHalide::initializeHalide` now accepts a `std::span<float>` for safer and more flexible buffer view creation.
+* **Method Updates**: `exportToCPUCopy()` has been renamed to `getFullResImage()` for semantic clarity. `updateFromCPU()` has been replaced by `transferToVRAM()` for GPU and removed for CPU backends (data is now bound directly via views).
 
 ### `CaptureMoment::Core::ImageProcessing::WorkingImageFactory` (Factory & Registry Pattern)
 
 This factory encapsulates the logic for creating the appropriate `IWorkingImageHardware` implementation based on the configured backend.
 
 * **Responsibility:** Centralize creation logic to avoid duplication in `StateImageManager` and `PhotoTask`.
+* **Signature:** Creator functions now return empty hardware objects (`std::function<std::unique_ptr<IWorkingImageHardware>()>`). Data binding is deferred to `WorkingImageContext::prepare()` which calls `bindView()` after instantiation.
 
 ---
 
@@ -81,15 +88,16 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 
 ### Operation Fusion Logic Update
 
-* **Halide Parameters:** Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates.
+* **Halide Parameters:** Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates without recompilation.
+* **Interface Consolidation:** All basic operations now inherit exclusively from `IOperationFusionLogic`. Legacy `execute(IWorkingImageHardware&, const OperationDescriptor&)` and `executeOnImageRegion(...)` have been removed from core operations to enforce fusion-first execution.
 
-### Dynamic Input Binding Correction
+### Dynamic Input/Output Binding Correction
 
 * **Problem:** An earlier version of `OperationPipelineExecutor` attempted to statically compile the entire Halide pipeline, including the input node, leading to incorrect execution where the input buffer was not properly linked during runtime.
-* **Solution:** The pipeline execution was corrected to bind the input `IWorkingImageHardware` buffer dynamically at runtime before running the compiled pipeline.
+* **Solution:** The pipeline execution was corrected to bind the input `IWorkingImageHardware` buffer dynamically at runtime before running the compiled pipeline. `IHalidePipelineExecutor::executeOnHalideBuffer` now accepts separate `input_buffer` and `output_buffer` parameters.
 * **Impact:**
   * **Correctness:** Ensures the pipeline operates on the intended image data.
-  * **Flexibility:** Allows the same compiled pipeline to process different image instances.
+  * **Flexibility:** Allows the same compiled pipeline to process different image instances or perform non-destructive transformations with different output dimensions.
 
 ### Pipeline Executor Interaction
 
@@ -108,8 +116,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 
 * **Why Value Type?** It acts as a configuration snapshot. The `OperationPipeline` uses this descriptor to instruct the `OperationFactory` what to create and what parameters to apply, keeping the engine itself free from hard-coded operation logic.
 
-* **Sequential vs Fused**: Operations maintain both `execute` (for sequential processing) and `appendToFusedPipeline` (for pipeline fusion) methods.
-* **[[maybe_unused]]**: Sequential `execute` methods are marked as unused when primarily using fused execution.
+* **Sequential vs Fused**: Operations now rely exclusively on `appendToFusedPipeline()` for fused execution. `ISingleOperation` provides `execute()` as a fallback for debugging or standalone execution when fusion is not applicable.
 
 ---
 
@@ -154,13 +161,11 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Problem:** Efficiently handling large image buffers without excessive copying or unnecessary initialization.
 * **Solution:**
   * Use `std::span<float>` for non-owning views of data, minimizing copies when passing buffers to algorithms (like Halide).
-  * Use `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` for owning allocations (e.g., in `WorkingImageHalide`), avoiding zero-initialization overhead for large buffers that are immediately filled.
+  * Use `std::vector<float>` for owning allocations in `WorkingImageData`, leveraging RAII and automatic memory management.
   * Use move semantics (`std::move`) for transferring ownership of large objects like `std::vector` or `ImageRegion` between functions/components.
 * **Impact:**
   * **Performance:** Reduces allocation time and memory bandwidth usage.
   * **Safety:** RAII and smart pointers prevent leaks.
-
-* **Memory Allocation:** `WorkingImageHalide` uses `std::unique_ptr<float[]>` with `std::make_unique_for_overwrite` to avoid zero-initialization overhead during large buffer allocation.
 
 ---
 
@@ -176,12 +181,12 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 
 ## 11. Performance Optimization Techniques
 
-* **Zero-Copy Processing:** `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::unique_ptr<float[]>` and `Halide::Buffer`.
+* **Zero-Copy Processing:** `WorkingImageHalide` base class eliminates unnecessary data copying by sharing memory between `std::vector<float>` and `Halide::Buffer`.
 * **In-Place Processing:** Halide buffers operate directly on shared data vectors, eliminating redundant copies.
 * **Optimized Scheduling:** Pipeline fusion creates single computational passes instead of multiple sequential operations.
 * **Backend Selection:** Runtime benchmarking automatically determines optimal CPU/GPU usage.
-* **Pipeline Fusion Optimization:** Fused Execution: Operations now support both sequential (`execute`) and fused (`appendToFusedPipeline`) execution patterns.
-* **Hardware-Accelerated Downsampling:** The `IWorkingImageHardware::downsample` method allows generating display-sized images efficiently, potentially on the GPU.
+* **Pipeline Fusion Optimization:** Fused Execution: Operations support only fused (`appendToFusedPipeline`) execution patterns.
+* **Hardware-Accelerated Downsampling:** The `IWorkingImageHardware::downsample` method allows generating display-sized images efficiently, potentially on the GPU. CPU implementation uses `OIIO::ImageBufAlgo::resize` with optimized tiling (`split(y, yo, yi, 32).parallel(yo).vectorize(x, 8)`).
 
 ---
 
@@ -192,6 +197,7 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
   * `StateImageManager` acts as the single authority for the current "working image".
   * Operations modify the image *in-place* on the `IWorkingImageHardware` managed by `WorkingImageContext`.
   * Explicit synchronization points (e.g., waiting on futures from `PhotoEngine::applyOperations`) ensure operations complete before dependent actions begin.
+  * `WorkingImageData` maintains a cached original buffer (`m_original_data`) enabling `restoreOriginalData()` without re-reading from disk.
 * **Impact:**
   * **Clarity:** Clear ownership and modification points.
   * **Consistency:** Ensures the displayed or saved image reflects the latest applied operations.
@@ -223,8 +229,8 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 - **`CaptureMoment::Core::Managers`**: Contains resource managers like `StateImageManager`, `SourceManager`.
 - **`CaptureMoment::Core::Operations`**: Contains operation logic and descriptors.
 - **`CaptureMoment::Core::Factories`**: Contains factory classes like `OperationFactory`.
-- **`CaptureMoment::Core::ImageProcessing`**: Contains image buffer abstractions (`IWorkingImageHardware`, `WorkingImageData`, `WorkingImageHalide`) and processing helpers.
-- **`CaptureMoment::Core::Pipeline`**: Contains pipeline fusion and execution logic (`IPipelineExecutor`, `PipelineContext`).
+- **`CaptureMoment::Core::ImageProcessing`**: Contains image buffer abstractions (`IWorkingImageHardware`, `ImageView`, `WorkingImageData`, `WorkingImageHalide`) and processing helpers.
+- **`CaptureMoment::Core::Pipeline`**: Contains pipeline fusion and execution logic (`IPipelineExecutor`, `OperationPipelineExecutor`, `OperationPipelineExecutorCPU`, `OperationPipelineExecutorGPU`, `PipelineContext`, `PipelineRegistry`).
 - **`CaptureMoment::Core::Strategies`**: Contains high-level processing strategies (`IPipelineManager`).
 - **`CaptureMoment::Core::Workers`**: Contains asynchronous processing workers (`IWorkerRequest`).
 - **`CaptureMoment::Core::Serialization`**: Contains serialization/deserialization logic (`FileSerializerManager`, `OperationSerialization`).
@@ -248,8 +254,9 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 
 ### Pipeline Management Refactoring
 
-- **Global Registry Pattern**: Introduced `PipelineBuilder` (global registry) and `PipelineRegistry` for flexible executor creation. `PipelineContext` triggers global registration.
+- **Global Registry Pattern**: Introduced `PipelineBuilder` (global registry) and `PipelineRegistry` for flexible executor creation. `PipelineRegistry::registerHalideExecutors()` queries `AppConfig::getProcessingBackend()` and registers either `OperationPipelineExecutorCPU` or `OperationPipelineExecutorGPU`.
 - **Strategy Pattern**: Introduced `IPipelineManager` and `PipelineHalideOperationManager` to control the execution strategy of operation pipelines, allowing for different approaches (e.g., fused vs. sequential) based on requirements.
+- **PipelineExecutor Split**: `OperationPipelineExecutor` is now an abstract base class. `applyScheduling()` and backend-specific execution logic are delegated to `OperationPipelineExecutorCPU` and `OperationPipelineExecutorGPU`. Scheduling uses `target.has_gpu_feature()` for adaptive compilation.
 
 - **Global Builder Usage**: `PipelineContext` uses `PipelineBuilder::build()` to create the appropriate `IPipelineExecutor`.
 
@@ -284,7 +291,7 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
   * **Core Integration:** The Core's `StateImageManager` and `PhotoEngine` now expose a new method `getDownsampledDisplayImage(width, height)`. `StateImageManager` delegates this call to `WorkingImageContext::getDownsampled` (renamed from `downsample` for clarity), which in turn invokes the `downsample` method on the active `IWorkingImageHardware` implementation.
   * **UI Decoupling:** The `PhotoEngine` serves as the primary entry point for the UI layer (`ImageControllerBase`) to request a display-ready, downsampled image. `ImageControllerBase` calls `m_engine->getDownsampledDisplayImage(...)` and receives the result (as `std::unique_ptr<Common::ImageRegion>`), which it then passes to the `DisplayManager`. This cleanly separates the Core's processing responsibilities from the UI's display management.
   * **Performance:** For GPU implementations (`WorkingImageGPU_Halide`), this means the downsampling operation can be performed *directly on the GPU* using a specialized Halide pipeline before the smaller result buffer is transferred back to the CPU. This drastically reduces the amount of data transferred over the PCIe bus compared to transferring the full-resolution image and downsampling it on the CPU, leading to smoother UI interactions.
-  * **Quality:** The CPU-side implementation (`WorkingImageCPU`) was also refined to use `OIIO::ImageBufAlgo::resize` (Lanczos3 filter) instead of `OIIO::ImageBufAlgo::resample` (bilinear), improving the visual quality of CPU-based downsampling.
+  * **Quality:** The CPU-side implementation (`WorkingImageCPU`) was refined to use `OIIO::ImageBufAlgo::resample` with interpolate = false.
 
 ---
 
@@ -316,18 +323,13 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 
 ---
 
-### Renaming and Refactoring in Processing Components
-
-- **`WorkingImageContext::downsample` renamed:** The method `downsample` within `WorkingImageContext` was renamed to `getDownsampled`. While still performing a computation, this name better reflects its role as a provider of a new, downsampled image region, aligning with the common getter naming convention.
-- **`WorkingImageCPU::downsample` optimization:** The CPU-side downsampling implementation in `WorkingImageCPU::downsample` was updated. It now utilizes `OIIO::ImageBufAlgo::resize` instead of `OIIO::ImageBufAlgo::resample`. This change leverages a higher-quality filtering algorithm (Lanczos3 by default) instead of simple bilinear interpolation, resulting in visually superior downsampled images on the CPU.
-
 ---
 
 ### `CaptureMoment::Core::Managers::StateImageManager` (Centralized Management)
 
 * **Ownership of SourceManager:** Now owns `m_source_manager` exclusively, decoupling `PhotoEngine` from direct I/O concerns.
 * **Delegated Responsibilities:** Acts as a coordinator between `SourceManager`, `PipelineContext`, and `WorkerContext`, preparing data and delegating execution.
-* **Enhanced Interface:** Provides methods like `loadImage`, `commitWorkingImageToSource`, and getters for source image properties (`width`, `height`, `channels`).
+* **Enhanced Interface:** Provides methods like `loadImage`, `commitWorkingImageToSource`, and getters for source image properties (`width`, `height`, `channels`). `launchProcessing()` no longer manually resets or updates the context; data management is fully encapsulated within `WorkingImageContext`.
 
 ---
 
@@ -358,7 +360,7 @@ The core library includes a flexible system for saving and loading the state of 
 
 ### Dynamic Binding Correction
 
-- **Dynamic Binding Correction**: Fixed pipeline execution to correctly bind input buffers at runtime, resolving issues with static compilation.
+- **Dynamic Binding Correction**: Fixed pipeline execution to correctly bind input buffers at runtime, resolving issues with static compilation. `IHalidePipelineExecutor::executeOnHalideBuffer` now accepts distinct `input_buffer` and `output_buffer` parameters, enabling non-destructive processing and dimension-changing operations.
 
 ---
 
@@ -376,16 +378,16 @@ The core library includes a flexible system for saving and loading the state of 
 This interface represents an image used as a working buffer, abstracting its hardware location (CPU RAM or GPU memory).
 
 * **Key Methods:**
-  * `exportToCPUCopy()`: Creates a CPU copy of the image data for display or saving.
-  * `updateFromCPU(const ImageRegion&)`: Updates the working buffer from CPU data.
-  * `isValid()`: Checks if the buffer is valid.
+  * `getFullResImage()`: Creates a CPU copy of the full-resolution image data for display or saving.
+  * `bindView(const ImageView&)`: Attaches a non-owning data view to the hardware worker for zero-copy processing.
   * `downsample(target_width, target_height)`: Generates a downsampled version of the image, potentially on the GPU.
+  * `isValid()`: Checks if the buffer is valid.
 
-* **`WorkingImageGPU_Halide`**: Concrete implementation inheriting from `IWorkingImageGPU` and `WorkingImageHalide`. Combines GPU-specific logic (device transfers), raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`).
+* **`WorkingImageGPU_Halide`**: Concrete implementation inheriting from `WorkingImageGPU` and `WorkingImageHalide`. Combines GPU-specific logic (device transfers), raw data management (`WorkingImageData`), and Halide buffer logic (`WorkingImageHalide`). Exposes `getOriginalHalideBuffer()`, `getExecutionBuffer()`, `resetExecutionBuffer()`, and `syncToHostRAM()` for explicit pipeline control.
 
 ---
 
-- **Hierarchical Structure:** Concrete implementations like `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide` now inherit from specific base classes (`WorkingImageCPU`/`IWorkingImageGPU`) which themselves inherit from `IWorkingImageHardware` and `WorkingImageData`. They also inherit from `WorkingImageHalide`.
+- **Hierarchical Structure:** Concrete implementations like `WorkingImageCPU_Halide` and `WorkingImageGPU_Halide` now inherit from specific base classes (`WorkingImageCPU`/`WorkingImageGPU`) which themselves inherit from `IWorkingImageHardware`, `WorkingImageData`, and `WorkingImageHalide`.
 - **Unified Buffer Initialization:** `WorkingImageHalide::initializeHalide` now accepts a `std::span<float>` for safer and more flexible buffer view creation.
 
 ---
