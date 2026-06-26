@@ -29,11 +29,6 @@
 #include "image_processing/interfaces/i_working_image_hardware.h"
 
 /**
- * @brief Specific interface for GPU-based image buffers.
- */
-#include "image_processing/gpu/interfaces/i_working_image_gpu.h"
-
-/**
  * @brief Interface for backend selection strategies.
  */
 #include "image_processing/interfaces/i_backend_decider.h"
@@ -54,6 +49,12 @@
  */
 #include "image_processing/cpu/working_image_cpu.h"
 
+
+/**
+ * @brief Specific class for GPU-based image buffers.
+ */
+#include "image_processing/gpu/working_image_gpu.h"
+
 // --- GPU Implementations ---
 /**
  * @brief Specific class for GPU Halide-based image buffers.
@@ -65,6 +66,13 @@
  * @brief Base class providing raw buffer storage and metadata for all working image implementations.
  */
 #include "image_processing/common/working_image_data.h"
+
+/**
+ * @brief Struct representing the image data view passed to hardware workers.
+ * Contains spans for working and original data, as well as geometry information.
+ */
+#include "image_processing/common/image_view.h"
+
 // ============================================================
 // 3. Factories
 // ============================================================
@@ -94,3 +102,12 @@
  * @brief Manages the lifecycle of a single WorkingImage instance.
  */
 #include "image_processing/working_image_context.h"
+
+// ============================================================
+// 6. Registration
+// ============================================================
+/**
+ * @brief Registers all default backends to the factory.
+ * Must be called once at application startup.
+ */
+#include "image_processing/registration/working_image_registration.h"

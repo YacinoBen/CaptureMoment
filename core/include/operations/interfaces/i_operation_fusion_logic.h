@@ -8,7 +8,7 @@
 #pragma once
 
 #include "Halide.h"
-
+#include "operations/interfaces/i_operation.h"
 namespace CaptureMoment::Core {
 
 namespace Operations {
@@ -21,7 +21,7 @@ namespace Operations {
  * of this interface. It allows the PipelineBuilder to combine multiple operations
  * into a single computational pass for improved performance.
  */
-class IOperationFusionLogic {
+class IOperationFusionLogic : public IOperation {
 public:
     virtual ~IOperationFusionLogic() = default;
 

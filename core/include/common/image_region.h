@@ -119,11 +119,34 @@ struct ImageRegion {
      * @note Format defaults to PixelFormat::RGBA_F32.
      */
     ImageRegion(std::vector<float>&& data, ImageDim w, ImageDim h, ImageChan ch)
-        : m_data(std::move(data))
-        , m_width(w)
+        : m_width(w)
+        , m_height(h)
+        , m_channels(ch),
+        m_data(std::move(data))
+    {}
+
+    /**
+     * @brief Constructs an ImageRegion by copying data from a span (Deep Copy).
+     *
+     * @details
+     * This constructor is essential when working with non-owning views (std::span).
+     * It allocates a new internal vector and copies the data from the span.
+     * This is the standard way to export data from a WorkingImage (which works on spans)
+     * back to a standalone ImageRegion.
+     *
+     * @param data_span Non-owning view over the pixel data to copy.
+     * @param w Width in pixels.
+     * @param h Height in pixels.
+     * @param ch Number of color channels per pixel.
+     *
+     * @note The x and y coordinates default to (0, 0).
+     * @note Format defaults to PixelFormat::RGBA_F32.
+     */
+    ImageRegion(std::span<const float> data_span, ImageDim w, ImageDim h, ImageChan ch)
+        : m_width(w)
         , m_height(h)
         , m_channels(ch)
-        , m_format(PixelFormat::RGBA_F32) // Default format
+        , m_data(data_span.begin(), data_span.end())
     {}
 
     /**
@@ -143,7 +166,6 @@ struct ImageRegion {
         , m_width(w)
         , m_height(h)
         , m_channels(ch)
-        , m_format(PixelFormat::RGBA_F32) // Default format
     {}
 
     // ============================================================

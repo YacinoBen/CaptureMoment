@@ -13,13 +13,13 @@ set(CORE_SOURCES
 
     # Operations
     src/operations/operation_factory.cpp
-    src/operations/operation_pipeline.cpp
     src/operations/operation_registry.cpp
 
     # Image Processing
     src/image_processing/cpu/working_image_cpu.cpp
     src/image_processing/cpu/working_image_cpu_default.cpp
     src/image_processing/cpu/working_image_cpu_halide.cpp
+    src/image_processing/gpu/working_image_gpu.cpp
     src/image_processing/gpu/working_image_gpu_halide.cpp
     src/image_processing/factories/working_image_factory.cpp
     src/image_processing/halide/working_image_halide.cpp
@@ -46,9 +46,10 @@ set(CORE_SOURCES
     src/serializer/operation_serialization.cpp
 
     # Pipeline
-    src/pipeline/operation_pipeline_executor.cpp
+    src/pipeline/operations/operation_pipeline_executor.cpp
+    src/pipeline/operations/operation_pipeline_executor_cpu.cpp
+    src/pipeline/operations/operation_pipeline_executor_gpu.cpp
     src/pipeline/pipeline_builder.cpp
-    src/pipeline/fallback_pipeline_executor.cpp
     src/pipeline/pipeline_registry.cpp
     src/pipeline/pipeline_context.cpp
 

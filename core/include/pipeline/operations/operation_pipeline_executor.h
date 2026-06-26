@@ -18,8 +18,6 @@
 
 #pragma once
 
-#include "operations/interfaces/i_operation_fusion_logic.h"
-
 #include "pipeline/interfaces/i_pipeline_executor.h"
 #include "pipeline/interfaces/i_halide_pipeline_executor.h"
 #include "operations/operation_descriptor.h"
@@ -27,7 +25,7 @@
 #include "common/types/memory_type.h"
 
 #include <vector>
-#include <memory>
+#include <unordered_map>
 
 namespace CaptureMoment::Core {
 
@@ -40,9 +38,8 @@ namespace Pipeline {
  * @details
  * This executor chains multiple image adjustment operations (Brightness, Contrast, etc.)
  * into a single Halide graph. It relies on the `IHalidePipelineExecutor` base class
- * to provide the standardized 4-channel input parameter (`m_input`).
  */
-class OperationPipelineExecutor final : public IPipelineExecutor, public IHalidePipelineExecutor {
+class OperationPipelineExecutor : public IPipelineExecutor, public IHalidePipelineExecutor {
 public:
     /**
      * @brief Default Constructor.
@@ -57,31 +54,6 @@ public:
      * @brief Destructor.
      */
     virtual ~OperationPipelineExecutor() = default;
-
-    /**
-     * @brief Executes the fused pipeline on a generic working image.
-     *
-     * @details
-     * This is the entry point for the generic `IPipelineExecutor` interface.
-     * It performs a dynamic cast to determine if the image is CPU or GPU Halide-compatible
-     * and dispatches to the template method `executeWithConcreteHalide`.
-     *
-     * @param[in,out] working_image The hardware-agnostic image to process.
-     * @return true if execution succeeded, false otherwise.
-     */
-    [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image) override;
-
-    /**
-     * @brief Executes the compiled pipeline directly on a raw Halide buffer (Fast Path).
-     *
-     * @details
-     * Implements the `IHalidePipelineExecutor` interface.
-     * Binds the provided buffer to the inherited `m_input` and executes the cached pipeline.
-     *
-     * @param[in,out] buffer The `Halide::Buffer<float>` pointing to image data (Must be 4-channel).
-     * @return true if pipeline executed successfully.
-     */
-    [[nodiscard]] virtual bool executeOnHalideBuffer(Halide::Buffer<float>& buffer) override;
 
     /**
      * @brief Updates the list of operations and rebuilds the graph.
@@ -121,6 +93,19 @@ public:
      */
     void updateRuntimeParams(std::vector<Operations::OperationDescriptor>&& operations);
 
+protected: 
+     /**
+     * @brief Applies scheduling directives (Vectorization/Parallelism/GPU tiling).
+     * @details  Called during the build phase to optimize `m_output_func`
+     * @param pipeline 
+     * @param x 
+     * @param y 
+     * @param c 
+     */
+    virtual void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y) const = 0;
+    
+    [[nodiscard]] bool executeOnHalideBuffer(Halide::Buffer<float>& input_buffer, Halide::Buffer<float>& output_buffer) override;
+
 private:
     /**
      * @brief Stores the list of operations to be fused.
@@ -143,6 +128,11 @@ private:
     Halide::Pipeline m_pipeline;
 
     /**
+     * @brief Flag indicating if the pipeline has been successfully built and compiled.
+     */
+    bool m_chain_built{false};
+
+    /**
      * @brief Cache of dynamic parameters for the current pipeline.
      * @details
      * Key: Operation id
@@ -151,39 +141,12 @@ private:
     std::unordered_map<uint64_t, Halide::Param<float>> m_pipeline_params;
 
     /**
-     * @brief Cached backend type (CPU/GPU) from AppConfig.
-     */
-    Common::MemoryType m_backend{Common::MemoryType::CPU_RAM};
-
-    /**
-     * @brief Flag indicating if the pipeline has been successfully built and compiled.
-     */
-    bool m_chain_built{false};
-
-    /**
      * @brief Builds the Halide function graph based on `m_operations`.
      * @details
      * Iterates through operations, creates concrete instances, and chains them
      * using `m_input` as the source.
      */
     void buildOperationChain();
-
-    /**
-     * @brief Applies scheduling directives (Vectorization/Parallelism/GPU tiling).
-     * @details
-     * Called during the build phase to optimize `m_output_func`.
-     */
-    void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const;
-
-    /**
-     * @brief Helper template to execute on specific image types.
-     *
-     * @tparam ConcreteImage Type (e.g., WorkingImageCPU_Halide).
-     */
-    template<typename ConcreteImage>
-    [[nodiscard]] bool executeWithConcreteHalide(ConcreteImage& concrete_image);
 };
-
 } // namespace Pipeline
-
 } // namespace CaptureMoment::Core

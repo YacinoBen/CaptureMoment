@@ -42,14 +42,19 @@
  * @brief Concrete implementation for executing fused adjustment pipelines using Halide.
  * Implements the optimized "Fast Path" for CPU and GPU backends.
  */
-#include "pipeline/operation_pipeline_executor.h"
+#include "pipeline/operations/operation_pipeline_executor.h"
 
 /**
- * @brief Concrete implementation for executing a pipeline sequentially as a fallback.
- * Provides a generic execution path when optimized pipelines are not suitable.
+ * @brief Concrete implementation for executing fused adjustment pipelines on CPU using Halide.
+ * Implements the optimized "Fast Path" for CPU backend.
  */
-#include "pipeline/fallback_pipeline_executor.h"
+#include "pipeline/operations/operation_pipeline_executor_cpu.h"
 
+/**
+ * @brief Concrete implementation for executing fused adjustment pipelines on GPU using Halide.
+ * Implements the optimized "Fast Path" for GPU backend.
+ */
+#include "pipeline/operations/operation_pipeline_executor_gpu.h"
 // ============================================================
 // 3. Core Infrastructure (The "Factory")
 // ============================================================

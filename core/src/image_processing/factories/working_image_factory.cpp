@@ -12,35 +12,33 @@
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
-    const Common::ImageRegion& source_image)
+std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create()
 {
-    auto backend = Config::AppConfig::instance().getProcessingBackend();
+    auto backend { Config::AppConfig::instance().getProcessingBackend() };
     
-    spdlog::trace("WorkingImageFactory::create (global config): Using global backend config: {}", static_cast<int>(backend));
+    spdlog::trace("[WorkingImageFactory::create]: Using global backend config: {}", static_cast<int>(backend));
     
-    return create(backend, source_image);
+    return create(backend);
 }
+
 std::unique_ptr<IWorkingImageHardware> WorkingImageFactory::create(
-    Common::MemoryType backend,
-    const Common::ImageRegion& source_image
+    Common::MemoryType backend
     )
 {
     // Look up creator for the requested backend
-    auto it = s_registry.find(backend);
+    auto it { s_registry.find(backend) };
 
     if (it == s_registry.end()) {
-        spdlog::error("WorkingImageFactory::create: No creator registered for backend type {}. Unable to create working image.",
+        spdlog::error("[WorkingImageFactory::create]: No creator registered for backend type {}. Unable to create working image.",
                       static_cast<int>(backend));
         return nullptr;
     }
 
-    // Execute creator function
     try {
-        auto creator = it->second;
-        return creator(source_image);
+        auto creator { it->second };
+        return creator();
     } catch (const std::exception& e) {
-        spdlog::critical("WorkingImageFactory::create: Exception thrown by creator for backend {}: {}",
+        spdlog::critical("[WorkingImageFactory::create]: Exception thrown by creator for backend {}: {}",
                          static_cast<int>(backend), e.what());
         return nullptr;
     }
@@ -52,7 +50,7 @@ void WorkingImageFactory::registerCreator(
     )
 {
     if (s_registry.contains(type)) {
-        spdlog::warn("WorkingImageFactory::registerCreator: Overriding existing creator for backend type {}.", static_cast<int>(type));
+        spdlog::warn("[WorkingImageFactory::registerCreator]: Overriding existing creator for backend type {}.", static_cast<int>(type));
     }
     s_registry[type] = std::move(creator);
 }

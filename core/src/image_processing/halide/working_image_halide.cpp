@@ -62,4 +62,9 @@ Common::ImageSize WorkingImageHalide::getDataSizeByHalide() const noexcept
     return static_cast<Common::ImageSize>(m_halide_buffer.size_in_bytes() / sizeof(float));
 }
 
+bool WorkingImageHalide::isHalideBufferValid() const noexcept
+{
+    return m_halide_buffer.defined();
+}
+
 } // namespace CaptureMoment::Core::ImageProcessing

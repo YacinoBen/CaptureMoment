@@ -1,15 +1,16 @@
 /**
  * @file working_image_gpu_halide.h
- * @brief Concrete implementation of IWorkingImageGPU
+ * @brief Concrete implementation of image working buffer on GPU using Halide for processing.
  * @author CaptureMoment Team
  * @date 2026
  */
 
 #pragma once
 
-#include "image_processing/gpu/interfaces/i_working_image_gpu.h"
+#include "image_processing/gpu/working_image_gpu.h"
 #include "image_processing/halide/working_image_halide.h"
 #include "common/error_handling/core_error.h"
+#include "image_processing/common/image_view.h"
 
 #include <memory>
 #include <expected>
@@ -19,109 +20,115 @@ namespace CaptureMoment::Core {
 namespace ImageProcessing {
 
 /**
- * @brief Concrete implementation of WorkingImageGPU_Halide for image data stored on GPU.
+ * @class WorkingImageGPU_Halide
+ * @brief Concrete implementation of WorkingImageGPU using Halide for processing.
  *
+ * @details
  * Architecture:
- * - Inherits IWorkingImageGPU: Provides the interface contract for GPU images.
+ * - Inherits WorkingImageGPU: Provides common GPU logic.
  * - Inherits WorkingImageHalide: Provides the shared Halide buffer logic.
  *
  * GPU Specifics:
- * - Manages Host-to-Device (updateFromCPU) and Device-to-Host (exportToCPUCopy) transfers.
+ * - Manages Host-to-Device (transfertToVRAM) and Device-to-Host (getFullResImage) transfers.
  * - Uses `std::expected` for robust error reporting of GPU transfers.
  */
-
-class WorkingImageGPU_Halide final : public IWorkingImageGPU, public WorkingImageHalide {
+class WorkingImageGPU_Halide final : public WorkingImageGPU, public WorkingImageHalide {
 public:
-    /**
-     * @brief Constructs a WorkingImageGPU_Halide.
-     * @param initial_image Optional initial image data. Ownership is transferred via move.
-     */
-    explicit WorkingImageGPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image = nullptr);
+    /** @brief Default constructor  */
+    WorkingImageGPU_Halide() = default;
 
-    /**
-     * @brief Virtual destructor.
-     */
     ~WorkingImageGPU_Halide() override = default;
 
-    // ============================================================
-    // IWorkingImageHardware Interface Implementation
-    // ============================================================
+    /**
+     * @brief Binds the view and initializes the Halide buffer on the device.
+     */
+    [[nodiscard]] bool bindView(const ImageView& view) override;
 
     /**
-     * @brief Updates internal image data by COPYING from a CPU-based ImageRegion.
-     * Includes a copy to the GPU device.
+     * @brief Transfers the current image data to GPU VRAM With Halide.
      *
-     * @param cpu_image The source image data.
-     * @return std::expected<void, std::error_code>.
+     * @return std::expected<void, CoreError> indicating success or failure of the transfer.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError>
-    updateFromCPU(const Common::ImageRegion& cpu_image) override;
+    transferToVRAM() override;
 
     /**
-     * @brief Exports current internal image data to a new CPU-based ImageRegion.
-     * Includes a copy from the GPU device to Host memory.
-     *
-     * @return std::expected<std::unique_ptr<Common::ImageRegion>, std::error_code>.
+     * @brief Checks if the GPU view AND the Halide buffer are valid.
      */
-    [[maybe_unused]] [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-    exportToCPUCopy() override;
+    [[nodiscard]] bool isValid() const override;
 
     /**
-     * @brief Exports a downscaled version of the image directly from GPU.
-     *
-     * @details
-     * For GPU: Performs downsample on GPU, then transfers only the small result.
-     * For CPU: Performs downsample on CPU.
-     *
-     * This is the preferred method for display purposes.
+     * @brief Resets the execution buffer on the GPU to prepare for a new Halide pipeline execution.
      */
-    [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    void resetExecutionBuffer();
+
+    /**
+     * @brief Provides access to the Halide buffer used for GPU execution.
+     * @return Reference to the Halide::Buffer<float> used for GPU processing.
+     */
+    [[nodiscard]] Halide::Buffer<float>& getExecutionBuffer();
+
+    /**
+     * @brief Checks if the original GPU buffer is valid.
+     */
+    [[nodiscard]] bool isOriginalHalideBufferValid() const { return m_original_halide_buffer.defined(); };
+
+    /**
+     * @brief Provides access to the Halide buffer containing the original image on GPU.
+     * @return Reference to the Halide::Buffer<float> used as input source.
+     */
+    [[nodiscard]] Halide::Buffer<float>& getOriginalHalideBuffer() { return m_original_halide_buffer; };
+
+    /**
+     * @brief Synchronizes the GPU buffer back to Host RAM.
+     * @details Called only during a "Commit" or final export to update the CPU state.
+     */
+    void syncToHostRAM();
+
+    /**
+     * @brief Downsamples the current image to the target dimensions using Halide on GPU.
+     *
+     * @param target_width The desired width of the downsampled image.
+     * @param target_height The desired height of the downsampled image.
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>, CoreError>
+     *         containing the downsampled image region or an error code.
+     */
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) override;
 
+protected:
+    [[nodiscard]] bool downloadDeviceToHost() override;
+
+private:
     /**
-     * @brief Gets the dimensions (width, height) of the internal GPU image data.
+     * @brief Helper to initialize the Halide buffer with the current view data.
      *
-     * @return A pair containing the width (first) and height (second) of the image.
-     *         Returns {0, 0} if the internal GPU image data is invalid or not loaded.
+     * This is called during bindView and before GPU transfers to ensure the buffer
+     * always references the correct data.
      */
-    [[nodiscard]] std::pair<Common::ImageDim, Common::ImageDim> getSize() const override;
+    void initDataForHalide();
 
     /**
-     * @brief Gets the number of color channels of the internal GPU image data.
-     *
-     * @return The number of channels (e.g., 3 for RGB, 4 for RGBA). Returns 0
-     *         if the internal GPU image data is invalid or not loaded.
+     * @brief  Builds the Halide downsample pipeline for GPU execution.
      */
-    [[nodiscard]] Common::ImageChan getChannels() const override;
+    void buildDownsamplePipeline();
 
-    /**
-     * @brief Gets the total number of pixels in the internal GPU image data.
-     *
-     * @return The product of width and height. Returns 0 if the internal GPU image data is invalid or not loaded.
-     */
-    [[nodiscard]] Common::ImageSize getPixelCount() const override;
+    // --- GPU Memory Management ---
+    Halide::Buffer<float> m_original_halide_buffer; ///<< Halide buffer for original data (on GPU)
 
-    /**
-     * @brief Gets the total number of data elements (pixels * channels) in the internal GPU image data.
-     *
-     * @return The product of pixel count and channel count. Returns 0 if the internal GPU image data
-     *         or channel count is invalid.
-     */
-    [[nodiscard]] Common::ImageSize getDataSize() const override;
+    // --- Pipelines Halide ---
+    Halide::Pipeline m_reset_pipeline; ///< Halide pipeline for resetting the working buffer from the original buffer
+    Halide::Pipeline m_downsample_pipeline; ///< Halide pipeline for downsampling
 
-    /**
-     * @brief Checks if the internal GPU image data is in a valid state.
-     *
-     * @return true if the internal GPU buffer is allocated and contains valid data, false otherwise.
-     */
-    [[nodiscard]] bool isValid() const override { return m_valid && m_halide_buffer.defined(); };
+    // --- Downsample Pipelines ---
+    Halide::ImageParam m_downsample_input{Halide::Float(32), 3, "downsample_src"}; ///< Halide input parameter for downsample pipeline
+    Halide::Param<float> m_downsample_scale_x{"downsample_scale_x"}; ///< Halide parameter for downsample scale in x-direction
+    Halide::Param<float> m_downsample_scale_y{"downsample_scale_y"}; ///< Halide parameter for downsample scale in y-direction
+    Halide::Buffer<float> m_downsample_src_buffer; ///< Halide buffer for downsample source data (points to working GPU buffer)
 
-    /**
-     * @brief Gets the memory type where the image data resides.
-     *
-     * @return MemoryType::GPU_MEMORY, indicating the data is stored in GPU memory.
-     */
-    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::GPU_MEMORY;};
+    bool m_downsample_built{false}; ///< Flag indicating if the downsample pipeline has been built.
+    bool m_pipelines_initialized{false}; ///< Flag indicating if the pipelines have been initialized.
+
 };
 
 } // namespace ImageProcessing

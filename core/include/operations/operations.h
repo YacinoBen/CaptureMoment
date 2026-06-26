@@ -36,9 +36,9 @@
 #include "operations/interfaces/i_operation_fusion_logic.h"
 
 /**
- * @brief Interface for CPU fallback logic.
+ * @brief Interface for Single operation.
  */
-#include "operations/interfaces/i_operation_default_logic.h"
+#include "operations/interfaces/i_single_operation.h"
 
 /**
  * @brief Enumeration of supported operation types.
@@ -63,11 +63,6 @@
  * @brief Defines parameter ranges and defaults for operations.
  */
 #include "operations/operation_ranges.h"
-
-/**
- * @brief Pipeline executor for applying a list of operations.
- */
-#include "operations/operation_pipeline.h"
 
 // ============================================================
 // Concrete Operation Implementations

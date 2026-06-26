@@ -6,9 +6,7 @@
  */
 
 #pragma once
-#include "operations/interfaces/i_operation.h"
 #include "operations/interfaces/i_operation_fusion_logic.h"
-#include "operations/interfaces/i_operation_default_logic.h"
 #include "operations/operation_ranges.h"
 
 namespace CaptureMoment::Core {
@@ -35,7 +33,7 @@ namespace Operations {
  * - > 0: Brighten shadows (make them less dark)
  * - < 0: Darken shadows (make them more dark)
  */
-class OperationShadows : public IOperation,  public IOperationFusionLogic, public IOperationDefaultLogic
+class OperationShadows : public IOperationFusionLogic
 {
 public:
     // --- Metadata ---
@@ -60,24 +58,6 @@ public:
      * Defined by OperationRanges::getShadowsDefaultValue().
      */
     static constexpr float DEFAULT_SHADOWS_VALUE = OperationRanges::getShadowsDefaultValue();
-
-    /**
-     * @brief Applies the shadows adjustment.
-     *
-     * This method provides sequential execution capability for the whites adjustment operation.
-     * While primarily replaced by the fused pipeline system (appendToFusedPipeline), it remains
-     * available for specific use cases such as debugging, testing, or standalone operation execution.
-     *
-     * Reads the "value" parameter from the descriptor and applies the shadows
-     * formula to every color channel (RGB) of every pixel in the working image,
-     * primarily affecting pixels with very low luminance (the "shadows").
-     * The alpha channel is left unchanged.
-     * Performs a validation check to ensure the value is within the defined range [MIN_SHADOWS_VALUE, MAX_SHADOWS_VALUE].
-     * @param working_image The hardware-agnostic image buffer to modify.
-     * @param params Must contain a "value" (float) parameter.
-     * @return std::expected<void, ErrorHandling::CoreError>.
-     */
-    [[maybe_unused]] [[nodiscard]] std::expected<void, ErrorHandling::CoreError> execute(ImageProcessing::IWorkingImageHardware& working_image, const OperationDescriptor& params) override;
 
     /**
      * @brief Appends this operation's logic to a fused Halide pipeline.
@@ -112,15 +92,6 @@ public:
         const Halide::Var& y,
         const Halide::Var& c,
         const Halide::Param<float>& param
-        ) const override;
-
-
-    /**
-     * @brief Executes the adjustment on a raw ImageRegion (CPU fallback).
-     */
-    [[nodiscard]] std::expected<void, ErrorHandling::CoreError> executeOnImageRegion(
-        Common::ImageRegion& region,
-        const OperationDescriptor& params
         ) const override;
 };
 

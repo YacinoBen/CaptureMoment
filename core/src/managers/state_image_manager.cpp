@@ -49,21 +49,27 @@ bool StateImageManager::loadImage(std::string_view path)
     waitForPendingProcessing();
 
     // 2. Load the file into the INTERNAL SourceManager
-    auto load_result = m_source_manager->loadFile(path);
+    auto load_result { m_source_manager->loadFile(path) };
 
     if (!load_result) {
         spdlog::error("[StateImageManager::loadImage]: Failed to load file '{}': {}", path, static_cast<int>(load_result.error()));
         return false;
     }
 
-    const Common::ImageDim w = m_source_manager->width();
-    const Common::ImageDim h = m_source_manager->height();
-    auto tile = m_source_manager->getTile(0, 0, w, h);
+    const Common::ImageDim w { m_source_manager->width() };
+    const Common::ImageDim h { m_source_manager->height() };
+    auto tile { m_source_manager->getTile(0, 0, w, h) };
 
-    if (!tile || !m_working_image_context->prepare(std::move(tile.value()))) {
-        spdlog::error("[StateImageManager::loadImage]: Failed to prepare WorkingImage.");
+    if (!tile) {
+        spdlog::error("[StateImageManager::loadImage]: Failed to get tile for loaded image '{}': {}", path, static_cast<int>(tile.error()));
         return false;
     }
+
+    if (!m_working_image_context->prepare(std::move(tile.value()))) {
+        spdlog::error("[StateImageManager::loadImage]: Failed to prepare working image context for '{}'.", path);
+        return false;
+    }
+
     // 3. Update State Metadata
     {
         std::lock_guard lock(m_state_mutex);
@@ -87,7 +93,7 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingIm
     // 1. Retrieve the current working image
     // Note: getWorkingImage() handles its own locking, but we might want to lock m_state_mutex
     // if we want to ensure the image doesn't change during this export (snapshot behavior).
-    // For now, we assume the caller handles synchronization or accepts the race condition (latest frame).
+    // We assume the caller handles synchronization or accepts the race condition (latest frame).
     std::shared_ptr<ImageProcessing::IWorkingImageHardware> working_image_hw;
     {
         std::lock_guard lock(m_state_mutex);
@@ -100,14 +106,14 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingIm
     }
 
     // 2. Export to CPU memory
-    auto cpu_copy_result = working_image_hw->exportToCPUCopy();
+    auto cpu_copy_result { working_image_hw->getFullResImage() };
     if (!cpu_copy_result) {
         spdlog::error("[StateImageManager::commitWorkingImageToSource]: CPU export failed: {}",
                        ErrorHandling::to_string(cpu_copy_result.error()));
         return std::unexpected(cpu_copy_result.error());
     }
 
-    std::unique_ptr<Common::ImageRegion> cpu_copy = std::move(cpu_copy_result.value());
+    std::unique_ptr<Common::ImageRegion> cpu_copy { std::move(cpu_copy_result.value()) };
 
     // 3. Write back to the INTERNAL SourceManager
     if (!m_source_manager->setTile(*cpu_copy)) {
@@ -122,11 +128,11 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingIm
 std::expected<void, ErrorHandling::CoreError> StateImageManager::resetToOriginal()
 {
     // 1. Trigger the async processing with an empty list of operations
-    auto future = applyOperations(std::vector<Operations::OperationDescriptor>{});
+    auto future { applyOperations(std::vector<Operations::OperationDescriptor>{}) };
 
     // 2. Block and wait for the operation to complete
     // This allows the caller (PhotoEngine) to assume the image is ready when this returns.
-    bool success = future.get();
+    bool success { future.get() };
 
     // 3. Convert boolean result to std::expected
     if (!success) {
@@ -178,7 +184,7 @@ std::future<bool> StateImageManager::applyOperations(std::vector<Operations::Ope
 
     // Create promise for this request
     m_pending_promise = std::promise<bool>();
-    auto future = m_pending_promise.get_future();
+    auto future { m_pending_promise.get_future() };
 
     // Launch the processing
     launchProcessing(std::move(ops));
@@ -194,41 +200,26 @@ void StateImageManager::launchProcessing(
     // Set the updating flag
     m_is_updating.store(true, std::memory_order_release);
 
-    // 1. Retrieve the original image data from the SourceManager.
-    Common::ImageDim source_width = m_source_manager->width();
-    Common::ImageDim source_height = m_source_manager->height();
-    auto tile = m_source_manager->getTile(0, 0, source_width, source_height);
-
-    if (!tile)
-    {
-        spdlog::error("[StateImageManager::launchProcessing]: Failed to retrieve original tile.");
-        onProcessingComplete(false);
-        return;
-    }
-
-    if (!m_working_image_context->update(std::move(*tile.value()))) {
-        spdlog::error("[StateImageManager::launchProcessing]: Failed to update working image.");
-        onProcessingComplete(false);
-        return;
-    }
-
     // 3. Retrieve the Halide Manager from the Pipeline Context.
-    auto& halide_manager = m_pipeline_context->getHalideManager();
+    auto& halide_manager { m_pipeline_context->getHalideManager() };
 
     // 4. Initialize the Manager with the Operations (Move Data Transfer).
     halide_manager.init(std::move(ops));
 
     // 5. Retrieve the specific Worker for Halide operations.
-    auto worker = m_worker_context->getHalideOperationWorker();
+    auto worker { m_worker_context->getHalideOperationWorker() };
 
-    // 6. Execute the processing asynchronously.
+    // 6. Get the current working image (snapshot) and pass it to the worker.
+    auto working_image { m_working_image_context->getWorkingImage() };
+
+    // 7. Execute the processing asynchronously.
     // Note: We pass a raw reference since working_image_to_use is kept alive by m_working_image
-    auto worker_future = worker.execute(*m_pipeline_context, *m_working_image_context->getWorkingImage());
+    auto worker_future { worker.execute(*m_pipeline_context, *working_image) };
 
     // 8. Launch async continuation to handle completion
     std::thread([this, worker_future = std::move(worker_future)]() mutable {
         // Wait for worker to complete
-        bool success = worker_future.get();
+        bool success { worker_future.get() };
 
         if (success) {
             spdlog::info("[StateImageManager::launchProcessing]: Processing completed.");

@@ -1,8 +1,7 @@
 /**
  * @file working_image_gpu_halide.cpp
  * @brief Implementation of WorkingImageGPU_Halide.
- * @details Relies on AppConfig to provide the active Halide Target.
- *          Responsibility is strictly execution, not device selection.
+ * @details Implements real GPU transfers via Halide runtime.
  * @author CaptureMoment Team
  * @date 2026
  */
@@ -10,216 +9,232 @@
 #include "image_processing/gpu/working_image_gpu_halide.h"
 #include "config/app_config.h"
 #include <spdlog/spdlog.h>
-#include <utility>
-#include <cstring>
 
 #include "HalideRuntime.h"
 
 namespace CaptureMoment::Core::ImageProcessing {
 
-
-WorkingImageGPU_Halide::WorkingImageGPU_Halide(std::unique_ptr<Common::ImageRegion> initial_image)
+bool WorkingImageGPU_Halide::bindView(const ImageView& view)
 {
-    // We assume AppConfig::getHalideTarget() has been correctly initialized
-    // by IBackendDecider at application startup.
-    if (initial_image && initial_image->isValid())
-    {
-        auto result = updateFromCPU(*initial_image);
-        if (!result)
-        {
-            spdlog::error("[WorkingImageGPU_Halide::WorkingImageGPU_Halide]: Init failed: {}",
-                          ErrorHandling::to_string(result.error()));
-        }
-    }
-    else
-    {
-        spdlog::debug("[WorkingImageGPU_Halide::WorkingImageGPU_Halide]: Constructed with no initial image or invalid image data");
-    }
-}
 
+    if (!IWorkingImageHardware::bindView(view)) {
+        return false;
+    }
+
+    // Initialize the Halide buffer to reference the GPU data (zero-copy)
+    initDataForHalide();
+
+    if (!isHalideBufferValid()) {
+        spdlog::error("[WorkingImageGPU_Halide::bindView]: Failed to init working buffer.");
+        return false;
+    }
+    m_original_halide_buffer = Halide::Buffer<float>(
+        const_cast<float*>(m_view_data_image.original_data.data()),
+        m_view_data_image.width,
+        m_view_data_image.height,
+        m_view_data_image.channels
+        );
+    m_original_halide_buffer.set_name("original_cpu_buffer");
+
+    m_original_halide_buffer.set_host_dirty();
+    m_halide_buffer.set_host_dirty();
+
+    auto vram_result { transferToVRAM() };
+    if (!vram_result.has_value()) {
+        spdlog::error("[WorkingImageGPU_Halide::bindView]: Failed to transfer to VRAM.");
+        return false;
+    }
+    spdlog::debug("[WorkingImageGPU_Halide::bindView]: Bound and initialized GPU Halide buffer ({}x{}).",
+                  m_view_data_image.width, m_view_data_image.height);
+    return true;
+}
 
 std::expected<void, ErrorHandling::CoreError>
-WorkingImageGPU_Halide::updateFromCPU(const Common::ImageRegion& cpu_image)
+WorkingImageGPU_Halide::transferToVRAM()
 {
-    auto result = initializeData(cpu_image);
-    if (!result) {
-        return result;
-    }
+    if (m_pipelines_initialized) return {};
 
-    initializeHalide(getDataSpan(),
-                     static_cast<int>(m_width),
-                     static_cast<int>(m_height),
-                     static_cast<int>(m_channels));
+    try {
+        Halide::Target target{Config::AppConfig::getHalideTarget()};
+        Halide::Var x, y, c;
 
-    // Transfer to GPU
-    Halide::Target target = Config::AppConfig::getHalideTarget();
-    m_halide_buffer.set_host_dirty();
-    int gpu_result = m_halide_buffer.copy_to_device(target);
+        // Pipeline Reset
+        Halide::Func reset_func("gpu_reset");
+        reset_func(x, y, c) = m_original_halide_buffer(x, y, c);
+        reset_func.compile_jit(target);
+        m_reset_pipeline = Halide::Pipeline(reset_func);
 
-    if (gpu_result != 0) {
-        spdlog::critical("[WorkingImageGPU_Halide::updateFromCPU]: copy_to_device failed: {}", gpu_result);
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    spdlog::debug("[WorkingImageGPU_Halide::updateFromCPU]: Updated ({}x{}, {} ch)",
-                  m_width, m_height, m_channels);
-
-    return {};
-}
-
-
-std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
-WorkingImageGPU_Halide::exportToCPUCopy()
-{
-    if (!isValid())
-    {
-        return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
-    }
-
-    try
-    {
-        // Sync GPU → CPU
-        int result = m_halide_buffer.copy_to_host();
-        if (result != 0) {
-            spdlog::critical("[WorkingImageGPU_Halide::exportToCPUCopy]: copy_to_host failed: {}", result);
-            return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
+        if (!m_downsample_built) {
+            buildDownsamplePipeline();
         }
 
-        // Copy to ImageRegion
-        std::vector<float> copied_data(m_data_size);
-        std::memcpy(copied_data.data(), m_data.get(), m_data_size * sizeof(float));
-
-        auto region = std::make_unique<Common::ImageRegion>(
-            std::move(copied_data),
-            static_cast<int>(m_width),
-            static_cast<int>(m_height),
-            static_cast<int>(m_channels)
-        );
-        region->m_format = Common::PixelFormat::RGBA_F32;
-
-        return region;
-
+        m_pipelines_initialized = true;
+        spdlog::info("[WorkingImageGPU_Halide::transferToVRAM]: Pipelines compiled successfully.");
+        return {};
+    } catch (const std::exception& e) {
+        spdlog::critical("[WorkingImageGPU_Halide::transferToVRAM]: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
-    catch (const std::bad_alloc& e)
-    {
-        spdlog::critical("[WorkingImageGPU_Halide::exportToCPUCopy]: Failed to allocate memory: {}", e.what());
-        return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
-    }
-    catch (const std::exception& e)
-    {
-        spdlog::critical("[WorkingImageGPU_Halide::exportToCPUCopy]: Exception: {}", e.what());
-        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
-    }
+}
+
+bool WorkingImageGPU_Halide::downloadDeviceToHost()
+{
+    if (!m_pipelines_initialized) return false;
+
+    int ret { m_halide_buffer.copy_to_host() };
+    if (ret != 0) return false;
+
+    m_halide_buffer.device_sync();
+    return true;
+}
+
+void WorkingImageGPU_Halide::initDataForHalide()
+{
+    initializeHalide(m_view_data_image.working_data,
+                         m_view_data_image.width,
+                         m_view_data_image.height,
+                         m_view_data_image.channels);
+}
+
+bool WorkingImageGPU_Halide::isValid() const {
+    return WorkingImageGPU::isValid() && isHalideBufferValid();
+}
+
+void WorkingImageGPU_Halide::resetExecutionBuffer()
+{
+    if (!m_pipelines_initialized) return;
+
+    Halide::Target target{Config::AppConfig::getHalideTarget()};
+    m_reset_pipeline.realize(m_halide_buffer, target);
+}
+Halide::Buffer<float>& WorkingImageGPU_Halide::getExecutionBuffer()
+{
+    return m_halide_buffer;
+}
+
+// ==============================================================================
+// DOWNSAMPLE PIPELINE
+// ==============================================================================
+
+static Halide::Expr kernel_cubic(Halide::Expr x){
+    Halide::Expr xx { Halide::abs(x) };
+    Halide::Expr xx2 { xx * xx };
+    Halide::Expr xx3 { xx2 * xx };
+    Halide::Expr a { -0.5f };
+
+    return Halide::select(xx < 1.0f,
+                          (a + 2.0f) * xx3 - (a + 3.0f) * xx2 + 1.0f,
+                          Halide::select(xx < 2.0f,
+                                         a * xx3 - 5.0f * a * xx2 + 8.0f * a * xx - 4.0f * a,
+                                         0.0f));
 }
 
 std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
 WorkingImageGPU_Halide::downsample(Common::ImageDim target_width, Common::ImageDim target_height)
 {
-    if (!m_valid) {
+    if (!isValid()) {
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
+    if (target_width == 0 || target_height == 0) {
+        return std::unexpected(ErrorHandling::CoreError::InvalidImageRegion);
+    }
+
     try {
-        Halide::Target target = Config::AppConfig::getHalideTarget();
-
-        // GPU downsample
-        Halide::Func downsample("downsample_gpu");
-        Halide::Var x, y, c;
-
-        float scale_x = static_cast<float>(m_width) / target_width;
-        float scale_y = static_cast<float>(m_height) / target_height;
-
-        // Use bilinear interpolation for better quality
-        Halide::Expr src_x = x * scale_x;
-        Halide::Expr src_y = y * scale_y;
-
-        downsample(x, y, c) = m_halide_buffer(
-            Halide::cast<int>(src_x),
-            Halide::cast<int>(src_y),
-            c
-            );
-
-        Halide::Var xi, yi;
-        downsample.gpu_tile(x, y, xi, yi, 16, 16);
-
-        // Realize to a temporary buffer
-        Halide::Buffer<float> result_buf = downsample.realize(
-            {static_cast<int>(target_width),
-             static_cast<int>(target_height),
-             static_cast<int>(m_channels)},
-            target
-            );
-
-        // Copy to host
-        result_buf.copy_to_host();
-
-        // Check strides
-        spdlog::debug("[WorkingImageGPU_Halide::downsample]: strides = {}, {}, {}",
-                      result_buf.dim(0).stride(), result_buf.dim(1).stride(), result_buf.dim(2).stride());
-
-        // Copy data to contiguous vector
-        size_t result_size = target_width * target_height * m_channels;
-        std::vector<float> result_data(result_size);
-
-        // Manual copy respecting strides
-        for (int c = 0; c < static_cast<int>(m_channels); ++c) {
-            for (int y = 0; y < static_cast<int>(target_height); ++y) {
-                for (int x = 0; x < static_cast<int>(target_width); ++x) {
-                    size_t dst_idx = (y * target_width + x) * m_channels + c;
-                    result_data[dst_idx] = result_buf(x, y, c);
-                }
-            }
+        if (m_view_data_image.width == target_width && m_view_data_image.height == target_height) {
+            return getFullResImage();
         }
 
-        auto region = std::make_unique<Common::ImageRegion>(
+        if (!m_downsample_built) {
+            buildDownsamplePipeline();
+        }
+
+        spdlog::debug("[WorkingImageGPU_Halide::downsample]: Starting downsample from {}x{} to {}x{}.",
+                      m_view_data_image.width, m_view_data_image.height, target_width, target_height);
+
+        m_downsample_input.set(m_halide_buffer);
+
+        std::vector<float> result_data(target_width * target_height * m_view_data_image.channels);
+        Halide::Buffer<float> dst_buffer(
+            result_data.data(),
+            static_cast<int>(target_width),
+            static_cast<int>(target_height),
+            static_cast<int>(m_view_data_image.channels)
+            );
+
+        m_downsample_scale_x.set(static_cast<float>(target_width) / m_view_data_image.width);
+        m_downsample_scale_y.set(static_cast<float>(target_height) / m_view_data_image.height);
+
+        Halide::Target target{Config::AppConfig::getHalideTarget()};
+
+        m_downsample_pipeline.realize(dst_buffer, target);
+        dst_buffer.copy_to_host();
+
+        spdlog::debug("[WorkingImageGPU_Halide::downsample]: Successful downsample.");
+
+        return std::make_unique<Common::ImageRegion>(
             std::move(result_data),
             static_cast<int>(target_width),
             static_cast<int>(target_height),
-            static_cast<int>(m_channels)
+            static_cast<int>(m_view_data_image.channels)
             );
-        region->m_format = Common::PixelFormat::RGBA_F32;
 
-        spdlog::debug("[WorkingImageGPU_Halide::downsample]: Downsampled {}x{} → {}x{}",
-                      m_width, m_height, target_width, target_height);
-
-        return region;
-    }
-    catch (const std::exception& e) {
-        spdlog::critical("[WorkingImageGPU_Halide::downsample]: Downsample failed: {}", e.what());
+    } catch (const std::bad_alloc&) {
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
+    } catch (const std::exception& e) {
+        spdlog::critical("[WorkingImageGPU_Halide::downsample]: {}", e.what());
+        return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 }
 
-std::pair<Common::ImageDim, Common::ImageDim> WorkingImageGPU_Halide::getSize() const
+void WorkingImageGPU_Halide::buildDownsamplePipeline()
 {
-    if (!isValid()) {
-        return {0, 0};
-    }
-    return getSizeByHalide();
-}
+    if (m_downsample_built) return;
 
-Common::ImageChan WorkingImageGPU_Halide::getChannels() const
-{
-    if (!isValid()) {
-        return 0;
-    }
-    return getChannelsByHalide();
-}
+    Halide::Var x, y, c, k;
+    Halide::Func clamped{Halide::BoundaryConditions::repeat_edge(m_downsample_input)};
 
-Common::ImageSize WorkingImageGPU_Halide::getPixelCount() const
-{
-    if (!isValid()) {
-        return 0;
-    }
-    return getPixelCountByHalide();
-}
+    Halide::Expr inv_scale_x{Halide::strict_float(1.0f / m_downsample_scale_x)};
+    Halide::Expr inv_scale_y{Halide::strict_float(1.0f / m_downsample_scale_y)};
 
-Common::ImageSize WorkingImageGPU_Halide::getDataSize() const
-{
-    if (!isValid()) {
-        return 0;
+    Halide::Expr sourcex{(Halide::cast<float>(x) + 0.5f) * inv_scale_x - 0.5f};
+    Halide::Expr sourcey{(Halide::cast<float>(y) + 0.5f) * inv_scale_y - 0.5f};
+
+    Halide::Expr fx{Halide::floor(sourcex)};
+    Halide::Expr fy{Halide::floor(sourcey)};
+
+    Halide::RDom r_x(0, 4, "r_x");
+    Halide::RDom r_y(0, 4, "r_y");
+
+    Halide::Func kx{"kx"};
+    Halide::Func ky{"ky"};
+    kx(x, k) = kernel_cubic(k + fx - sourcex);
+    ky(y, k) = kernel_cubic(k + fy - sourcey);
+
+    Halide::Func resized_y{"resized_y"};
+    Halide::Func resized_x{"resized_x"};
+
+    resized_y(x, y, c) = Halide::sum(ky(y, r_y) * clamped(x, Halide::cast<int>(fy) + r_y, c));
+    resized_x(x, y, c) = Halide::sum(kx(x, r_x) * resized_y(Halide::cast<int>(fx) + r_x, y, c));
+
+    Halide::Func final_output{"final_output"};
+    final_output(x, y, c) = Halide::clamp(resized_x(x, y, c), 0.0f, 1.0f);
+
+    Halide::Target target{Config::AppConfig::getHalideTarget()};
+
+    if (target.has_gpu_feature())
+    {
+        Halide::Var tx{"tx"}, ty{"ty"};
+        kx.compute_at(resized_x, tx);
+        ky.compute_at(resized_y, tx);
+        resized_y.compute_root().gpu_tile(x, y, tx, ty, 16, 16);
+        resized_x.compute_root().gpu_tile(x, y, tx, ty, 16, 16);
+        final_output.compute_root().gpu_tile(x, y, tx, ty, 16, 16);
     }
-    return getDataSizeByHalide();
+
+    m_downsample_pipeline = Halide::Pipeline(final_output);
+    final_output.compile_jit(target);
+    m_downsample_built = true;
 }
 
 } // namespace CaptureMoment::Core::ImageProcessing
