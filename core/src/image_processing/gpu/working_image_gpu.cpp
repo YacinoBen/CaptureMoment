@@ -50,6 +50,7 @@ WorkingImageGPU::getFullResImage()
     } catch (const std::bad_alloc&) {
         return std::unexpected(ErrorHandling::CoreError::AllocationFailed);
     } catch (const std::exception& e) {
+        spdlog::error("[WorkingImageGPU::getFullResImage]: Unexpected: {}", e.what());
         return std::unexpected(ErrorHandling::CoreError::Unexpected);
     }
 }
