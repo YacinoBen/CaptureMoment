@@ -43,7 +43,7 @@ protected:
     /**
      * @brief Executes the compiled pipeline directly on a Halide buffer.
      *
-     * @param[in,out] input_buffer The Halide buffer pointing to input image data.
+     * @param[in] input_buffer The Halide buffer pointing to input image data.
      *                              Must be a 4-channel Float32 buffer to match `m_input`.
      * @param[out] output_buffer The Halide buffer pointing to output image data.
      * @return true if pipeline executed successfully.
