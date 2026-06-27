@@ -251,18 +251,30 @@ struct std::formatter<CaptureMoment::Core::ErrorHandling::CoreError> : std::form
             CaptureMoment::Core::ErrorHandling::to_string(code), ctx);
     }
 };
-
 /**
  * @brief fmt::formatter specialization for CoreError.
- * @details Enables direct formatting with spdlog/fmt (e.g., "{}", CoreError::FileNotFound).
+ * @details Enables direct formatting with spdlog/fmt.
+ * 
+ *          We manually write to the output iterator here instead of inheriting from
+ *          fmt::formatter<std::string_view>. This avoids triggering an ODR violation
+ *          and "partial specialization after instantiation" errors on GCC 16 caused by
+ *          OpenImageIO bundling its own conflicting version of fmt.
  */
 template <>
 struct fmt::formatter<CaptureMoment::Core::ErrorHandling::CoreError>
-    : fmt::formatter<std::string_view>
 {
+    template <typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
+
     template <typename FormatContext>
     auto format(const CaptureMoment::Core::ErrorHandling::CoreError& code, FormatContext& ctx) const {
-        return fmt::formatter<std::string_view>::format(
-            CaptureMoment::Core::ErrorHandling::to_string(code), ctx);
+        const auto sv { CaptureMoment::Core::ErrorHandling::to_string(code) };
+        auto out = ctx.out();
+        for (const char c : sv) {
+            *out++ = c;
+        }
+        return out;
     }
 };
