@@ -1,11 +1,31 @@
 # PackageHelpers.cmake - Helper functions to find and verify required packages
 
 # ============================================================
+# Download CPM.cmake automatically if not present
+# ============================================================
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+    message(STATUS "Downloading CPM.cmake...")
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/cmake")
+    file(DOWNLOAD
+        https://github.com/cpm-cmake/CPM.cmake/releases/latest/download/get_cpm.cmake
+        "${CMAKE_BINARY_DIR}/cmake/CPM.cmake"
+        TLS_VERIFY ON
+    )
+endif()
+
+include("${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+message(STATUS "Using CPM.cmake from: ${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+
+
+# ============================================================
 # Find all required packages
 # ============================================================
 function(find_required_packages)
-    # spdlog (mandatory)
+    # spdlog (mandatory) via CPM
     find_spdlog_package()
+
+    # magic_enum (mandatory) via CPM
+    find_magic_enum_package()
 
     # OpenImageIO (mandatory)
     find_openimageio_package()
@@ -16,11 +36,7 @@ function(find_required_packages)
     # Exiv2 (mandatory for serialization)
     find_exiv2_package()
 
-    # magic_enum (mandatory)
-    find_magic_enum_package()
-    
     # Qt6 will be searched by the sub-projects ui/desktop, ui/mobile
-
     summarize_found_packages()
     warn_halide_requirements()
 endfunction()
@@ -30,24 +46,43 @@ endfunction()
 # Find spdlog
 # ============================================================
 function(find_spdlog_package)
-    message(STATUS "Searching for spdlog...")
-
-    # Attempt CONFIG (vcpkg, Conan)
-    find_package(spdlog CONFIG QUIET)
-
-    if(NOT spdlog_FOUND)
-        message(STATUS "spdlog not found via CONFIG, trying MODULE...")
-        # Attempt MODULE (Findspdlog.cmake)
-        find_package(spdlog MODULE QUIET)
-    endif()
+    message(STATUS "Fetching spdlog v1.16.0 via CPM")
     
-    if(spdlog_FOUND)
+    CPMAddPackage(
+        NAME spdlog
+        GITHUB_REPOSITORY gabime/spdlog
+        GIT_TAG         v1.16.0
+        OPTIONS         "SPDLOG_HEADER_ONLY ON"
+    )
+
+    if(TARGET spdlog::spdlog_header_only OR TARGET spdlog::spdlog)
         set(spdlog_FOUND TRUE PARENT_SCOPE)
-        set(spdlog_VERSION ${spdlog_VERSION} PARENT_SCOPE)
+        set(spdlog_VERSION "1.16.0" PARENT_SCOPE)
     else()
-        message(FATAL_ERROR "spdlog not found. Please install it via your package manager or vcpkg/conan.")
+        message(FATAL_ERROR "Failed to download spdlog via CPM.")
     endif()
 endfunction()
+
+# ============================================================
+# Find magic_enum
+# ============================================================
+function(find_magic_enum_package)
+    message(STATUS "Fetching magic_enum v0.9.7 via CPM")
+
+    CPMAddPackage(
+        NAME magic_enum
+        GITHUB_REPOSITORY Neargye/magic_enum
+        GIT_TAG         v0.9.7
+    )
+
+    if(TARGET magic_enum::magic_enum)
+        set(magic_enum_FOUND TRUE PARENT_SCOPE)
+        set(magic_enum_VERSION "0.9.7" PARENT_SCOPE)
+    else()
+        message(FATAL_ERROR "Failed to download magic_enum via CPM.")
+    endif()
+endfunction()
+
 
 # ============================================================
 # Find OpenImageIO
@@ -106,52 +141,6 @@ function(warn_halide_requirements)
     message(STATUS "║  - Build time: 30-240 minutes (depending on hardware)      ║")
     message(STATUS "╚════════════════════════════════════════════════════════════╝")
     message(STATUS "")
-endfunction()
-
-# ============================================================
-# Find magic_enum
-# ============================================================
-function(find_magic_enum_package)
-    message(STATUS "Searching for magic_enum...")
-
-    # Attempt CONFIG first (expects magic_enum-config.cmake from vcpkg, Conan, etc.)
-    find_package(magic_enum CONFIG QUIET)
-
-    if(NOT magic_enum_FOUND)
-        message(STATUS "magic_enum not found via CONFIG, trying MODULE...")
-        # Attempt MODULE (expects Findmagic_enum.cmake or checks standard paths)
-        find_package(magic_enum MODULE QUIET)
-    endif()
-
-    # If still not found, or if magic_enum is header-only without CMake config, try manual search
-    if(NOT magic_enum_FOUND)
-        message(STATUS "magic_enum not found via CONFIG/MODULE. Attempting manual search for header-only...")
-        find_path(MAGIC_ENUM_INCLUDE_DIR
-            NAMES magic_enum/magic_enum.hpp # The main header file we are looking for
-            PATHS /usr/local/include       # Standard location after manual install (e.g., GitHub Actions step)
-                  /usr/include             # Standard system location (e.g., after apt install if headers were there)
-                  # Add other potential standard paths if needed
-        )
-
-        if(MAGIC_ENUM_INCLUDE_DIR)
-            # Create an INTERFACE imported target for header-only library
-            add_library(magic_enum::magic_enum INTERFACE IMPORTED)
-            target_include_directories(magic_enum::magic_enum INTERFACE ${MAGIC_ENUM_INCLUDE_DIR})
-            set(magic_enum_FOUND TRUE)
-            message(STATUS "magic_enum found manually: ${MAGIC_ENUM_INCLUDE_DIR}")
-        else()
-             message(FATAL_ERROR "magic_enum not found via CONFIG, MODULE, or manual search. Check installation.")
-        endif()
-    endif()
-
-    if(magic_enum_FOUND)
-        # Export the FOUND status to the parent scope
-        set(magic_enum_FOUND TRUE PARENT_SCOPE)
-        # No need to export the target name if using it explicitly in target_link_libraries
-        # The target magic_enum::magic_enum should be available now
-    else()
-        message(FATAL_ERROR "magic_enum not found. Please ensure it is installed (e.g., via vcpkg, apt install libmagicenum-dev, or manual install).")
-    endif()
 endfunction()
 
 # ============================================================
