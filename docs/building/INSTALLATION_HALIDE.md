@@ -1,11 +1,9 @@
-# 🏗️ Building Halide with Full GPU Support
+# 🏗️ Halide Installation
 
-## Overview
-
-This guide provides clear instructions for obtaining Halide 18.0.0 or newer with support for various GPU backends (CUDA, OpenCL, Vulkan, DirectX12) as well as CPU-only configurations.
+This guide provides clear instructions for obtaining Halide with support for various GPU backends (CUDA, OpenCL, Vulkan, DirectX12) as well as CPU-only configurations.
 
 ⚠️ **Important**: The official pre-built binaries do not include GPU support by default. To use GPU acceleration, you must either:
-- Use a package manager that explicitly enables GPU features, or
+- Use a package manager that explicitly enables GPU features
 - Build Halide from source with the appropriate flags (see official documentation).
 
 ⚠️ Important: Disk Space & Build Time
@@ -15,14 +13,7 @@ Compiling dependencies (especially LLVM via Halide) is resource-intensive.
 * **Optimized Build** (Release only): Requires ~40 GB. ~40% faster.
 ---
 
-## System Requirements
-
-## Version Requirement
-
-- **Minimum Version**: Halide 18.0 +
-- Older versions lack critical GPU scheduling improvements and may not support modern hardware features.
-
-### GPU Backend Requirements
+## GPU Backend Requirements
 
 | Backend | Platform | Requirements |
 |---------|----------|--------------|
@@ -32,25 +23,23 @@ Compiling dependencies (especially LLVM via Halide) is resource-intensive.
 | DirectX12 | Windows only | Windows 10/11, compatible GPU |
 
 
-## Installation Method From Release repos quickly (ONLY CPU)
-* Download a release from here : https://github.com/halide/Halide/releases
+## Automatic installation Method With ONLY CPU
 
-* And when you want to build the projet Capture Moment. You can just set the path by adding this argument.
+### Installation Method With PIP
 
 ```bash
--DHALIDE_DIR="pathtohalide/lib/cmake/Halide"
-# Path to the cmake Halide
+pip3 install halide
 ```
 
-## Installation Methods From Dependecies Managers
+### Installation Methods From Dependecies Managers
 
-### Ubuntu / Debian (APT)
+#### Ubuntu / Debian (APT)
 
 **More details:** https://launchpad.net/ubuntu/+source/halide/
 
 ❌ **Note**: APT packages do not include GPU support.
 
-### macOS (Homebrew)
+#### macOS (Homebrew)
 
 ```bash
 brew install halide
@@ -59,11 +48,31 @@ brew install halide
 
 ❌ **Note**: Maybe packages do not include GPU support.
 
-### Windows (vcpkg)
+#### Windows (vcpkg)
+
+```bash
+vcpkg install halide:x64-windows
+```
 
 **More details:** https://vcpkg.link/ports/halide
 
 You can also install GPU support as Feature Dependencies
+
+
+
+## Manual installation 
+
+### From Release repos (ONLY CPY)
+* Download a release from here : https://github.com/halide/Halide/releases
+
+#### Add to the project
+* When you want to build the projet Capture Moment. You can just set the path by adding this argument when you start building at the final with cmake.
+
+```bash
+-DHALIDE_DIR="pathtohalide/lib/cmake/Halide"
+# Path to the cmake Halide
+```
+
 
 ## Source Code & Official Build Documentation
 
