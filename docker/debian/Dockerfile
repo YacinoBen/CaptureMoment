@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # ==============================================================================
 RUN apt-get update && apt-get install -y \
     git ninja-build python3 python3-pip python3-venv ccache \
-    libcurl4-openssl-dev libxkbcommon-dev libgl1-mesa-dev \
+    libspdlog-dev libcurl4-openssl-dev libxkbcommon-dev libgl1-mesa-dev \
     libbrotli-dev libexpat1-dev libgtest-dev libinih-dev libssh-dev \
     libxml2-utils libz-dev zlib1g-dev libjpeg-dev libfreetype-dev \
     libpng-dev libuhd-dev libraw-dev libopencv-core-dev libopencv-imgproc-dev \

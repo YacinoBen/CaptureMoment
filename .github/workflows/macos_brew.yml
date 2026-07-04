@@ -41,11 +41,15 @@
           run: |
             brew update
             brew upgrade cmake
+            brew install spdlog
             brew install openimageio
             brew install halide 
             brew install exiv2
+
+            # Optional: Halide (if available in homebrew)
+            # brew install halide
             
-            brew list --versions openimageio halide exiv2
+            brew list --versions spdlog openimageio halide exiv2
 
       # ====================================================================
       # Setup Qt
