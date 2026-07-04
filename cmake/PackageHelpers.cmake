@@ -16,6 +16,8 @@ endif()
 include("${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
 message(STATUS "Using CPM.cmake from: ${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
 
+# for fmt, we want to use the header-only version to avoid linking issues
+add_compile_definitions(FMT_HEADER_ONLY=1)
 
 # ============================================================
 # Find all required packages
