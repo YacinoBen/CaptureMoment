@@ -45,7 +45,7 @@
             brew install halide 
             brew install exiv2
             
-            brew list --versions spdlog openimageio halide exiv2 magic_enum
+            brew list --versions openimageio halide exiv2
 
       # ====================================================================
       # Setup Qt
