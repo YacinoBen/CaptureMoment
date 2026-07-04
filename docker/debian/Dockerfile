@@ -33,15 +33,6 @@ ENV CMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/exiv2;/opt/oiio"
 ENV LD_LIBRARY_PATH="/opt/exiv2/lib:/opt/oiio/lib"
 
 # ==============================================================================
-# Install magic_enum
-# ==============================================================================
-RUN git clone https://github.com/Neargye/magic_enum.git /tmp/magic_enum && \
-    cd /tmp/magic_enum && git checkout v0.9.7 && \
-    mkdir -p /usr/local/include/magic_enum && \
-    cp include/magic_enum/*.hpp /usr/local/include/magic_enum/ && \
-    rm -rf /tmp/*
-
-# ==============================================================================
 # Build and install Exiv2
 # ==============================================================================
 RUN git clone https://github.com/Exiv2/exiv2.git /tmp/exiv2-src && \
