@@ -16,18 +16,12 @@ endif()
 include("${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
 message(STATUS "Using CPM.cmake from: ${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
 
-# for fmt, we want to use the header-only version to avoid linking issues
-add_compile_definitions(FMT_HEADER_ONLY=1)
-
 # ============================================================
 # Find all required packages
 # ============================================================
 function(find_required_packages)
-    # spdlog (mandatory) via CPM
+    # spdlog (mandatory)
     find_spdlog_package()
-
-    # magic_enum (mandatory) via CPM
-    find_magic_enum_package()
 
     # OpenImageIO (mandatory)
     find_openimageio_package()
@@ -38,7 +32,11 @@ function(find_required_packages)
     # Exiv2 (mandatory for serialization)
     find_exiv2_package()
 
+    # magic_enum (mandatory)
+    find_magic_enum_package()
+    
     # Qt6 will be searched by the sub-projects ui/desktop, ui/mobile
+
     summarize_found_packages()
     warn_halide_requirements()
 endfunction()
@@ -48,43 +46,24 @@ endfunction()
 # Find spdlog
 # ============================================================
 function(find_spdlog_package)
-    message(STATUS "Fetching spdlog v1.16.0 via CPM")
+    message(STATUS "Searching for spdlog...")
+
+    # Attempt CONFIG (vcpkg, Conan)
+    find_package(spdlog CONFIG QUIET)
+
+    if(NOT spdlog_FOUND)
+        message(STATUS "spdlog not found via CONFIG, trying MODULE...")
+        # Attempt MODULE (Findspdlog.cmake)
+        find_package(spdlog MODULE QUIET)
+    endif()
     
-    CPMAddPackage(
-        NAME spdlog
-        GITHUB_REPOSITORY gabime/spdlog
-        GIT_TAG         v1.16.0
-        OPTIONS         "SPDLOG_HEADER_ONLY ON"
-    )
-
-    if(TARGET spdlog::spdlog_header_only OR TARGET spdlog::spdlog)
+    if(spdlog_FOUND)
         set(spdlog_FOUND TRUE PARENT_SCOPE)
-        set(spdlog_VERSION "1.16.0" PARENT_SCOPE)
+        set(spdlog_VERSION ${spdlog_VERSION} PARENT_SCOPE)
     else()
-        message(FATAL_ERROR "Failed to download spdlog via CPM.")
+        message(FATAL_ERROR "spdlog not found. Please install it via your package manager or vcpkg/conan.")
     endif()
 endfunction()
-
-# ============================================================
-# Find magic_enum
-# ============================================================
-function(find_magic_enum_package)
-    message(STATUS "Fetching magic_enum v0.9.7 via CPM")
-
-    CPMAddPackage(
-        NAME magic_enum
-        GITHUB_REPOSITORY Neargye/magic_enum
-        GIT_TAG         v0.9.7
-    )
-
-    if(TARGET magic_enum::magic_enum)
-        set(magic_enum_FOUND TRUE PARENT_SCOPE)
-        set(magic_enum_VERSION "0.9.7" PARENT_SCOPE)
-    else()
-        message(FATAL_ERROR "Failed to download magic_enum via CPM.")
-    endif()
-endfunction()
-
 
 # ============================================================
 # Find OpenImageIO
@@ -144,6 +123,27 @@ function(warn_halide_requirements)
     message(STATUS "╚════════════════════════════════════════════════════════════╝")
     message(STATUS "")
 endfunction()
+
+# ============================================================
+# Find magic_enum
+# ============================================================
+function(find_magic_enum_package)
+    message(STATUS "Fetching magic_enum v0.9.7 via CPM")
+
+    CPMAddPackage(
+        NAME magic_enum
+        GITHUB_REPOSITORY Neargye/magic_enum
+        GIT_TAG         v0.9.7
+    )
+
+    if(TARGET magic_enum::magic_enum)
+        set(magic_enum_FOUND TRUE PARENT_SCOPE)
+        set(magic_enum_VERSION "0.9.7" PARENT_SCOPE)
+    else()
+        message(FATAL_ERROR "Failed to download magic_enum via CPM.")
+    endif()
+endfunction()
+
 
 # ============================================================
 # Find Exiv2
