@@ -16,8 +16,6 @@ cd C:\vcpkg
 ### 2. Enable Binary Caching (Crucial!)
 To avoid recompiling LLVM every time you clean your project, enable local binary caching. Check if it's ON by default.
 
-
-
 ```PowerShell
 # Create a permanent cache folder
 mkdir C:\vcpkg_cache
@@ -76,7 +74,7 @@ cmake --build build/release-vcpkg-mingw
 Don't forget to use -DHALIDE_DIR=/path/to/halide(cmake) of your IDE build to add the path of Halide
 
 #### Qt Creator
-Open the root CMakeLists.txt with Qt Creator and choose the build vcpkg core msvc or mingw (with no desktop). And when you are in the pannel of the configuration, activate BUILD_UIBUILD_DESKTOP_UI to ON
+Open the root CMakeLists.txt with Qt Creator and choose the build vcpkg core msvc or mingw (with no desktop). And when you are in the pannel of the configuration, activate BUILD_DESKTOP_UI to ON
 
 #### Visual Studio
 Not configured at yet

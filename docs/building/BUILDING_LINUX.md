@@ -16,25 +16,12 @@ This method uses an automated script that compiles Exiv2, OpenImageIO, and magic
 From the root of the project, run:
 
 ```bash
-./setup/setup_linux.sh
+chmod +x setup/setup-ubuntu.sh
+./setup/setup_ubuntu.sh
 ```
 (Note: You can look inside this script if you prefer to run the installation steps manually).
 
 If system packages are unavailable, too old, or if you need specific configurations not provided by your distribution. You need to adapt.
-
-### Qt Installation (Required for UI)
-
-The setup script does not install Qt. It is highly recommended to use the official Qt Online Installer for Linux.
-
-Alternatively, you can use the aqtinstall Python tool:
-
-```bash
-pip3 install aqtinstall
-aqt install-qt linux desktop 6.10.2 --outputdir /opt/qt -m qtdeclarative -m qtshadertools
-```
-
-If you install Qt manually, make sure to set the CMAKE_PREFIX_PATH environment variable to point to your Qt installation (e.g., /opt/qt/6.10.2/gcc_64 or the path chosen via the installer).
-
 
 ## 🚀Build the project
 * You can omit -DBUILD_DESKTOP_UI=ON if you don't want to compile the UI.
