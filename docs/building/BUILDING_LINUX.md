@@ -17,7 +17,7 @@ From the root of the project, run:
 
 ```bash
 chmod +x setup/setup-ubuntu.sh
-./setup/setup_ubuntu.sh
+./setup/setup-ubuntu.sh
 ```
 (Note: You can look inside this script if you prefer to run the installation steps manually).
 
