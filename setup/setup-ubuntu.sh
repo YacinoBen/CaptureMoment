@@ -40,21 +40,6 @@ echo "[2/5] Installing Python core packages..."
 pip3 install --break-system-packages cmake
 
 # ==============================================================================
-# Install magic_enum (Header-only)
-# ==============================================================================
-echo "[3/5] Installing magic_enum..."
-if [ ! -d "/usr/local/include/magic_enum" ]; then
-    git clone https://github.com/Neargye/magic_enum.git /tmp/magic_enum
-    cd /tmp/magic_enum && git checkout v0.9.7
-    sudo mkdir -p /usr/local/include/magic_enum
-    sudo cp include/magic_enum/*.hpp /usr/local/include/magic_enum/
-    rm -rf /tmp/magic_enum
-    echo "      -> magic_enum installed successfully."
-else
-    echo "      -> magic_enum already found in /usr/local/include/magic_enum, skipping."
-fi
-
-# ==============================================================================
 # Build and install Exiv2
 # ==============================================================================
 echo "[4/5] Building and installing Exiv2 v0.28.7..."
