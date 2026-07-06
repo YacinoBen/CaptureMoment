@@ -6,7 +6,6 @@
 # This script compiles dependencies from source to guarantee strict version
 # control, matching the exact versions used in the CI and Linux builds.
 # 
-# NOTE: Qt is NOT installed by this script. Use the official Qt Installer.
 # ==============================================================================
 
 set -e # Exit immediately if a command exits with a non-zero status
@@ -38,7 +37,7 @@ brew install \
 # Build and install Exiv2
 # ==============================================================================
 echo "[4/5] Building and installing Exiv2 v0.28.7..."
-if [ ! -d "/opt/exiv2" ]; then
+if [[ ! -d "/opt/exiv2" ]]; then
     git clone https://github.com/Exiv2/exiv2.git /tmp/exiv2-src
     cd /tmp/exiv2-src && git checkout v0.28.7
     
@@ -63,7 +62,7 @@ fi
 # Build and install OpenImageIO
 # ==============================================================================
 echo "[5/5] Building and installing OpenImageIO v3.1.8.0..."
-if [ ! -d "/opt/oiio" ]; then
+if [[ ! -d "/opt/oiio" ]]; then
     git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
     cd /tmp/oiio-src && git checkout v3.1.8.0
     

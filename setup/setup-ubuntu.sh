@@ -4,10 +4,7 @@
 # CaptureMoment - Linux Local Setup Script
 # 
 # This script automates the setup of the build environment and compiles the
-# required core dependencies (Exiv2, OpenImageIO, magic_enum) from source.
-# 
-# NOTE: Qt is NOT installed by this script. You must install Qt manually
-# and ensure CMAKE_PREFIX_PATH points to your Qt installation before building.
+# required core dependencies (Exiv2, OpenImageIO) from source.
 # ==============================================================================
 
 set -e # Exit immediately if a command exits with a non-zero status
@@ -43,7 +40,7 @@ pip3 install --break-system-packages cmake
 # Build and install Exiv2
 # ==============================================================================
 echo "[4/5] Building and installing Exiv2 v0.28.7..."
-if [ ! -d "/opt/exiv2" ]; then
+if [[ ! -d "/opt/exiv2" ]]; then
     git clone https://github.com/Exiv2/exiv2.git /tmp/exiv2-src
     cd /tmp/exiv2-src && git checkout v0.28.7
     
@@ -64,7 +61,7 @@ fi
 # Build and install OpenImageIO
 # ==============================================================================
 echo "[5/5] Building and installing OpenImageIO v3.1.8.0..."
-if [ ! -d "/opt/oiio" ]; then
+if [[ ! -d "/opt/oiio" ]]; then
     git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
     cd /tmp/oiio-src && git checkout v3.1.8.0
     
