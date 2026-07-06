@@ -1,20 +1,24 @@
 # macOS Building Guide
-For macOS, we recommend using Homebrew to manage dependencies (OpenImageIO, Halide, Exiv2, magic_enum).
+This guide covers building CaptureMoment on macOS. The recommended method uses an automated script to build core dependencies from source, ensuring you get the exact same versions and configuration as our Linux and CI pipelines, avoiding unpredictable Homebrew updates.
 
-## Prerequisites
-* Homebrew
+##  Setting up Dependencies (Recommended)
 
-## 📦Installing Dependencies
+You need Homebrew and a few base build tools:
 
-make sure you have cmake, ninja installed
-
-```powershell
+```bash
 brew update
-brew install openimageio
-brew install spdlog
-brew install exiv2
-brew install magic_enum
+brew install cmake ninja ccache
 ```
+
+## 2. Run the automated setup script
+This method uses an automated script that compiles Exiv2, OpenImageIO, and magic_enum from source to guarantee strict version consistency. (Note: The script uses Homebrew in the background to fetch the underlying base libraries required for the build).
+
+From the root of the project, run:
+
+```bash
+./setup/setup-macos.sh
+```
+(Note: You can look inside this script if you prefer to run the installation steps manually).
 
 ## 🚀 Build Instructions
 We use custom Homebrew presets that configure the necessary paths (CMAKE_PREFIX_PATH). Don't forget to enable the UI if you want!
