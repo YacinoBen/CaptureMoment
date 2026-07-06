@@ -37,7 +37,7 @@ sudo apt-get update && sudo apt-get install -y \
 # Install Python core packages
 # ==============================================================================
 echo "[2/5] Installing Python core packages..."
-pip3 install --break-system-packages cmake halide
+pip3 install --break-system-packages cmake
 
 # ==============================================================================
 # Install magic_enum (Header-only)
