@@ -19,7 +19,8 @@ void WorkingImageHalide::initializeHalide(std::span<float> data, Common::ImageDi
 
     // Create Halide Buffer View (Zero-Copy)
     // std::span::data() returns the underlying pointer safely.
-    m_halide_buffer = Halide::Buffer<float>(data.data(), width, height, channels);
+    // Transform from Chunky OIIO to Plannar Halide layout is handled by Halide::Buffer<float>::make_interleaved.
+    m_halide_buffer = Halide::Buffer<float>::make_interleaved(data.data(), width, height, channels);
 
     if (!m_halide_buffer.defined()) {
         spdlog::error("[WorkingImageHalide::initializeHalide]: Failed to define Halide::Buffer.");
