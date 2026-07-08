@@ -12,7 +12,7 @@
 
 namespace CaptureMoment::Core::Pipeline {
 
-void OperationPipelineExecutorGPU::applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y) const
+void OperationPipelineExecutorGPU::applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var &c) const
 {
     Halide::Var xo, yo, xi, yi;
     pipeline.gpu_tile(x, y, xo, yo, xi, yi, 16, 16);
