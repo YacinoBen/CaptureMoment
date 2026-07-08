@@ -96,13 +96,13 @@ public:
 protected: 
      /**
      * @brief Applies scheduling directives (Vectorization/Parallelism/GPU tiling).
-     * @details  Called during the build phase to optimize `m_output_func`
+     * @details  Called during the build phase to optimize `output_func`
      * @param pipeline 
      * @param x 
-     * @param y 
-     * @param c 
+     * @param y
+     * @param c
      */
-    virtual void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y) const = 0;
+    virtual void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const = 0;
     
     [[nodiscard]] bool executeOnHalideBuffer(Halide::Buffer<float>& input_buffer, Halide::Buffer<float>& output_buffer) override;
 
