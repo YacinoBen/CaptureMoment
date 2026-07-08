@@ -20,6 +20,9 @@ OperationPipelineExecutor::OperationPipelineExecutor()
       m_factory(nullptr),
       m_chain_built(false)
 {
+    m_input.dim(0).set_stride(4);
+    m_input.dim(2).set_stride(1);
+
     spdlog::debug("OperationPipelineExecutor: Constructed. Input set to Float(32), 3 dimensions. Backend: {}",
                   static_cast<int>(Config::AppConfig::instance().getProcessingBackend()));
 }
@@ -126,12 +129,14 @@ void OperationPipelineExecutor::buildOperationChain()
             spdlog::warn("OperationPipelineExecutor::buildOperationChain: Operation '{}' does not support fusion. Skipping.", desc.name);
         }
     }
+    output_func.output_buffer().dim(0).set_stride(4);
+    output_func.output_buffer().dim(2).set_stride(1);
 
     Halide::Target target { Config::AppConfig::getHalideTarget() };
     spdlog::info("OperationPipelineExecutor::buildOperationChain: Compiling for target: {}", target.to_string());
 
     // Apply scheduling (CPU or GPU)
-    applyScheduling(output_func, x, y);
+    applyScheduling(output_func, x, y, c);
 
     try {
         // Compile JIT with the GPU target (e.g., Vulkan)
