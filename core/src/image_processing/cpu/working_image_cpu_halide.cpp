@@ -32,11 +32,10 @@ bool WorkingImageCPU_Halide::bindView(const ImageView& view)
         return false;
     }
 
-    m_halide_original_buffer = Halide::Buffer<float>(
+    m_halide_original_buffer = Halide::Buffer<float>::make_interleaved(
         const_cast<float*>(m_view_data_image.original_data.data()),
         m_view_data_image.width, m_view_data_image.height, m_view_data_image.channels
         );
-
 
     spdlog::debug("[WorkingImageCPU_Halide::bindView]: Bound and initialized Halide ({}x{}, {} ch).",
                   m_view_data_image.width, m_view_data_image.height, m_view_data_image.channels);

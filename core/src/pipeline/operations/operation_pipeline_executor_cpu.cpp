@@ -12,10 +12,10 @@
 
 namespace CaptureMoment::Core::Pipeline {
 
-void OperationPipelineExecutorCPU::applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y) const
+void OperationPipelineExecutorCPU::applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const
 {
     Halide::Var yo, yi;
-    pipeline.split(y, yo, yi, 32).parallel(yo).vectorize(x, 8);
+    pipeline.bound(c, 0, 4).reorder(c, x, y).split(y, yo, yi, 32).parallel(yo).unroll(c);
     spdlog::trace("OperationPipelineExecutorCPU::applyScheduling: Applying CPU scheduling.");
 }
 

@@ -399,3 +399,16 @@ This interface represents an image used as a working buffer, abstracting its har
 * **`CaptureMoment::Core::utils::toString`**: A generic template function using C++20 Concepts (`ToStringablePrimitive`) for converting primitive types (int, float, double, bool) and strings to their string representation.
 
 * **Usage:** Replaces legacy specific functions like `serializeFloat`, `serializeDouble`, etc., within the serialization module and other parts of the core requiring type-to-string conversion.
+
+## 15. Halide Pipeline Architecture: Chunky-First Paradigm
+
+* **Problem:** Traditional Halide pipelines assume a Planar memory layout (Stride X=1), which requires expensive Chunky↔Planar conversions when interfacing with display APIs and OIIO-decoded images.
+* **Solution:** Enforce a strict Interleaved (Chunky) memory layout [R0,G0,B0,A0, R1,G1,B1,A1...] from decode to display, eliminating conversion overhead.
+* [🟦 **SEE IMAGE PIPELINE.md.md**](core/IMAGE_PIPELINE.md).
+
+## 16. Other docs:
+* [🟦 **SEE IMAGE PROCESSING.md**](core/IMAGE_PROCESSING.md).
+* [🟦 **SEE IMAGE PIPELINE.md.md**](core/IMAGE_PIPELINE.md).
+* [🟦 **SEE OPERATIONS.md**](core/OPERATIONS.md).
+* [🟦 **SEE SERIALIZER.md**](core/SERIALIZER.md).
+

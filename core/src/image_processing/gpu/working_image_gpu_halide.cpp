@@ -28,7 +28,7 @@ bool WorkingImageGPU_Halide::bindView(const ImageView& view)
         spdlog::error("[WorkingImageGPU_Halide::bindView]: Failed to init working buffer.");
         return false;
     }
-    m_original_halide_buffer = Halide::Buffer<float>(
+    m_original_halide_buffer = Halide::Buffer<float>::make_interleaved(
         const_cast<float*>(m_view_data_image.original_data.data()),
         m_view_data_image.width,
         m_view_data_image.height,
@@ -60,7 +60,10 @@ WorkingImageGPU_Halide::transferToVRAM()
 
         // Pipeline Reset
         Halide::Func reset_func("gpu_reset");
+
         reset_func(x, y, c) = m_original_halide_buffer(x, y, c);
+        reset_func.output_buffer().dim(0).set_stride(4);
+        reset_func.output_buffer().dim(2).set_stride(1);
         reset_func.compile_jit(target);
         m_reset_pipeline = Halide::Pipeline(reset_func);
 
@@ -155,12 +158,12 @@ WorkingImageGPU_Halide::downsample(Common::ImageDim target_width, Common::ImageD
         m_downsample_input.set(m_halide_buffer);
 
         std::vector<float> result_data(target_width * target_height * m_view_data_image.channels);
-        Halide::Buffer<float> dst_buffer(
+        Halide::Buffer<float> dst_buffer { Halide::Buffer<float>::make_interleaved(
             result_data.data(),
             static_cast<int>(target_width),
             static_cast<int>(target_height),
             static_cast<int>(m_view_data_image.channels)
-            );
+            )};
 
         m_downsample_scale_x.set(static_cast<float>(target_width) / m_view_data_image.width);
         m_downsample_scale_y.set(static_cast<float>(target_height) / m_view_data_image.height);
@@ -191,6 +194,9 @@ void WorkingImageGPU_Halide::buildDownsamplePipeline()
 {
     if (m_downsample_built) return;
 
+    m_downsample_input.dim(0).set_stride(4);
+    m_downsample_input.dim(2).set_stride(1);
+
     Halide::Var x, y, c, k;
     Halide::Func clamped{Halide::BoundaryConditions::repeat_edge(m_downsample_input)};
 
@@ -219,6 +225,9 @@ void WorkingImageGPU_Halide::buildDownsamplePipeline()
 
     Halide::Func final_output{"final_output"};
     final_output(x, y, c) = Halide::clamp(resized_x(x, y, c), 0.0f, 1.0f);
+
+    final_output.output_buffer().dim(0).set_stride(4);
+    final_output.output_buffer().dim(2).set_stride(1);
 
     Halide::Target target{Config::AppConfig::getHalideTarget()};
 
