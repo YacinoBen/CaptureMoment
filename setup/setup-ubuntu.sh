@@ -60,10 +60,10 @@ fi
 # ==============================================================================
 # Build and install OpenImageIO
 # ==============================================================================
-echo "[5/5] Building and installing OpenImageIO v3.1.8.0..."
+echo "[5/5] Building and installing OpenImageIO v3.1.14.0..."
 if [[ ! -d "/opt/oiio" ]]; then
     git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
-    cd /tmp/oiio-src && git checkout v3.1.8.0
+    cd /tmp/oiio-src && git checkout v3.1.14.0
     
     mkdir build && cd build
     cmake -DCMAKE_BUILD_TYPE=Release \

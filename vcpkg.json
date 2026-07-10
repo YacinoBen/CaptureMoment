@@ -4,6 +4,7 @@
   "dependencies": [
     {
       "name": "openimageio",
+      "version>=": "3.1.14.0",
       "default-features": false,
       "features": [
        { "name": "libraw"}, { "name": "jpegxl" }, { "name": "libheif" }, { "name": "openjpeg" }, { "name": "webp" }
