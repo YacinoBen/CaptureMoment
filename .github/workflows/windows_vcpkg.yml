@@ -16,7 +16,7 @@ jobs:
 
     strategy:
       matrix:
-        build-type: [Release]
+        build-type: [Release, Debug]
         include:
           - build-type: Release
             preset: release-vcpkg-msvc
@@ -55,10 +55,11 @@ jobs:
       # ====================================================================
       # Setup vcpkg
       # ====================================================================
-
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11.6
-
+      - name: Setup vcpkg (latest)
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+          C:\vcpkg\bootstrap-vcpkg.bat
+          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
       # ====================================================================
       # Setup Python and install Halide via pip
       # ====================================================================
@@ -91,11 +92,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-         name: build-release
-         path: |
-          build/ui/desktop/Release/CaptureMomentDesktop.exe 
-          build/tests/Release/*.exe
-          build/Release/*.lib
-          build/Release/*.dll
+          name: build-${{ matrix.build-type }}
+          path: |
+            build/ui/desktop/${{ matrix.build-type }}/*.exe
+            build/tests/${{ matrix.build-type }}/*.exe
+            build/${{ matrix.build-type }}/*.lib
+            build/${{ matrix.build-type }}/*.dll
           retention-days: 7
           if-no-files-found: ignore
