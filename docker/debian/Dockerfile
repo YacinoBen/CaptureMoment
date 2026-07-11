@@ -49,7 +49,7 @@ RUN git clone https://github.com/Exiv2/exiv2.git /tmp/exiv2-src && \
 # Build and install OpenImageIO
 # ==============================================================================
 RUN git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src && \
-    cd /tmp/oiio-src && git checkout v3.1.8.0 && \
+    cd /tmp/oiio-src && git checkout v3.1.14.0 && \
     mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
            -DCMAKE_INSTALL_PREFIX=/opt/oiio \

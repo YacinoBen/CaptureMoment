@@ -33,7 +33,7 @@ Before selecting your platform, ensure you have these tools:
 
 | Library     | Version      | Link                                                     |
 |-------------|:------------------:|----------------------------------------------------------|
-| OpenImageIO | 3.1.8.0             | https://github.com/AcademySoftwareFoundation/OpenImageIO |
+| OpenImageIO | 3.1.14.0             | https://github.com/AcademySoftwareFoundation/OpenImageIO |
 | Halide      | 21.0           | https://github.com/halide/Halide                         |
 | spdlog      | 1.16.0      | https://github.com/gabime/spdlog                         |
 | Exiv2         | 0.28.7| https://github.com/Exiv2/exiv2  
