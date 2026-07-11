@@ -57,9 +57,25 @@ jobs:
       # ====================================================================
       - name: Setup vcpkg (latest)
         run: |
-          git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-          C:\vcpkg\bootstrap-vcpkg.bat
-          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+          # if vcpkg is already installed, we use it, otherwise we clone it and bootstrap it
+          $vcpkgCmd = Get-Command vcpkg -ErrorAction SilentlyContinue
+          
+          if ($vcpkgCmd) {
+            Write-Host "vcpkg detected, using existing installation..."
+            # We get the path to the vcpkg root directory from the command
+            $vcpkgRoot = (Get-Item $vcpkgCmd.Source).DirectoryName
+          } else {
+            Write-Host "vcpkg not detected, cloning..."
+            git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+            $vcpkgRoot = "C:\vcpkg"
+          }
+          
+          # In both cases, we run the bootstrap script with the correct path
+          & "$vcpkgRoot\bootstrap-vcpkg.bat"
+          
+          # We configure the environment variables dynamically
+          echo "VCPKG_ROOT=$vcpkgRoot" >> $env:GITHUB_ENV
+          echo "$vcpkgRoot" >> $env:GITHUB_PATH
       # ====================================================================
       # Setup Python and install Halide via pip
       # ====================================================================
