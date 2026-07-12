@@ -16,7 +16,7 @@ jobs:
 
     strategy:
       matrix:
-        build-type: [Release]
+        build-type: [Release, Debug]
         include:
           - build-type: Release
             preset: release-vcpkg-msvc
@@ -55,10 +55,27 @@ jobs:
       # ====================================================================
       # Setup vcpkg
       # ====================================================================
-
-      - name: Setup vcpkg (and does not build any package)
-        uses: lukka/run-vcpkg@v11 
-
+      - name: Setup vcpkg (latest)
+        run: |
+          # if vcpkg is already installed, we use it, otherwise we clone it and bootstrap it
+          $vcpkgCmd = Get-Command vcpkg -ErrorAction SilentlyContinue
+          
+          if ($vcpkgCmd) {
+            Write-Host "vcpkg detected, using existing installation..."
+            # We get the path to the vcpkg root directory from the command
+            $vcpkgRoot = (Get-Item $vcpkgCmd.Source).DirectoryName
+          } else {
+            Write-Host "vcpkg not detected, cloning..."
+            git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+            $vcpkgRoot = "C:\vcpkg"
+          }
+          
+          # In both cases, we run the bootstrap script with the correct path
+          & "$vcpkgRoot\bootstrap-vcpkg.bat"
+          
+          # We configure the environment variables dynamically
+          echo "VCPKG_ROOT=$vcpkgRoot" >> $env:GITHUB_ENV
+          echo "$vcpkgRoot" >> $env:GITHUB_PATH
       # ====================================================================
       # Setup Python and install Halide via pip
       # ====================================================================
@@ -91,11 +108,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-         name: build-release
-         path: |
-          build/ui/desktop/Release/CaptureMomentDesktop.exe 
-          build/tests/Release/*.exe
-          build/Release/*.lib
-          build/Release/*.dll
+          name: build-${{ matrix.build-type }}
+          path: |
+            build/ui/desktop/${{ matrix.build-type }}/*.exe
+            build/tests/${{ matrix.build-type }}/*.exe
+            build/${{ matrix.build-type }}/*.lib
+            build/${{ matrix.build-type }}/*.dll
           retention-days: 7
           if-no-files-found: ignore

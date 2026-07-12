@@ -4,6 +4,7 @@
   "dependencies": [
     {
       "name": "openimageio",
+      "version>=": "3.1.14.0",
       "default-features": false,
       "features": [
        { "name": "libraw"}, { "name": "jpegxl" }, { "name": "libheif" }, { "name": "openjpeg" }, { "name": "webp" }
@@ -18,11 +19,6 @@
       "name": "exiv2",
       "default-features": false,
       "version>=": "0.28.7"
-    },
-    {
-      "name": "magic-enum",
-      "default-features": false,
-      "version>=": "0.9.7"
     }
   ],
     "features": {

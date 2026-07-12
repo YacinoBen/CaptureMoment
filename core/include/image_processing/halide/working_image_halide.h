@@ -7,11 +7,8 @@
 
 #pragma once
 
-#include <vector>
-#include <cstddef>
 #include <span>
 
-#include "common/image_region.h"
 #include "common/types/image_types.h"
 
 #include "Halide.h"
@@ -45,7 +42,13 @@ public:
      * @return A Halide::Buffer<float> object that references the internal data storage.
      * The returned buffer points to the same memory location as m_data.
      */
-    [[nodiscard]] Halide::Buffer<float> getHalideBuffer() const { return m_halide_buffer; };
+    [[nodiscard]] Halide::Buffer<float>& getHalideBuffer() { return m_halide_buffer; };
+
+    /**
+     * @brief Checks if the Halide buffer is defined.
+     * @return true if m_halide_buffer.defined() returns true.
+     */
+    [[nodiscard]] bool isHalideBufferValid() const noexcept;
 
 protected:
     /**
@@ -103,12 +106,6 @@ protected:
      * @return width × height × channels (total float elements), or 0 if buffer undefined.
      */
     [[nodiscard]] Common::ImageSize getDataSizeByHalide() const noexcept;
-
-    /**
-     * @brief Checks if the Halide buffer is defined.
-     * @return true if m_halide_buffer.defined() returns true.
-     */
-    [[nodiscard]] bool isHalideBufferValid() const noexcept;
 };
 
 } // namespace ImageProcessing

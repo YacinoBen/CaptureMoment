@@ -14,7 +14,6 @@
 #pragma once
 
 #include "image_processing/interfaces/i_working_image_hardware.h"
-#include "image_processing/common/working_image_data.h"
 
 namespace CaptureMoment::Core {
 
@@ -31,29 +30,30 @@ namespace ImageProcessing {
  * This class ensures that all CPU-based implementations provide the core functionality
  * defined by IWorkingImageHardware.
  */
-class WorkingImageCPU : public IWorkingImageHardware, public WorkingImageData {
+class WorkingImageCPU : public IWorkingImageHardware {
 public:
+
+    /** @brief Constructor */
+    WorkingImageCPU() = default;
+
     /**
      * @brief Virtual destructor.
      */
     virtual ~WorkingImageCPU() = default;
 
-    /**
-     * @brief Exports a downscaled version of the image directly from GPU.
-     *
-     * @details
-     * For CPU: Performs downsample on CPU.
-     *
-     * This is the preferred method for display purposes.
-     */
-    [[nodiscard]] virtual std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
+    [[nodiscard]] bool isValid() const override;
+    [[nodiscard]] Common::MemoryType getMemoryType() const override { return Common::MemoryType::CPU_RAM; };
+
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>, ErrorHandling::CoreError>
     downsample(Common::ImageDim target_width, Common::ImageDim target_height) override;
 
-protected:
     /**
-     * @brief Protected constructor to enforce abstract nature.
+     * @brief Exports current internal image data to a new CPU-based ImageRegion..
+     *
+     * @return std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
      */
-    WorkingImageCPU() = default;
+    [[nodiscard]] std::expected<std::unique_ptr<Common::ImageRegion>,  ErrorHandling::CoreError>
+    getFullResImage() override;
 };
 
 } // namespace ImageProcessing

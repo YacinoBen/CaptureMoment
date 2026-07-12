@@ -1,6 +1,22 @@
 # PackageHelpers.cmake - Helper functions to find and verify required packages
 
 # ============================================================
+# Download CPM.cmake automatically if not present
+# ============================================================
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+    message(STATUS "Downloading CPM.cmake...")
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/cmake")
+    file(DOWNLOAD
+        https://github.com/cpm-cmake/CPM.cmake/releases/latest/download/get_cpm.cmake
+        "${CMAKE_BINARY_DIR}/cmake/CPM.cmake"
+        TLS_VERIFY ON
+    )
+endif()
+
+include("${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+message(STATUS "Using CPM.cmake from: ${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+
+# ============================================================
 # Find all required packages
 # ============================================================
 function(find_required_packages)
@@ -112,47 +128,22 @@ endfunction()
 # Find magic_enum
 # ============================================================
 function(find_magic_enum_package)
-    message(STATUS "Searching for magic_enum...")
+    message(STATUS "Fetching magic_enum v0.9.7 via CPM")
 
-    # Attempt CONFIG first (expects magic_enum-config.cmake from vcpkg, Conan, etc.)
-    find_package(magic_enum CONFIG QUIET)
+    CPMAddPackage(
+        NAME magic_enum
+        GITHUB_REPOSITORY Neargye/magic_enum
+        GIT_TAG         v0.9.7
+    )
 
-    if(NOT magic_enum_FOUND)
-        message(STATUS "magic_enum not found via CONFIG, trying MODULE...")
-        # Attempt MODULE (expects Findmagic_enum.cmake or checks standard paths)
-        find_package(magic_enum MODULE QUIET)
-    endif()
-
-    # If still not found, or if magic_enum is header-only without CMake config, try manual search
-    if(NOT magic_enum_FOUND)
-        message(STATUS "magic_enum not found via CONFIG/MODULE. Attempting manual search for header-only...")
-        find_path(MAGIC_ENUM_INCLUDE_DIR
-            NAMES magic_enum/magic_enum.hpp # The main header file we are looking for
-            PATHS /usr/local/include       # Standard location after manual install (e.g., GitHub Actions step)
-                  /usr/include             # Standard system location (e.g., after apt install if headers were there)
-                  # Add other potential standard paths if needed
-        )
-
-        if(MAGIC_ENUM_INCLUDE_DIR)
-            # Create an INTERFACE imported target for header-only library
-            add_library(magic_enum::magic_enum INTERFACE IMPORTED)
-            target_include_directories(magic_enum::magic_enum INTERFACE ${MAGIC_ENUM_INCLUDE_DIR})
-            set(magic_enum_FOUND TRUE)
-            message(STATUS "magic_enum found manually: ${MAGIC_ENUM_INCLUDE_DIR}")
-        else()
-             message(FATAL_ERROR "magic_enum not found via CONFIG, MODULE, or manual search. Check installation.")
-        endif()
-    endif()
-
-    if(magic_enum_FOUND)
-        # Export the FOUND status to the parent scope
+    if(TARGET magic_enum::magic_enum)
         set(magic_enum_FOUND TRUE PARENT_SCOPE)
-        # No need to export the target name if using it explicitly in target_link_libraries
-        # The target magic_enum::magic_enum should be available now
+        set(magic_enum_VERSION "0.9.7" PARENT_SCOPE)
     else()
-        message(FATAL_ERROR "magic_enum not found. Please ensure it is installed (e.g., via vcpkg, apt install libmagicenum-dev, or manual install).")
+        message(FATAL_ERROR "Failed to download magic_enum via CPM.")
     endif()
 endfunction()
+
 
 # ============================================================
 # Find Exiv2
@@ -220,7 +211,7 @@ function(summarize_found_packages)
     message(STATUS "║    Preferred Version                                       ║")
     message(STATUS "╠════════════════════════════════════════════════════════════╣")
     message(STATUS "║ spdlog : 1.16.0")
-    message(STATUS "║ OpenImageIO : 3.1.8.0")
+    message(STATUS "║ OpenImageIO : 3.1.14.0")
     message(STATUS "║ Halide : 21.0.0")
     message(STATUS "║ Exiv2 : 0.28.7")
     message(STATUS "║ magic_enum : 0.9.7")
