@@ -196,11 +196,9 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Solution:**
   * `StateImageManager` acts as the single authority for the current "working image".
   * Operations modify the image *in-place* on the `IWorkingImageHardware` managed by `WorkingImageContext`.
-  * Explicit synchronization points (e.g., waiting on futures from `PhotoEngine::applyOperations`) ensure operations complete before dependent actions begin.
+  * **Persistent Worker Model**: A single background thread processes operations sequentially; rapid UI updates (e.g., slider drag) are coalesced so only the latest state is executed.
+  * **Explicit Synchronization**: Callers wait on `std::future<bool>` from `applyOperations()`; `waitForPendingProcessing()` uses atomic idle checks + `yield()` for efficient blocking.
   * `WorkingImageData` maintains a cached original buffer (`m_original_data`) enabling `restoreOriginalData()` without re-reading from disk.
-* **Impact:**
-  * **Clarity:** Clear ownership and modification points.
-  * **Consistency:** Ensures the displayed or saved image reflects the latest applied operations.
 
 ---
 
@@ -240,10 +238,21 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 
 ### StateImageManager as Central Coordinator
 
-- **Exclusive Source Management:** `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
-- **Simplified PhotoEngine:** `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
-
+* **Threading Model**: Uses a **single persistent background thread** (`m_worker_thread`) for all image processing, avoiding thread creation/destruction overhead during rapid UI interactions.
+* **Coalescing Strategy**: When `applyOperations()` is called while the worker is busy, new operations **overwrite** the pending queue. Superseded `std::future` objects are resolved immediately to prevent UI blocking.
+* **Synchronization**: Uses `std::condition_variable` + `std::mutex` for efficient wait/notify; `std::atomic<bool>` for lock-free idle state checks.
 ---
+
+### Asynchronous Processing & Coalescing
+
+* **Persistent Worker**: `StateImageManager` owns a single `std::thread` running `workerLoop()`, which waits on a `std::condition_variable` for new work.
+* **Coalescing Logic**: 
+  - New `applyOperations()` calls overwrite `m_pending_work` if the worker is busy.
+  - Superseded `std::promise<bool>` objects are resolved immediately with `set_value(true)` to unblock callers.
+  - Only the *latest* operation list is executed, ensuring UI responsiveness during rapid interactions.
+* **Shutdown**: Clean termination via `m_stop_requested` atomic flag + `join()` in destructor.
+* **Thread Safety**: All shared state (`m_pending_work`, `m_active_promise`, `m_is_idle`) protected by `m_work_mutex`; atomics used for idle/stop flags.
+
 
 ### Simplified PhotoEngine Architecture
 
