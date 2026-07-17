@@ -23,6 +23,7 @@ StateImageManager::StateImageManager()
     , m_worker_context(std::make_unique<Workers::WorkerContext>())
     , m_working_image_context(std::make_unique<ImageProcessing::WorkingImageContext>())
     , m_source_manager(std::make_unique<Managers::SourceManager>())
+    , m_worker_thread(&StateImageManager::workerLoop, this)
 {
     if (!m_source_manager) {
         spdlog::critical("[StateImageManager::StateImageManager]: Null dependency provided during construction.");
@@ -32,10 +33,15 @@ StateImageManager::StateImageManager()
 
 StateImageManager::~StateImageManager()
 {
-    // Wait for any pending processing to complete before destruction
-    while (m_is_updating) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // Signal the worker thread to stop and wake it up
+    m_stop_requested.store(true, std::memory_order_release);
+    m_work_cv.notify_one();
+
+    // Wait for the thread to finish its current task and exit
+    if (m_worker_thread.joinable()) {
+        m_worker_thread.join();
     }
+
     spdlog::debug("[StateImageManager::~StateImageManager]: Destroyed.");
 }
 
@@ -45,7 +51,7 @@ StateImageManager::~StateImageManager()
 
 bool StateImageManager::loadImage(std::string_view path)
 {
-    // 1. Wait for any pending processing to complete
+     // 1. Wait for any pending processing to complete
     waitForPendingProcessing();
 
     // 2. Load the file into the INTERNAL SourceManager
@@ -78,8 +84,8 @@ bool StateImageManager::loadImage(std::string_view path)
 
     // 4. Clear any pending operations from previous image
     {
-        std::lock_guard lock(m_pending_mutex);
-        m_pending_ops.reset();
+        std::lock_guard lock(m_work_mutex);
+        m_pending_work.reset();
     }
 
     spdlog::info("[StateImageManager::loadImage]: Image '{}' loaded successfully ({}x{}).",
@@ -88,12 +94,114 @@ bool StateImageManager::loadImage(std::string_view path)
     return true;
 }
 
+
+void StateImageManager::workerLoop()
+{
+    spdlog::trace("[StateImageManager::workerLoop]: Thread started.");
+
+
+    while (!m_stop_requested.load(std::memory_order_acquire))
+    {
+        std::optional<std::vector<Operations::OperationDescriptor>> work_to_do;
+        std::shared_ptr<std::promise<bool>> work_promise;
+
+        // --------------------------------------------------------
+        // PHASE 1: Wait for and acquire work
+        // --------------------------------------------------------
+        {
+            std::unique_lock<std::mutex> lock(m_work_mutex);
+
+            // Wait until: stop requested OR work available
+            m_work_cv.wait(lock, [this] {
+                return m_stop_requested.load(std::memory_order_acquire)
+                    || m_pending_work.has_value();
+            });
+
+            if (m_stop_requested.load(std::memory_order_acquire))
+            {
+                // Resolve any pending promise before exit
+                if (m_active_promise) {
+                    try { m_active_promise->set_value(false); }
+                    catch (const std::future_error&) {}
+                }
+                break;
+            }
+
+            // Acquire work (move out of pending)
+            work_to_do = std::move(m_pending_work);
+            m_pending_work.reset();
+            work_promise = m_active_promise;
+        }
+
+        // --------------------------------------------------------
+        // PHASE 2: Execute processing
+        // --------------------------------------------------------
+        const bool success { executeProcessing(std::move(*work_to_do)) };
+
+        // --------------------------------------------------------
+        // PHASE 3: Check for coalesced work
+        // --------------------------------------------------------
+        bool has_more_work { false };
+        {
+            std::lock_guard<std::mutex> lock(m_work_mutex);
+            has_more_work = m_pending_work.has_value();
+
+            if (!has_more_work)
+            {
+                // No more work - this is the final operation in the chain
+                // Set idle to true UNDER the mutex to prevent race conditions
+                m_is_idle.store(true, std::memory_order_release);
+
+                // Resolve the promise
+                if (work_promise) {
+                    try { work_promise->set_value(success); }
+                    catch (const std::future_error&) {}
+                }
+            }
+            // If has_more_work: keep m_is_idle = false, loop back immediately
+        }
+    }
+
+    spdlog::trace("[StateImageManager::workerLoop]: Thread exiting.");
+}
+
+bool StateImageManager::executeProcessing(std::vector<Operations::OperationDescriptor> ops)
+{
+    try
+    {
+        spdlog::trace("[StateImageManager::executeProcessing]: Executing {} operations.", ops.size());
+
+        auto& halide_manager { m_pipeline_context->getHalideManager() };
+        halide_manager.init(std::move(ops));
+
+        auto worker { m_worker_context->getHalideOperationWorker() };
+
+        std::shared_ptr<ImageProcessing::IWorkingImageHardware> working_image;
+        {
+            std::lock_guard<std::mutex> lock(m_state_mutex);
+            working_image = m_working_image_context->getWorkingImage();
+        }
+
+        if (!working_image) {
+            spdlog::error("[StateImageManager::executeProcessing]: No working image available.");
+            return false;
+        }
+
+        auto future { worker.execute(*m_pipeline_context, *working_image) };
+        return future.get();
+    }
+    catch (const std::exception& e)
+    {
+        spdlog::error("[StateImageManager::executeProcessing]: Exception during processing: {}", e.what());
+        return false;
+    }
+}
+
 std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingImageToSource()
 {
-    // 1. Retrieve the current working image
-    // Note: getWorkingImage() handles its own locking, but we might want to lock m_state_mutex
-    // if we want to ensure the image doesn't change during this export (snapshot behavior).
-    // We assume the caller handles synchronization or accepts the race condition (latest frame).
+    // Ensure no processing is running before committing
+    waitForPendingProcessing();
+
     std::shared_ptr<ImageProcessing::IWorkingImageHardware> working_image_hw;
     {
         std::lock_guard lock(m_state_mutex);
@@ -105,7 +213,6 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingIm
         return std::unexpected(ErrorHandling::CoreError::InvalidWorkingImage);
     }
 
-    // 2. Export to CPU memory
     auto cpu_copy_result { working_image_hw->getFullResImage() };
     if (!cpu_copy_result) {
         spdlog::error("[StateImageManager::commitWorkingImageToSource]: CPU export failed: {}",
@@ -115,7 +222,6 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::commitWorkingIm
 
     std::unique_ptr<Common::ImageRegion> cpu_copy { std::move(cpu_copy_result.value()) };
 
-    // 3. Write back to the INTERNAL SourceManager
     if (!m_source_manager->setTile(*cpu_copy)) {
         spdlog::error("[StateImageManager::commitWorkingImageToSource]: Write to source failed.");
         return std::unexpected(ErrorHandling::CoreError::IOError);
@@ -143,12 +249,6 @@ std::expected<void, ErrorHandling::CoreError> StateImageManager::resetToOriginal
     return {};
 }
 
-bool StateImageManager::isUpdatePending() const
-{
-    std::lock_guard lock(m_flag_mutex);
-    return m_is_updating;
-}
-
 std::string StateImageManager::getImageSourcePath() const
 {
    return m_source_manager->getImageSourcePath();
@@ -156,130 +256,38 @@ std::string StateImageManager::getImageSourcePath() const
 
 std::future<bool> StateImageManager::applyOperations(std::vector<Operations::OperationDescriptor>&& ops)
 {
-    spdlog::info("[StateImageManager::applyOperations]: Received {} operations (Move semantics).", ops.size());
+    spdlog::trace("[StateImageManager::applyOperations]: Received {} ops.", ops.size());
 
-    // ============================================================
-    // CASE 1: Processing already in progress → COALESCE
-    // ============================================================
-    if (m_is_updating.load(std::memory_order_acquire))
+    auto promise { std::make_shared<std::promise<bool>>() };
+    auto future { promise->get_future() };
+
     {
-        std::lock_guard lock(m_pending_mutex);
+        std::lock_guard<std::mutex> lock(m_work_mutex);
 
-        // Overwrite any previous pending operations
-        m_pending_ops = std::move(ops);
+        if (m_active_promise) {
+            try { m_active_promise->set_value(true); } // Superseded = success (not an error)
+            catch (const std::future_error&) {}
+        }
 
-        // Create a new promise for this caller
-        // The previous promise will be fulfilled when the current chain completes
-        m_pending_promise = std::promise<bool>();
+        // Store new promise and work
+        m_active_promise = promise;
+        m_pending_work = std::move(ops);
 
-        spdlog::debug("[StateImageManager::applyOperations]: Processing in progress, "
-                      "ops stored as pending (coalesced).");
-
-        return m_pending_promise.get_future();
+        // CRITICAL: Set idle to false UNDER the mutex
+        m_is_idle.store(false, std::memory_order_release);
     }
 
-    // ============================================================
-    // CASE 2: No processing in progress → LAUNCH DIRECTLY
-    // ============================================================
-
-    // Create promise for this request
-    m_pending_promise = std::promise<bool>();
-    auto future { m_pending_promise.get_future() };
-
-    // Launch the processing
-    launchProcessing(std::move(ops));
+    // Wake the persistent worker thread
+    m_work_cv.notify_one();
 
     return future;
 }
 
-void StateImageManager::launchProcessing(
-    std::vector<Operations::OperationDescriptor> ops)
-{
-    spdlog::trace("[StateImageManager::launchProcessing]: Starting async processing.");
-
-    // Set the updating flag
-    m_is_updating.store(true, std::memory_order_release);
-
-    // 3. Retrieve the Halide Manager from the Pipeline Context.
-    auto& halide_manager { m_pipeline_context->getHalideManager() };
-
-    // 4. Initialize the Manager with the Operations (Move Data Transfer).
-    halide_manager.init(std::move(ops));
-
-    // 5. Retrieve the specific Worker for Halide operations.
-    auto worker { m_worker_context->getHalideOperationWorker() };
-
-    // 6. Get the current working image (snapshot) and pass it to the worker.
-    auto working_image { m_working_image_context->getWorkingImage() };
-
-    // 7. Execute the processing asynchronously.
-    // Note: We pass a raw reference since working_image_to_use is kept alive by m_working_image
-    auto worker_future { worker.execute(*m_pipeline_context, *working_image) };
-
-    // 8. Launch async continuation to handle completion
-    std::thread([this, worker_future = std::move(worker_future)]() mutable {
-        // Wait for worker to complete
-        bool success { worker_future.get() };
-
-        if (success) {
-            spdlog::info("[StateImageManager::launchProcessing]: Processing completed.");
-        } else {
-            spdlog::error("[StateImageManager::launchProcessing]: Processing failed.");
-        }
-
-        // Handle completion (check for pending ops)
-        onProcessingComplete(success);
-    }).detach();
-}
-
-void StateImageManager::onProcessingComplete(bool success)
-{
-    spdlog::trace("[StateImageManager::onProcessingComplete]: Checking for pending operations.");
-
-    // ============================================================
-    // Check for pending operations
-    // ============================================================
-    std::optional<std::vector<Operations::OperationDescriptor>> next_ops;
-    {
-        std::lock_guard lock(m_pending_mutex);
-        next_ops = std::move(m_pending_ops);
-        m_pending_ops.reset();
-    }
-
-    // ============================================================
-    // CASE A: Pending operations exist → RELAUNCH
-    // ============================================================
-    if (next_ops.has_value() && !next_ops->empty()) {
-        spdlog::debug("[StateImageManager::onProcessingComplete]: "
-                      "Launching {} pending operations.", next_ops->size());
-
-        // Keep m_is_updating = true, launch next processing
-        launchProcessing(std::move(*next_ops));
-        return;
-    }
-
-    // ============================================================
-    // CASE B: No pending operations → COMPLETE
-    // ============================================================
-
-    // Reset the updating flag
-    m_is_updating.store(false, std::memory_order_release);
-
-    // Fulfill the promise
-    try {
-        m_pending_promise.set_value(success);
-    } catch (const std::future_error& e) {
-        // Promise already satisfied (should not happen, but log just in case)
-        spdlog::warn("[StateImageManager::onProcessingComplete]: Promise error: {}", e.what());
-    }
-
-    spdlog::debug("[StateImageManager::onProcessingComplete]: All processing complete.");
-}
-
 void StateImageManager::waitForPendingProcessing()
 {
-    while (m_is_updating.load(std::memory_order_acquire)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // Spin-wait with yield: highly efficient for short waits, avoids OS context switches
+    while (!m_is_idle.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
     }
 }
 
