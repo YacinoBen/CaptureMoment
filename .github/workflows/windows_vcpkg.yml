@@ -41,8 +41,6 @@ jobs:
       # ====================================================================
       # Update Chocolatey and install dependencies
       # ====================================================================
-      - name: Choco - Install CMake
-        run: choco upgrade cmake.install -y
       - name:  Choco - Install Visual MSVC 2026
         run: choco install visualstudio2026community --version=118.2.1 -y
 
