@@ -7,12 +7,17 @@ on:
     branches: ["main", "develop"]
 
 env:
-  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  USERNAME: ${{ github.repository_owner }}
+  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+  VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
 
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 70
+
+    permissions:
+      packages: write
 
     strategy:
       matrix:
@@ -57,25 +62,39 @@ jobs:
       # ====================================================================
       - name: Setup vcpkg (latest)
         run: |
-          # if vcpkg is already installed, we use it, otherwise we clone it and bootstrap it
-          $vcpkgCmd = Get-Command vcpkg -ErrorAction SilentlyContinue
+          cd C:\vcpkg
+
+          Write-Host "Fetching specific baseline..."
+          git fetch origin cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
           
-          if ($vcpkgCmd) {
-            Write-Host "vcpkg detected, using existing installation..."
-            # We get the path to the vcpkg root directory from the command
-            $vcpkgRoot = (Get-Item $vcpkgCmd.Source).DirectoryName
-          } else {
-            Write-Host "vcpkg not detected, cloning..."
-            git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-            $vcpkgRoot = "C:\vcpkg"
-          }
+          Write-Host "Checking out project baseline..."
+          git checkout cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
           
-          # In both cases, we run the bootstrap script with the correct path
-          & "$vcpkgRoot\bootstrap-vcpkg.bat"
+          Write-Host "Bootstrapping vcpkg..."
+          .\bootstrap-vcpkg.bat
+
+          Write-Host "Setting environment variables..."
+          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+          echo "C:\vcpkg" >> $env:GITHUB_PATH
+
+      # ====================================================================
+      # Configuration of NuGet source for vcpkg cache
+      # ====================================================================
+      - name: Configure NuGet source for vcpkg cache
+        shell: pwsh
+        run: |
+          $nugetExe = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
+          Write-Host "Using NuGet executable: $nugetExe"
           
-          # We configure the environment variables dynamically
-          echo "VCPKG_ROOT=$vcpkgRoot" >> $env:GITHUB_ENV
-          echo "$vcpkgRoot" >> $env:GITHUB_PATH
+          & $nugetExe sources add `
+            -Source "$env:FEED_URL" `
+            -StorePasswordInClearText `
+            -Name "GitHubPackages" `
+            -UserName "$env:USERNAME" `
+            -Password "${{ secrets.GITHUB_TOKEN }}"
+
+          & $nugetExe setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "$env:FEED_URL"
+
       # ====================================================================
       # Setup Python and install Halide via pip
       # ====================================================================
