@@ -11,7 +11,7 @@
    CMAKE_GENERATOR: Ninja
    EXIV2_VERSION: "v0.28.7"
    OIIO_VERSION: "v3.1.14.0"
-   INSTALL_PREFIX: "$HOME/local"
+   INSTALL_PREFIX: "/Users/runner/local"
 
   jobs:
     build:
