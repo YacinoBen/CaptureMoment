@@ -24,7 +24,7 @@ RUN pip3 install --break-system-packages cmake aqtinstall halide
 # ==============================================================================
 # Install Qt framework
 # ==============================================================================
-RUN aqt install-qt linux desktop 6.10.2 --outputdir /opt/qt -m qtdeclarative -m qtshadertools
+RUN aqt install-qt linux desktop 6.10.2 linux_gcc_64 --outputdir /opt/qt -m qtshadertools
 
 # ==============================================================================
 # Configuration for CMake and library paths
