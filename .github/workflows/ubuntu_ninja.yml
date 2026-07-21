@@ -135,6 +135,6 @@ jobs:
         with:
           name: build-ubuntu-${{ matrix.build-type }}
           path: |
-            build/${{ matrix.preset }}/ui/desktop/capturemoment_desktop
+            build/${{ matrix.preset }}/qt/desktop/capturemoment_desktop
           retention-days: 7
           if-no-files-found: warn

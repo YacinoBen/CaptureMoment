@@ -202,7 +202,7 @@
           with:
            name: build-macos-${{ matrix.build-type }}
            path: |
-             build/${{ matrix.preset }}/ui/desktop/*.dmg
-             build/${{ matrix.preset }}/ui/desktop/*.app
+             build/${{ matrix.preset }}/qt/desktop/*.dmg
+             build/${{ matrix.preset }}/qt/desktop/*.app
            retention-days: 7
            if-no-files-found: warn
