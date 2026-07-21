@@ -3,14 +3,7 @@ This guide covers building CaptureMoment on macOS. The recommended method uses a
 
 ##  Setting up Dependencies (Recommended)
 
-You need Homebrew and a few base build tools:
-
-```bash
-brew update
-brew install cmake ninja ccache
-```
-
-## 2. Run the automated setup script
+## 1. Run the automated setup script
 This method uses an automated script that compiles Exiv2, OpenImageIO, and magic_enum from source to guarantee strict version consistency. (Note: The script uses Homebrew in the background to fetch the underlying base libraries required for the build).
 
 From the root of the project, run:
