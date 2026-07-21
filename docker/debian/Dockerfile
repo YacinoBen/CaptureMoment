@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # System dependencies
 # ==============================================================================
 RUN apt-get update && apt-get install -y \
-    git ninja-build python3 python3-pip python3-venv ccache \
+    ninja-build python3 python3-pip python3-venv ccache \
     libspdlog-dev libcurl4-openssl-dev libxkbcommon-dev libgl1-mesa-dev \
     libbrotli-dev libexpat1-dev libgtest-dev libinih-dev libssh-dev \
     libxml2-utils libz-dev zlib1g-dev libjpeg-dev libfreetype-dev \
