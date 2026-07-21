@@ -37,13 +37,9 @@ cmake --build build/release-vcpkg-msvc
 cmake --preset release-vcpkg-mingw
 cmake --build build/release-vcpkg-mingw
 
-#or configure your path env
-cmake --preset release-vcpkg-mingw
-cmake --build build/release-vcpkg-mingw
 ```
-For Full Development (Debug):
-=
 
+For Full Development (Debug):
 ```PowerShell
 cmake --preset debug-vcpkg-msvc
 cmake --build build/debug-vcpkg-msvc
@@ -54,10 +50,10 @@ cmake --build build/debug-vcpkg-msvc
 #### If you have Qt and you don't want to recompile again
 
 ```PowerShell
-cmake --preset release-vcpkg-msvc -DHALIDE_DIR=/path/to/halide(cmake) -Ddesktop-ui="ON"
+cmake --preset release-vcpkg-msvc -DHALIDE_DIR=/path/to/halide(cmake) -Ddesktop_ui="ON"
 cmake --build build/release-vcpkg-msvc
 # or
-cmake --preset release-vcpkg-mingw -DHALIDE_DIR=/path/to/halide(cmake) -Ddesktop-ui="ON"
+cmake --preset release-vcpkg-mingw -DHALIDE_DIR=/path/to/halide(cmake) -Ddesktop_ui="ON"
 cmake --build build/release-vcpkg-mingw
 ```
 
