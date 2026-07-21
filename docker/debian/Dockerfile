@@ -29,8 +29,10 @@ RUN aqt install-qt linux desktop 6.10.2 --outputdir /opt/qt -m qtdeclarative -m 
 # ==============================================================================
 # Configuration for CMake and library paths
 # ==============================================================================
+ENV Qt6_DIR=/opt/qt/6.10.2/gcc_64/lib/cmake/Qt6
 ENV CMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/exiv2;/opt/oiio"
 ENV LD_LIBRARY_PATH="/opt/exiv2/lib:/opt/oiio/lib"
+ENV PATH="/opt/qt/6.10.2/gcc_64/bin:${PATH}"
 
 # ==============================================================================
 # Build and install Exiv2
