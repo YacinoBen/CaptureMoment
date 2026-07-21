@@ -20,7 +20,7 @@
 
       strategy:
         matrix:
-          build-type: [Release]
+          build-type: [Release, Debug]
           include:
             - build-type: Release
               preset: release-homebrew
