@@ -3,14 +3,8 @@ This guide covers building CaptureMoment on Linux. The recommended method uses a
 
 ## 📦 Setting up Dependencies (Recommended) on Ubuntu/Debian
 
-### 1. Install core build tools
 
-```bash
-sudo apt update
-sudo apt install -y build-essential cmake ninja-build
-```
-
-### 2. Run the automated setup script
+### 1. Run the automated setup script
 This method uses an automated script that compiles Exiv2, OpenImageIO, and magic_enum from source to guarantee version consistency.
 
 From the root of the project, run:
