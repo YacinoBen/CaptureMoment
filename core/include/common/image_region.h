@@ -21,7 +21,7 @@
 #include <cassert>
 #include <limits>
 #include <cstdint>
-
+#include <mdspan>
 namespace CaptureMoment::Core {
 
 namespace Common {
@@ -98,6 +98,19 @@ struct ImageRegion {
     ImageRegion() = default;
 
     /**
+     * @brief Constructs an ImageRegion and allocates uninitialized memory.
+     * @details Useful for output buffers in algorithms.
+     */
+    ImageRegion(ImageDim w, ImageDim h, ImageChan ch, PixelFormat fmt = PixelFormat::RGBA_F32)
+        : m_width(w)
+        , m_height(h)
+        , m_channels(ch)
+        , m_format(fmt)
+        , m_data(static_cast<std::size_t>(w) * h * ch) // Safe multiplication
+    {}
+
+
+    /**
      * @brief Constructs an ImageRegion by moving existing pixel data (Zero-Copy).
      *
      * @details
@@ -114,15 +127,22 @@ struct ImageRegion {
      * @param w Width in pixels.
      * @param h Height in pixels.
      * @param ch Number of color channels per pixel.
+     * @param x X-coordinate offset in the source image.
+     * @param y Y-coordinate offset in the source image.
+     * @param fmt Pixel format of the data.
      *
      * @note The x and y coordinates default to (0, 0).
      * @note Format defaults to PixelFormat::RGBA_F32.
      */
-    ImageRegion(std::vector<float>&& data, ImageDim w, ImageDim h, ImageChan ch)
-        : m_width(w)
+    ImageRegion(std::vector<float>&& data, ImageDim w, ImageDim h, ImageChan ch,
+                ImageCoord x = 0, ImageCoord y = 0, PixelFormat fmt = PixelFormat::RGBA_F32)
+        : m_x(x)
+        , m_y(y)
+        , m_width(w)
         , m_height(h)
-        , m_channels(ch),
-        m_data(std::move(data))
+        , m_channels(ch)
+        , m_format(fmt)
+        , m_data(std::move(data))
     {}
 
     /**
@@ -138,34 +158,22 @@ struct ImageRegion {
      * @param w Width in pixels.
      * @param h Height in pixels.
      * @param ch Number of color channels per pixel.
+     * @param x X-coordinate offset in the source image.
+     * @param y Y-coordinate offset in the source image.
+     * @param fmt Pixel format of the data.
      *
      * @note The x and y coordinates default to (0, 0).
      * @note Format defaults to PixelFormat::RGBA_F32.
      */
-    ImageRegion(std::span<const float> data_span, ImageDim w, ImageDim h, ImageChan ch)
-        : m_width(w)
-        , m_height(h)
-        , m_channels(ch)
-        , m_data(data_span.begin(), data_span.end())
-    {}
-
-    /**
-     * @brief Constructs an ImageRegion with position and moved pixel data.
-     *
-     * @param x X-coordinate offset in the source image.
-     * @param y Y-coordinate offset in the source image.
-     * @param data Rvalue reference to the pixel data vector.
-     * @param w Width in pixels.
-     * @param h Height in pixels.
-     * @param ch Number of color channels per pixel.
-     */
-    ImageRegion(ImageCoord x, ImageCoord y, std::vector<float>&& data, ImageDim w, ImageDim h, ImageChan ch)
+    ImageRegion(std::span<const float> data_span, ImageDim w, ImageDim h, ImageChan ch,
+                ImageCoord x = 0, ImageCoord y = 0, PixelFormat fmt = PixelFormat::RGBA_F32)
         : m_x(x)
         , m_y(y)
-        , m_data(std::move(data))
         , m_width(w)
         , m_height(h)
         , m_channels(ch)
+        , m_format(fmt)
+        , m_data(data_span.begin(), data_span.end())
     {}
 
     // ============================================================
@@ -242,20 +250,15 @@ struct ImageRegion {
             return true;
         };
 
-        // Cast to std::size_t to work with unsigned arithmetic
-        const ImageDim w = static_cast<ImageDim>(m_width);
-        const ImageDim h = static_cast<ImageDim>(m_height);
-        const ImageChan c = static_cast<ImageChan>(m_channels);
-
         // 3. Calculate pixel count safely (width * height)
         std::size_t pixel_count = 0;
-        if (!safe_multiply(w, h, pixel_count)) {
+        if (!safe_multiply(m_width, m_height, pixel_count)) {
             return false; // Overflow detected in width * height
         }
 
         // 4. Calculate total elements safely (pixel_count * channels)
         std::size_t expected_size = 0;
-        if (!safe_multiply(pixel_count, c, expected_size)) {
+        if (!safe_multiply(pixel_count, m_channels, expected_size)) {
             return false; // Overflow detected in total elements
         }
 
@@ -272,57 +275,54 @@ struct ImageRegion {
     }
 
     /**
-     * @brief Calculates the total number of data elements (pixels * channels) in the pixel data buffer.
-     * @return The total number of float elements (m_width * m_height * m_channels).
+     * @brief Returns the total number of float elements in the pixel data buffer.
+     *
+     * @details This returns the actual size of the internal vector (`m_data.size()`),
+     * which corresponds to `width * height * channels` if the region is valid.
+     *
+     * @return The total number of float elements.
      */
     [[nodiscard]] constexpr ImageSize getDataSize() const noexcept {
         return m_data.size();
     }
 
     /**
-     * @brief Returns a non-owning std::span over the pixel data.
-     *
-     * This is the preferred method to pass the image data to algorithms
-     * or external APIs (like Halide) without copying the vector.
-     *
-     * @return std::span<float> view of the internal buffer.
+     * @brief Provides read-only access to the pixel data buffer as a std::span.
      */
-    [[nodiscard]] std::span<float> getBuffer() noexcept {
-        return m_data;
-    }
-
-    /**
-     * @brief Returns a const non-owning std::span over the pixel data.
-     */
-    [[nodiscard]] std::span<const float> getBuffer() const noexcept {
-        return m_data;
+    template <typename Self>
+    [[nodiscard]] constexpr auto getBuffer(this Self&& self)  noexcept {
+        return std::span{self.m_data};
     }
 
     /**
      * @brief Provides unchecked access to a specific pixel's channel value.
      *
      * Uses an assert in Debug mode to catch out-of-bounds errors early during development.
-     *
-     * @warning Release mode performs no bounds checking for maximum performance.
+     * @note Uses C++23 deducing `this` to avoid duplicating const/non-const overloads.
+     * @note Uses std::size_t to prevent signed/unsigned comparison issues.
      */
-    [[nodiscard]] float& operator()(int y, int x, int c) noexcept {
-        assert(y >= 0 && static_cast<std::size_t>(y) < m_height);
-        assert(x >= 0 && static_cast<std::size_t>(x) < m_width);
-        assert(c >= 0 && static_cast<std::size_t>(c) < m_channels);
-        // Cast to size_t safely before arithmetic
-        const std::size_t idx = (static_cast<std::size_t>(y) * m_width + x) * m_channels + c;
-        return m_data[idx];
+
+    template <typename Self>
+    [[nodiscard]] auto& operator()(this Self&& self, std::size_t y, std::size_t x, std::size_t c) noexcept {
+        assert(y < self.m_height);
+        assert(x < self.m_width);
+        assert(c < self.m_channels);
+        const std::size_t idx = (y * self.m_width + x) * self.m_channels + c;
+        return self.m_data[idx];
     }
 
     /**
-     * @brief Const overload of operator().
+     * @brief Returns std::mdspan (3D: Height, Width, Channels).
+     * @note This requires C++23 for `this` parameter deduction.
+     * @details Allows algorithms to access pixels as `mdspan(y, x, c)` directly
+     *          without manual index calculation.
      */
-    [[nodiscard]] const float& operator()(int y, int x, int c) const noexcept {
-        assert(y >= 0 && y < m_height);
-        assert(x >= 0 && x < m_width);
-        assert(c >= 0 && c < m_channels);
-        const std::size_t idx = (static_cast<std::size_t>(y) * m_width + x) * m_channels + c;
-        return m_data[idx];
+    template <typename Self>
+    [[nodiscard]] auto getMdSpan(this Self&& self) noexcept {
+        using ValueType = std::remove_reference_t<decltype(self.m_data[0])>;
+        return std::mdspan<ValueType, std::dextents<std::size_t, 3>>(
+            self.m_data.data(), self.m_height, self.m_width, self.m_channels
+        );
     }
 };
 
@@ -360,7 +360,7 @@ concept ImageLike = requires(const T& t)
  * @brief Extends ImageLike to require read/write access.
  */
 template<typename T>
-concept MutableImageLike = ImageLike<T> && requires(T t)
+concept MutableImageLike = ImageLike<T> && requires(T& t)
 {
     { t.getBuffer() } -> std::convertible_to<std::span<float>>;
 };
