@@ -86,3 +86,12 @@
  * Used as a key in the registry.
  */
 #include "pipeline/pipeline_type.h"
+
+// ============================================================
+// 5. Helpers
+// ============================================================
+
+/**
+ * @brief Color space conversion for halide
+ */
+#include "pipeline/helpers/halide_color_space.h"
