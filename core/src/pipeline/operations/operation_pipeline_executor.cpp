@@ -10,6 +10,8 @@
 #include "operations/operation_factory.h"
 #include "config/app_config.h"
 
+#include "pipeline/helpers/halide_color_space.h"
+
 #include <spdlog/spdlog.h>
 
 namespace CaptureMoment::Core::Pipeline {
@@ -82,15 +84,27 @@ void OperationPipelineExecutor::buildOperationChain()
     // IMPORTANT: Use local variables for Func and Vars to avoid crashes from reusing stale Halide objects.
     // The 'm_pipeline' member stores the compiled result, but the construction uses fresh objects.
     Halide::Var x("x"), y("y"), c("c");
-    Halide::Func output_func("fused_pipeline");
+
+    // 1. Create a fresh input function that wraps the existing m_input ImageParam.
+    Halide::Func rgb_input("rgb_input");
+    rgb_input(x, y, c) = m_input(x, y, c);
+
+    // ====================================================================
+    // Start of the operation graph construction. The following steps define the Halide expression graph.
+    // ====================================================================
+
+    // 2. Convert the input RGB to Oklab color space.
+    Halide::Func oklab_image { ColorSpace::rgb_to_oklab(rgb_input, x, y, c) };
+
+    Halide::Func current_stage("current_stage");
+    current_stage(x, y, c) = oklab_image(x, y, c);
+
+    // ====================================================================
 
     // Reset the parameter cache
     m_pipeline_params.clear();
 
-    // Define the output function based on the inherited m_input
-    output_func(x, y, c) = m_input(x, y, c);
-
-    // Apply operations sequentially
+    // 4. Apply each operation in sequence, fusing them into the current_stage function.
     for (const auto& desc : m_operations)
     {
         if (!desc.enabled) {
@@ -103,6 +117,7 @@ void OperationPipelineExecutor::buildOperationChain()
         }
 
         auto op_impl_expected { m_factory->create(desc) };
+
         if (!op_impl_expected) {
             spdlog::warn("OperationPipelineExecutor::buildOperationChain: Failed to create operation '{}'. Skipping.", desc.name);
             continue;
@@ -113,41 +128,44 @@ void OperationPipelineExecutor::buildOperationChain()
 
         if (fusion_logic)
         {
-            // 1. Create or Retrieve the Halide::Param for this operation
             auto& param_ref { m_pipeline_params[desc.id] };
 
-            // 2. Initialize the parameter with the current value from the descriptor
-            // This ensures the first run (compilation) has valid data.
             if (auto val_res = desc.getParam<float>("value")) {
                 param_ref.set(val_res.value());
             }
 
-            // 3. Pass the Parameter (not the descriptor) to the operation
-            // The operation will use this param in its expression graph.
-            output_func = fusion_logic->appendToFusedPipeline(output_func, x, y, c, param_ref);
+            // Append the operation to the current_stage, which is in Oklab space.
+            current_stage = fusion_logic->appendToFusedPipeline(current_stage, x, y, c, param_ref);
         } else {
             spdlog::warn("OperationPipelineExecutor::buildOperationChain: Operation '{}' does not support fusion. Skipping.", desc.name);
         }
     }
-    output_func.output_buffer().dim(0).set_stride(4);
-    output_func.output_buffer().dim(2).set_stride(1);
+    // ====================================================================
+    // End of operation graph construction. The current_stage function now represents the entire fused pipeline in Oklab space.
+    // ====================================================================
+
+    // 5. Convert the final Oklab result back to RGB for output. The Alpha channel is preserved.
+    Halide::Func final_rgb_output { ColorSpace::oklab_to_rgb(current_stage, x, y, c) };
+
+    // ====================================================================
+
+    // 6. Set the strides for the output buffer to match the expected layout (width-major, 4 channels).
+    final_rgb_output.output_buffer().dim(0).set_stride(4);
+    final_rgb_output.output_buffer().dim(2).set_stride(1);
 
     Halide::Target target { Config::AppConfig::getHalideTarget() };
     spdlog::info("OperationPipelineExecutor::buildOperationChain: Compiling for target: {}", target.to_string());
 
-    // Apply scheduling (CPU or GPU)
-    applyScheduling(output_func, x, y, c);
+    // 7. Apply scheduling directives (vectorization, parallelism, GPU tiling) to the final output function.
+    applyScheduling(final_rgb_output, x, y, c);
 
     try {
-        // Compile JIT with the GPU target (e.g., Vulkan)
-        // This generates GPU kernels, not CPU code
-        output_func.compile_jit(target);
+        final_rgb_output.compile_jit(target);
 
-        // Now create the Pipeline from the compiled function
-        m_pipeline = Halide::Pipeline(output_func);
+        m_pipeline = Halide::Pipeline(final_rgb_output);
         m_chain_built = true;
 
-        spdlog::info("OperationPipelineExecutor::buildOperationChain: Pipeline compiled successfully with {} cached parameters.",
+        spdlog::info("OperationPipelineExecutor::buildOperationChain: Pipeline compiled successfully (RGB->Oklab->Ops->RGB) with {} cached parameters.",
                      m_pipeline_params.size());
     }
     catch (const Halide::CompileError& e) {
