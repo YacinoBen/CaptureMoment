@@ -6,17 +6,10 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_highlights.h"
-#include "common/error_handling/core_error.h"
 
 #include <spdlog/spdlog.h>
-#include <algorithm>
-#include <limits>
 
 namespace CaptureMoment::Core::Operations {
-
-// ============================================================================
-// Internal Helper: Shared Halide Logic
-// ============================================================================
 
 template<typename InputType>
 Halide::Func applyHighlightsAdjustment(
@@ -24,40 +17,33 @@ Halide::Func applyHighlightsAdjustment(
     const Halide::Param<float>& param_highlights,
     const Halide::Var& x,
     const Halide::Var& y,
-    const Halide::Var& c,
-    float low_threshold = 0.7f,
-    float high_threshold = 1.0f)
+    const Halide::Var& c)
 {
     Halide::Func highlights_func("highlights_op");
-    Halide::Func luminance_func("luminance_highlights");
-    Halide::Func mask_func("mask_highlights");
 
-    // Calculate Luminance
-    luminance_func(x, y) = 0.299f * input(x, y, 0) +
-                           0.587f * input(x, y, 1) +
-                           0.114f * input(x, y, 2);
+    // 1. In Oklab, channel 0 IS the perceptual luminance. No RGB luminance formula needed.
+    Halide::Expr L = input(x, y, 0);
 
-    // Mask: 0.0 below 0.7, ramp to 1.0 at 1.0
-    mask_func(x, y) = Halide::select(
-        luminance_func(x, y) <= low_threshold,
-        0.0f,
-        luminance_func(x, y) >= high_threshold,
-        1.0f,
-        (luminance_func(x, y) - low_threshold) / (high_threshold - low_threshold)
+    // 2. Create a smooth mask (Smoothstep equivalent)
+    // Normalize L to a 0.0 - 1.0 range based on the 0.7 to 1.0 thresholds
+    Halide::Expr t = clamp((L - 0.7f) / (1.0f - 0.7f), 0.0f, 1.0f);
+
+    // Apply the smoothstep polynomial curve: 3t^2 - 2t^3
+    // This prevents hard edges/banding in the highlights roll-off.
+    Halide::Expr mask = t * t * (3.0f - 2.0f * t);
+
+    // 3. Clamp the input parameter to the operation's defined valid range.
+    Halide::Expr safe_val = clamp(
+        param_highlights,
+        OperationHighlights::MIN_HIGHLIGHTS_VALUE,
+        OperationHighlights::MAX_HIGHLIGHTS_VALUE
         );
 
-    // Safety: Clamp the input parameter to the operation's defined valid range.
-    Halide::Expr safe_val = Halide::clamp(
-        param_highlights, 
-        OperationHighlights::MIN_HIGHLIGHTS_VALUE, 
-        OperationHighlights::MAX_HIGHLIGHTS_VALUE
-    );
-
-    // Apply Adjustment
-    highlights_func(x, y, c) = Halide::select(
-        c < 3,
-        input(x, y, c) + safe_val * mask_func(x, y),
-        input(x, y, c) // Alpha unchanged
+    // 4. Apply adjustment only to channel 0 (L)
+    highlights_func(x, y, c) = select(
+        c == 0,
+        L + safe_val * mask,    // Add value weighted by the smooth mask
+        input(x, y, c)          // a, b, and Alpha channels remain untouched
         );
 
     return highlights_func;

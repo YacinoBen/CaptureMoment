@@ -6,17 +6,10 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_contrast.h"
-#include "common/error_handling/core_error.h"
 
 #include <spdlog/spdlog.h>
-#include <algorithm>
-#include <limits>
 
 namespace CaptureMoment::Core::Operations {
-
-// ============================================================================
-// Internal Helper: Shared Halide Logic
-// ============================================================================
 
 template<typename InputType>
 Halide::Func applyContrastAdjustment(
@@ -29,19 +22,23 @@ Halide::Func applyContrastAdjustment(
     Halide::Func contrast_func("contrast_op");
 
     // Safety: Clamp the input parameter to the operation's defined valid range.
-    Halide::Expr safe_contrast = Halide::clamp(
-        param_contrast, 
-        OperationContrast::MIN_CONTRAST_VALUE, 
+    Halide::Expr safe_contrast = clamp(
+        param_contrast,
+        OperationContrast::MIN_CONTRAST_VALUE,
         OperationContrast::MAX_CONTRAST_VALUE
-    );
+        );
 
-    // Multiplicative contrast centered at 0.5 (Mid-gray)
-    // Formula: 0.5 + (Input - 0.5) * ContrastFactor
-    // Result is clamped to [0.0, 1.0] to maintain valid color space.
-    contrast_func(x, y, c) = Halide::select(
-        c < 3,
-        Halide::clamp(0.5f + (input(x, y, c) - 0.5f) * safe_contrast, 0.0f, 1.0f),
-        input(x, y, c) // Alpha unchanged
+    // Multiplicative contrast centered at 0.5 (Mid-gray in Oklab L-channel)
+    // Formula: 0.5 + (L - 0.5) * ContrastFactor
+    //
+    // IMPORTANT: We do NOT clamp the result of this operation here.
+    // Clamping L inside Oklab while 'a' and 'b' are non-zero causes severe hue shifts
+    // during the oklab_to_rgb conversion. Values > 1.0 or < 0.0 are safely handled
+    // later when clamping the final RGB output.
+    contrast_func(x, y, c) = select(
+        c == 0,
+        0.5f + (input(x, y, c) - 0.5f) * safe_contrast,
+        input(x, y, c) // a, b, and Alpha channels remain untouched
         );
 
     return contrast_func;

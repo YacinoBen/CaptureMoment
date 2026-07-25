@@ -6,17 +6,10 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_brightness.h"
-#include "common/error_handling/core_error.h"
 
 #include <spdlog/spdlog.h>
-#include <algorithm>
-#include <limits>
 
 namespace CaptureMoment::Core::Operations {
-
-// ============================================================================
-// Internal Helper: Shared Halide Logic
-// ============================================================================
 
 template<typename InputType>
 Halide::Func applyBrightnessAdjustment(
@@ -38,7 +31,7 @@ Halide::Func applyBrightnessAdjustment(
 
     // Additive brightness adjustment
     brightness_func(x, y, c) = Halide::select(
-        c < 3, // R, G, B
+        c == 0,
         Halide::clamp(input(x, y, c) + safe_brightness, 0.0f, 1.0f),
         input(x, y, c) // Alpha unchanged
         );
