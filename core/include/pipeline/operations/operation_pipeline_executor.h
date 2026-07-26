@@ -106,6 +106,37 @@ protected:
     
     [[nodiscard]] bool executeOnHalideBuffer(Halide::Buffer<float>& input_buffer, Halide::Buffer<float>& output_buffer) override;
 
+    /**
+     * @brief Applies all operations to the input function.
+     * @details  Chains the operations together to form a complete Halide function graph.
+     * @param input The input function.
+     * @param x The x variable.
+     * @param y The y variable.
+     * @param c The c variable.
+     * @return The resulting Halide function.
+     */
+    [[nodiscard]] Halide::Func applyOperations(const Halide::Func& input, const Halide::Var& x, const Halide::Var& y, const Halide::Var& c);
+
+    /**
+     * @brief Builds the Halide function graph based on `m_operations`.
+     * @details
+     * Iterates through operations, creates concrete instances, and chains them
+     * using `m_input` as the source.
+     */
+    virtual void buildOperationChain() = 0;
+
+    /**
+     * @brief The compiled Halide pipeline object.
+     * @details
+     * Storing this allows us to execute the pipeline repeatedly without recompiling.
+     */
+    Halide::Pipeline m_pipeline;
+
+    /**
+     * @brief Flag indicating if the pipeline has been successfully built and compiled.
+     */
+    bool m_chain_built{false};
+
 private:
     /**
      * @brief Stores the list of operations to be fused.
@@ -121,32 +152,12 @@ private:
     const Operations::OperationFactory* m_factory;
 
     /**
-     * @brief The compiled Halide pipeline object.
-     * @details
-     * Storing this allows us to execute the pipeline repeatedly without recompiling.
-     */
-    Halide::Pipeline m_pipeline;
-
-    /**
-     * @brief Flag indicating if the pipeline has been successfully built and compiled.
-     */
-    bool m_chain_built{false};
-
-    /**
      * @brief Cache of dynamic parameters for the current pipeline.
      * @details
      * Key: Operation id
      * Value: The Halide::Param<float> object used in the compiled graph.
      */
     std::unordered_map<uint64_t, Halide::Param<float>> m_pipeline_params;
-
-    /**
-     * @brief Builds the Halide function graph based on `m_operations`.
-     * @details
-     * Iterates through operations, creates concrete instances, and chains them
-     * using `m_input` as the source.
-     */
-    void buildOperationChain();
 };
 } // namespace Pipeline
 } // namespace CaptureMoment::Core
