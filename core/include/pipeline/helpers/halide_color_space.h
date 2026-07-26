@@ -25,7 +25,7 @@ namespace ColorSpace {
  * @param c Halide Var for channels.
  * @return Halide::Func A new function containing L, a, b, Alpha.
  */
-inline Halide::Func rgb_to_oklab(const Halide::Func& input, const Halide::Var& x, const Halide::Var& y, const Halide::Var& c) 
+inline Halide::Func rgbToOklab(const Halide::Func& input, const Halide::Var& x, const Halide::Var& y, const Halide::Var& c)
 {
     Halide::Func oklab_func("rgb_to_oklab");
 
@@ -72,7 +72,7 @@ inline Halide::Func rgb_to_oklab(const Halide::Func& input, const Halide::Var& x
  * @param c Halide Var for channels.
  * @return Halide::Func A new function containing R, G, B, Alpha.
  */
-inline Halide::Func oklab_to_rgb(const Halide::Func& input, const Halide::Var& x, const Halide::Var& y, const Halide::Var& c) 
+inline Halide::Func oklabToRgb(const Halide::Func& input, const Halide::Var& x, const Halide::Var& y, const Halide::Var& c)
 {
 
     Halide::Func rgb_func("oklab_to_rgb");
