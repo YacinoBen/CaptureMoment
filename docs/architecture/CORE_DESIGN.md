@@ -80,16 +80,34 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 ## 4. Pipeline Fusion with Halide
 
 * **Problem:** Applying multiple adjustments sequentially (e.g., brightness -> contrast -> saturation) involves multiple passes over the image buffer, leading to poor performance and potential rounding errors.
-* **Solution:** Use Halide to fuse multiple operations into a single computational pipeline executed in one pass.
+* **Solution:** Use Halide to fuse multiple operations into a single computational pipeline executed in one pass, with automatic conversion to/from Oklab perceptual color space.
 * **Impact:**
   * **Performance:** Dramatically reduces execution time by minimizing memory bandwidth usage and loop overhead.
-  * **Quality:** Reduces cumulative floating-point errors by performing all calculations in a single pass.
-  * **Hardware Agnostic:** The fused pipeline system works seamlessly across different hardware backends.
+  * **Quality:** Reduces cumulative floating-point errors by performing all calculations in a single pass; Oklab ensures perceptually uniform adjustments without hue shifts.
+  * **Hardware Agnostic:** The fused pipeline system works seamlessly across different hardware backends with backend-specific memory layout optimizations.
+
+### Pipeline Flow with Oklab Integration
+
+```bash
+Input RGB (Chunky, linear)
+       ↓
+[CPU] Transpose: Chunky(x,y,c) → Planar(c,y,x) → Chunky(x,y,c)  // For SIMD vectorization
+[GPU] Direct Chunky(x,y,c)                                         // For GPU memory coalescing
+       ↓
+rgb_to_oklab() → [L, a, b, Alpha]  // Alpha preserved (c==3 passthrough)
+       ↓
+applyOperations() → Fused ops on L channel only (a, b, Alpha unchanged)
+       ↓
+oklab_to_rgb() → Output RGB (Chunky)
+       ↓
+Final clamp [0,1] applied post-conversion for display/export
+```
 
 ### Operation Fusion Logic Update
 
-* **Halide Parameters:** Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates without recompilation.
-* **Interface Consolidation:** All basic operations now inherit exclusively from `IOperationFusionLogic`. Legacy `execute(IWorkingImageHardware&, const OperationDescriptor&)` and `executeOnImageRegion(...)` have been removed from core operations to enforce fusion-first execution.
+* **Oklab-First Design**: All basic tone adjustments (Brightness, Contrast, Highlights, Shadows, Whites, Blacks) now operate exclusively on the Oklab `L` channel (`c == 0`). The `a`, `b`, and Alpha channels are preserved unchanged to prevent hue shifts.
+* **Smoothstep Masks**: Regional adjustments use the smoothstep polynomial `3t² - 2t³` for mask generation, eliminating banding artifacts in tonal roll-offs.
+* **Deferred Clamping**: No intermediate `clamp()` on the `L` channel during operations; clamping is applied only after `oklabToRgb()` conversion to avoid color distortion.
 
 ### Dynamic Input/Output Binding Correction
 
@@ -98,6 +116,26 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Impact:**
   * **Correctness:** Ensures the pipeline operates on the intended image data.
   * **Flexibility:** Allows the same compiled pipeline to process different image instances or perform non-destructive transformations with different output dimensions.
+
+### Executor Refactoring: Generic applyOperations() + Backend-Specific buildOperationChain()
+
+* **`applyOperations(const Halide::Func& input, x, y, c)`**: Protected generic method in `OperationPipelineExecutor` that chains operations via `appendToFusedPipeline()`. Backend-agnostic; works on any input Func.
+* **`buildOperationChain()`**: Pure virtual protected method implemented by `OperationPipelineExecutorCPU` and `OperationPipelineExecutorGPU`. Each backend:
+- Wraps `m_input` into a chunky Func.
+- Applies backend-specific layout transformations (CPU: transpose for planar logic; GPU: direct chunky).
+- Calls `ColorSpace::rgbToOklab()` → `applyOperations()` → `ColorSpace::oklabToRgb()`.
+- Sets output strides (`dim(0).set_stride(4)`, `dim(2).set_stride(1)`) and applies backend-specific scheduling.
+- Compiles JIT and stores result in `m_pipeline`.
+
+
+### Backend-Specific Layout Strategies
+| Backend | Memory Layout | Rationale |
+|:-------:|:-------------:|:---------:|
+|CPU | Chunky → Planar(c,y,x) → Chunky | Enables `reorder(c, x, y).unroll(c)` for contiguous SIMD loads on 4 channels|
+|GPU | Direct Chunky(x,y,c) | Preserves memory coalescing for GPU threads; `gpu_tile(x, y, ...)` handles parallelism |
+
+* **Stride Constraints**: Both backends enforce `dim(0).set_stride(4)` and `dim(2).set_stride(1)` on output buffers to match the expected interleaved RGBA layout.
+
 
 ### Pipeline Executor Interaction
 
