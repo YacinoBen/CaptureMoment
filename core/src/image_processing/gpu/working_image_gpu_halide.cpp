@@ -197,11 +197,11 @@ void WorkingImageGPU_Halide::buildDownsamplePipeline()
     m_downsample_input.dim(0).set_stride(4);
     m_downsample_input.dim(2).set_stride(1);
 
-    Halide::Var x, y, c, k;
+    Halide::Var x, y, c;
     Halide::Func clamped{Halide::BoundaryConditions::repeat_edge(m_downsample_input)};
 
-    Halide::Expr inv_scale_x{Halide::strict_float(1.0f / m_downsample_scale_x)};
-    Halide::Expr inv_scale_y{Halide::strict_float(1.0f / m_downsample_scale_y)};
+    Halide::Expr inv_scale_x{1.0f / m_downsample_scale_x};
+    Halide::Expr inv_scale_y{1.0f / m_downsample_scale_y};
 
     Halide::Expr sourcex{(Halide::cast<float>(x) + 0.5f) * inv_scale_x - 0.5f};
     Halide::Expr sourcey{(Halide::cast<float>(y) + 0.5f) * inv_scale_y - 0.5f};
@@ -209,19 +209,30 @@ void WorkingImageGPU_Halide::buildDownsamplePipeline()
     Halide::Expr fx{Halide::floor(sourcex)};
     Halide::Expr fy{Halide::floor(sourcey)};
 
-    Halide::RDom r_x(0, 4, "r_x");
-    Halide::RDom r_y(0, 4, "r_y");
-
-    Halide::Func kx{"kx"};
-    Halide::Func ky{"ky"};
-    kx(x, k) = kernel_cubic(k + fx - sourcex);
-    ky(y, k) = kernel_cubic(k + fy - sourcey);
+    Halide::Expr ix = Halide::cast<int>(fx);
+    Halide::Expr iy = Halide::cast<int>(fy);
 
     Halide::Func resized_y{"resized_y"};
-    Halide::Func resized_x{"resized_x"};
+    Halide::Expr wy0 = kernel_cubic(-1 + fy - sourcey);
+    Halide::Expr wy1 = kernel_cubic( 0 + fy - sourcey);
+    Halide::Expr wy2 = kernel_cubic( 1 + fy - sourcey);
+    Halide::Expr wy3 = kernel_cubic( 2 + fy - sourcey);
 
-    resized_y(x, y, c) = Halide::sum(ky(y, r_y) * clamped(x, Halide::cast<int>(fy) + r_y, c));
-    resized_x(x, y, c) = Halide::sum(kx(x, r_x) * resized_y(Halide::cast<int>(fx) + r_x, y, c));
+    resized_y(x, y, c) = wy0 * clamped(x, iy - 1, c) +
+                         wy1 * clamped(x, iy    , c) +
+                         wy2 * clamped(x, iy + 1, c) +
+                         wy3 * clamped(x, iy + 2, c);
+
+    Halide::Func resized_x{"resized_x"};
+    Halide::Expr wx0 = kernel_cubic(-1 + fx - sourcex);
+    Halide::Expr wx1 = kernel_cubic( 0 + fx - sourcex);
+    Halide::Expr wx2 = kernel_cubic( 1 + fx - sourcex);
+    Halide::Expr wx3 = kernel_cubic( 2 + fx - sourcex);
+
+    resized_x(x, y, c) = wx0 * resized_y(ix - 1, y, c) +
+                         wx1 * resized_y(ix    , y, c) +
+                         wx2 * resized_y(ix + 1, y, c) +
+                         wx3 * resized_y(ix + 2, y, c);
 
     Halide::Func final_output{"final_output"};
     final_output(x, y, c) = Halide::clamp(resized_x(x, y, c), 0.0f, 1.0f);
@@ -233,12 +244,8 @@ void WorkingImageGPU_Halide::buildDownsamplePipeline()
 
     if (target.has_gpu_feature())
     {
-        Halide::Var tx{"tx"}, ty{"ty"};
-        kx.compute_at(resized_x, tx);
-        ky.compute_at(resized_y, tx);
-        resized_y.compute_root().gpu_tile(x, y, tx, ty, 16, 16);
-        resized_x.compute_root().gpu_tile(x, y, tx, ty, 16, 16);
-        final_output.compute_root().gpu_tile(x, y, tx, ty, 16, 16);
+        Halide::Var xi, yi;
+        final_output.compute_root().gpu_tile(x, y, xi, yi, 16, 16);
     }
 
     m_downsample_pipeline = Halide::Pipeline(final_output);
