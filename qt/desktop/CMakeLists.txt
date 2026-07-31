@@ -4,6 +4,9 @@ project(CaptureMomentUIDesktop LANGUAGES CXX)
 
 message(STATUS "Configuring CaptureMoment Desktop UI...")
 
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+message(STATUS "   - Qt6 Widget found")
+
 set(CAPTUREMOMENT_DESKTOP_TARGET capturemoment_desktop)
 
 qt_add_executable(${CAPTUREMOMENT_DESKTOP_TARGET})
@@ -16,7 +19,9 @@ set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
 
 
 set(QOBJECT_HEADERS
+    # Utils
     include/utils/qml_context_setup.h
+    include/utils/splash_screen.h
 
     # Rendering QML
     include/rendering/qml_rhi_image_item.h
@@ -26,7 +31,10 @@ set(QOBJECT_HEADERS
 
 set(CORE_SOURCES
        src/main.cpp
+
+       # Utils
        src/utils/qml_context_setup.cpp
+       src/utils/splash_screen.cpp
 
        # Rendering QML
        src/rendering/qml_rhi_image_item.cpp
@@ -35,7 +43,9 @@ set(CORE_SOURCES
 )
 
 set(CORE_HEADERS
+        # Utils
         /utils/qml_context_setup.h
+        /utils/splash_screen.h
 
         # Rendering QML
         /rendering/qml_rhi_image_item.h
@@ -86,15 +96,7 @@ set (QML_FILE
     qml/CaptureMoment/styles/Icons.qml
 )
 
-set(ASSET_FILES
-    ${CMAKE_SOURCE_DIR}/assets/desktop/splash/splash-screen.png
-)
-foreach(ASSET ${ASSET_FILES})
-    get_filename_component(ASSET_NAME ${ASSET} NAME)
-    set_source_files_properties(${ASSET} PROPERTIES QT_RESOURCE_ALIAS "${ASSET_NAME}")
-endforeach()
-
-# =====================================================================
+# ====================================================================
 # Icon configuration for different platforms
 # ====================================================================
 # --- WINDOWS ---
@@ -114,15 +116,29 @@ if(APPLE)
     list(APPEND CORE_SOURCES "${APP_ICON_MACOS}")
 endif()
 
-# =====================================================================
+# ====================================================================
 # End
 # ====================================================================
 
+# ====================================================================
+# Resources configuration
+# ====================================================================
 qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "config"
     PREFIX /
     FILES
        qtquickcontrols2.conf
 )
+
+qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "image-splash"
+    PREFIX "splash"
+    BASE "${CMAKE_SOURCE_DIR}/assets/desktop/splash"
+    FILES
+        "${CMAKE_SOURCE_DIR}/assets/desktop/splash/splash-screen.png"
+)
+
+# ====================================================================
+# End
+# ====================================================================
 
 qt_add_qml_module(${CAPTUREMOMENT_DESKTOP_TARGET}
     URI CaptureMoment.desktop
@@ -172,6 +188,7 @@ endif()
 target_link_libraries(${CAPTUREMOMENT_DESKTOP_TARGET}
     PRIVATE
         capturemoment_qt_core_lib
+        Qt6::Widgets
 )
 
 include(GNUInstallDirs)

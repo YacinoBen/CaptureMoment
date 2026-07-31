@@ -1,7 +1,9 @@
-#include <QGuiApplication>
+#include <QApplication>
+#include <QQuickWindow>
 #include <QQmlApplicationEngine>
 
 #include "utils/qml_context_setup.h"
+#include "utils/splash_screen.h"
 
 #include "rendering/qml_painted_image_item.h"
 #include "rendering/qml_sgs_image_item.h"
@@ -13,12 +15,20 @@
 
 int main(int argc, char *argv[])
 {
-    QGuiApplication app(argc, argv);
-    QQmlApplicationEngine engine;
+    QApplication app(argc, argv);
+
+    CaptureMoment::UI::SplashScreen splash;
+    splash.show();
+    app.processEvents();
 
     spdlog::info("Initialization");
+    splash.showMessage("Initializing core...");
+    app.processEvents();
     CaptureMoment::Core::initialize();
 
+    splash.showMessage("Registering components...");
+    app.processEvents();
+    QQmlApplicationEngine engine;
 
     // Register QML types Rendering
     qmlRegisterType<CaptureMoment::UI::QMLPaintedImageItem>(
@@ -30,6 +40,9 @@ int main(int argc, char *argv[])
     qmlRegisterType<CaptureMoment::UI::QMLRHIImageItem>(
         "CaptureMoment.UI.Rendering.RHI", 1, 0, "QMLRHIImageItem"
         );
+
+    splash.showMessage("Setting up context...");
+    app.processEvents();
 
     // Setup QML context once
     auto context = engine.rootContext();
@@ -48,11 +61,24 @@ int main(int argc, char *argv[])
     );
 
     // Load the main QML module
+    splash.showMessage("Loading UI...");
+    app.processEvents();
     engine.loadFromModule("CaptureMoment.desktop", "DesktopMain");
 
     if (engine.rootObjects().isEmpty()) {
         spdlog::error("Failed to load QML module");
         return -1;
+    }
+
+    QObject* rootObject { engine.rootObjects().first() };
+    if (auto* window { qobject_cast<QQuickWindow*>(rootObject) }) {
+        // Ajout de "window" comme 3ème argument (contexte) pour lever l'ambiguïté de MSVC
+        QObject::connect(window, &QQuickWindow::frameSwapped, window, [window, &splash]() {
+            splash.close();
+            window->raise();
+        }, Qt::SingleShotConnection);
+    } else {
+        splash.close();
     }
 
     return app.exec();
