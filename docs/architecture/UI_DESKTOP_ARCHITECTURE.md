@@ -4,6 +4,11 @@
 
 This section describes the QML user interface layer. It interacts with the Qt/C++ UI Core layer (`ImageControllerBase`, `Operation Models`, `SerializerController`) to provide the user experience for loading images, adjusting parameters, viewing results, and managing operation persistence.
 
+## 🔗 Dependencies
+
+*   **Qt Libraries:** `Qt6::Widget`.
+---
+
 ## Key QML Components
 
 ### QML Operation Widgets
