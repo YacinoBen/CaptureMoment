@@ -517,6 +517,38 @@ private:
      * Used to prevent rendering before resources are ready.
      */
     bool m_initialized{false};
+
+    // -------------------------------------------------------------------------
+    // Size Viewport QML
+    // -------------------------------------------------------------------------
+
+    /**
+     * @brief Logical width of the QML item.
+     *
+     * @details
+     * Stores the logical width (in device-independent pixels) of the RHIImageItem.
+     * Retrieved from the GUI thread during synchronize() and used by render()
+     * to calculate the correct orthographic projection and centering offsets.
+     *
+     * @note This differs from the physical render target width (which accounts for DPR).
+     *       Using logical coordinates ensures the transformation matrix behaves
+     *       identically to the QSGSimpleTextureNode approach (SGS).
+     */
+    float m_item_width { 0.0f };
+
+    /**
+     * @brief Logical height of the QML item.
+     *
+     * @details
+     * Stores the logical height (in device-independent pixels) of the RHIImageItem.
+     * Retrieved from the GUI thread during synchronize() and used by render()
+     * to calculate the correct orthographic projection and centering offsets.
+     *
+     * @note This differs from the physical render target height (which accounts for DPR).
+     *       Using logical coordinates ensures the transformation matrix behaves
+     *       identically to the QSGSimpleTextureNode approach (SGS).
+     */
+    float m_item_height { 0.0f };
 };
 
 } // namespace CaptureMoment::UI::Rendering

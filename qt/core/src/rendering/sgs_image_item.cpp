@@ -28,7 +28,8 @@ SGSImageItem::SGSImageItem(QQuickItem* parent)
 }
 
 // Destructor: Cleans up resources.
-SGSImageItem::~SGSImageItem() {
+SGSImageItem::~SGSImageItem()
+{
     // The deletion of textures managed by QSGNodes is handled by Qt Quick
     // when the nodes are destroyed.
     spdlog::debug("[SGSImageItem::~SGSImageItem()]: Destroyed");
@@ -169,7 +170,8 @@ QSGNode* SGSImageItem::updatePaintNode(QSGNode* node, UpdatePaintNodeData* data)
         }
     }
 
-    QQuickWindow* win = window();
+    QQuickWindow* win { window() };
+
     if (!win) {
         spdlog::warn("[SGSImageItem::updatePaintNode]: No window attached");
         return node;

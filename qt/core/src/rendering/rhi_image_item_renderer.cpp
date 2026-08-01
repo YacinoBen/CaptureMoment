@@ -63,7 +63,7 @@ void RHIImageItemRenderer::synchronize(QQuickRhiItem* item)
 {
     spdlog::debug("[RHIImageItemRenderer::synchronize]: Synchronizing...");
 
-    auto* rhi_item = static_cast<RHIImageItem*>(item);
+    auto* rhi_item { static_cast<RHIImageItem*>(item) };
     if (!rhi_item) {
         spdlog::warn("[RHIImageItemRenderer::synchronize]: Null item");
         return;
@@ -76,21 +76,26 @@ void RHIImageItemRenderer::synchronize(QQuickRhiItem* item)
     m_zoom = rhi_item->zoom();
     m_pan = rhi_item->pan();
 
+    m_item_width = static_cast<float>(rhi_item->width());
+    m_item_height = static_cast<float>(rhi_item->height());
+
     spdlog::debug("[RHIImageItemRenderer::synchronize]: zoom={}, pan=({}, {})",
                   m_zoom, m_pan.x(), m_pan.y());
 
     // Get the current image
-    const auto* image = rhi_item->getFullImage();
+    const auto* image { rhi_item->getFullImage() };
 
     // Check if texture needs update:
     // 1. Flag was set by setImage() or updateTile()
     // 2. Or we have an image but texture dimensions don't match
-    const bool needs_update = rhi_item->m_texture_needs_update;
-    const bool size_mismatch = image && image->isValid() &&
-                               (!m_texture || m_texture->pixelSize() != QSize(image->width(), image->height()));
+    const bool needs_update { rhi_item->m_texture_needs_update };
+    const bool size_mismatch { image && image->isValid() &&
+                               (!m_texture || m_texture->pixelSize() != QSize(image->width(), image->height())) };
 
-    if (needs_update || size_mismatch) {
-        if (image && image->isValid()) {
+    if (needs_update || size_mismatch)
+    {
+        if (image && image->isValid())
+        {
             m_image_width = static_cast<int>(image->width());
             m_image_height = static_cast<int>(image->height());
 
@@ -121,9 +126,11 @@ void RHIImageItemRenderer::render(QRhiCommandBuffer* cb)
     }
 
     // Upload texture data if needed
-    if (m_texture_needs_update && m_texture && !m_pixel_data.empty()) {
+    if (m_texture_needs_update && m_texture && !m_pixel_data.empty())
+    {
         QRhiResourceUpdateBatch* resourceUpdates = rhi()->nextResourceUpdateBatch();
-        if (resourceUpdates) {
+        if (resourceUpdates)
+        {
             QRhiTextureSubresourceUploadDescription subresDesc(
                 m_pixel_data.data(),
                 static_cast<quint32>(m_pixel_data.size())
@@ -143,27 +150,28 @@ void RHIImageItemRenderer::render(QRhiCommandBuffer* cb)
     // The quad vertices are in [0,1] range, so we scale to image dimensions
     // then apply zoom and pan transformations
     QMatrix4x4 matrix;
-    QSize rt_size = renderTarget()->pixelSize();
 
-    // Orthographic projection: (0,0) at top-left, matches Qt Quick coordinate system
-    matrix.ortho(0.0f, static_cast<float>(rt_size.width()),
-                 static_cast<float>(rt_size.height()), 0.0f, -1.0f, 1.0f);
+    const float logical_w { m_item_width };
+    const float logical_h { m_item_height };
 
-    // Apply transformations in correct order (right to left in matrix multiplication):
-    // 1. Scale quad from [0,1] to image dimensions [0, width] x [0, height]
-    // 2. Apply zoom around origin (0, 0)
-    // 3. Apply pan translation
-    matrix.translate(static_cast<float>(m_pan.x()), static_cast<float>(m_pan.y()));
-    matrix.scale(m_zoom, m_zoom);
-    matrix.scale(static_cast<float>(m_image_width), static_cast<float>(m_image_height));
+    matrix.ortho(0.0f, logical_w, logical_h, 0.0f, -1.0f, 1.0f);
 
+    const float display_w { static_cast<float>(m_image_width) * m_zoom };
+    const float display_h { static_cast<float>(m_image_height) * m_zoom };
 
-    spdlog::debug("[RHIImageItemRenderer::render]: image={}x{}, zoom={}, pan=({}, {}), viewport={}x{}",
+    const float x_pos { (logical_w - display_w) / 2.0f + static_cast<float>(m_pan.x()) };
+    const float y_pos { (logical_h - display_h) / 2.0f + static_cast<float>(m_pan.y()) };
+
+    matrix.translate(x_pos, y_pos);
+    matrix.scale(display_w, display_h);
+
+    spdlog::debug("[RHIImageItemRenderer::render]: image={}x{}, zoom={}, pan=({}, {}), logical={}x{}",
                   m_image_width, m_image_height, m_zoom, m_pan.x(), m_pan.y(),
-                  rt_size.width(), rt_size.height());
+                  logical_w, logical_h);
 
     // Update uniform buffer
-    if (m_uniform_buffer) {
+    if (m_uniform_buffer)
+    {
         QRhiResourceUpdateBatch* batch = rhi()->nextResourceUpdateBatch();
         if (batch) {
             batch->updateDynamicBuffer(m_uniform_buffer.get(), 0, 64, matrix.constData());
@@ -171,23 +179,24 @@ void RHIImageItemRenderer::render(QRhiCommandBuffer* cb)
         }
     }
 
-    // Begin render pass - use dark gray background to distinguish from rendering issues
+    // Begin render pass
+    QSize rt_size { renderTarget()->pixelSize() };
     cb->beginPass(renderTarget(), QColor(30, 30, 30, 255), {1.0f, 0});
 
     // Set graphics pipeline
     cb->setGraphicsPipeline(m_pipeline.get());
 
-    // Set viewport to render target size
+    // Le viewport RHI reste en pixels PHYSIQUES (c'est normal)
     cb->setViewport(QRhiViewport(0, 0, rt_size.width(), rt_size.height()));
 
-    // Bind shader resources (uniform buffer + texture sampler)
+    // Bind shader resources
     cb->setShaderResources(m_srb.get());
 
     // Bind vertex and index buffers
     QRhiCommandBuffer::VertexInput vertex_input{m_vertex_buffer.get(), 0};
     cb->setVertexInput(0, 1, &vertex_input, m_index_buffer.get(), 0, QRhiCommandBuffer::IndexUInt16);
 
-    // Draw quad (6 indices for 2 triangles)
+    // Draw quad
     cb->drawIndexed(6);
 
     cb->endPass();
@@ -265,7 +274,7 @@ void RHIImageItemRenderer::createGeometry(QRhiCommandBuffer* cb)
 
     // CRITICAL: Upload vertex/index data via command buffer
     if (cb) {
-        QRhiResourceUpdateBatch* batch = rhi()->nextResourceUpdateBatch();
+        QRhiResourceUpdateBatch* batch { rhi()->nextResourceUpdateBatch() };
         if (batch) {
             batch->uploadStaticBuffer(m_vertex_buffer.get(), vertices);
             batch->uploadStaticBuffer(m_index_buffer.get(), indices);
@@ -297,8 +306,8 @@ void RHIImageItemRenderer::createPipeline()
         return;
     }
 
-    QShader vs = QShader::fromSerialized(vs_file.readAll());
-    QShader fs = QShader::fromSerialized(fs_file.readAll());
+    QShader vs { QShader::fromSerialized(vs_file.readAll()) };
+    QShader fs { QShader::fromSerialized(fs_file.readAll()) };
 
     if (!vs.isValid()) {
         spdlog::error("[RHIImageItemRenderer::createPipeline]: Invalid vertex shader");
@@ -424,11 +433,12 @@ void RHIImageItemRenderer::updateTextureFromImage(const Core::Common::ImageRegio
     m_pixel_data_size = QSize(w, h);
 
     // Convert from RGBA_F32 (float) to RGBA8 (uint8)
-    const float* src = image.getBuffer().data();
-    uint8_t* dst = m_pixel_data.data();
-    const size_t total_pixels = static_cast<size_t>(w) * static_cast<size_t>(h);
+    const float* src { image.getBuffer().data() };
+    uint8_t* dst { m_pixel_data.data() };
+    const size_t total_pixels { static_cast<size_t>(w) * static_cast<size_t>(h) };
 
-    for (size_t i = 0; i < total_pixels; ++i) {
+    for (size_t i = 0; i < total_pixels; ++i)
+    {
         const size_t idx = i * 4;
 
         // Clamp to [0,1] range and convert to [0,255]
@@ -439,7 +449,8 @@ void RHIImageItemRenderer::updateTextureFromImage(const Core::Common::ImageRegio
     }
 
     // Recreate texture if size changed
-    if (!m_texture || m_texture->pixelSize() != m_pixel_data_size) {
+    if (!m_texture || m_texture->pixelSize() != m_pixel_data_size)
+    {
         m_texture.reset(rhi()->newTexture(QRhiTexture::RGBA8, m_pixel_data_size));
 
         if (!m_texture->create()) {

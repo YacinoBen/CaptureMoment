@@ -233,16 +233,16 @@ float ViewportManager::calculateFitZoom(const QSize& source_size) const noexcept
     // Calculate scale factors for both dimensions
     // =========================================================================
     
-    const float scale_x = static_cast<float>(m_viewport_logical.width()) / 
-                          static_cast<float>(source_size.width());
-    const float scale_y = static_cast<float>(m_viewport_logical.height()) / 
-                          static_cast<float>(source_size.height());
+    const float scale_x { static_cast<float>(m_viewport_logical.width()) /
+                          static_cast<float>(source_size.width()) };
+    const float scale_y { static_cast<float>(m_viewport_logical.height()) /
+                          static_cast<float>(source_size.height()) };
     
     // =========================================================================
     // Use the smaller scale to ensure image fits entirely
     // =========================================================================
     
-    float fit_zoom = std::min(scale_x, scale_y);
+    float fit_zoom { std::min(scale_x, scale_y) };
     
     // =========================================================================
     // Never upscale beyond 100%
@@ -261,8 +261,8 @@ QSize ViewportManager::calculateDownsampleSize(const QSize& source_size) const
         return {};
     }
     
-    const int src_w = source_size.width();
-    const int src_h = source_size.height();
+    const int src_w { source_size.width() };
+    const int src_h { source_size.height() };
     
     // =========================================================================
     // GOLDEN RULE: Never upscale
@@ -280,11 +280,11 @@ QSize ViewportManager::calculateDownsampleSize(const QSize& source_size) const
     // =========================================================================
     // Scale the larger dimension to max_downsample
     
-    const float scale = static_cast<float>(m_max_downsample) / 
-                        static_cast<float>(std::max(src_w, src_h));
+    const float scale { static_cast<float>(m_max_downsample) /
+                        static_cast<float>(std::max(src_w, src_h)) };
     
-    const int down_w = static_cast<int>(std::round(src_w * scale));
-    const int down_h = static_cast<int>(std::round(src_h * scale));
+    const int down_w { static_cast<int>(std::round(src_w * scale)) };
+    const int down_h { static_cast<int>(std::round(src_h * scale)) };
     
     return QSize(down_w, down_h);
 }
@@ -331,9 +331,9 @@ void ViewportManager::updateMaxDownsample()
     // Calculate max from viewport physical size with quality margin
     // =========================================================================
     
-    const int viewport_max = std::max(m_viewport_physical.width(), 
-                                      m_viewport_physical.height());
-    const int with_margin = static_cast<int>(std::round(viewport_max * m_quality_margin));
+    const int viewport_max { std::max(m_viewport_physical.width(),
+                                      m_viewport_physical.height()) };
+    const int with_margin { static_cast<int>(std::round(viewport_max * m_quality_margin)) };
     
     // =========================================================================
     // Apply plafond (screen-based ceiling)
