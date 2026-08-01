@@ -28,20 +28,23 @@ DisplayManager::DisplayManager(QObject* parent)
 
 void DisplayManager::initialize()
 {
-    QScreen* primary_screen = QGuiApplication::primaryScreen();
+    QScreen* primary_screen { QGuiApplication::primaryScreen() };
 
     ScreenInfo screen_info;
     QSize viewport_default(800, 600);
 
-    if (primary_screen) {
-        QSize physical = primary_screen->size() * primary_screen->devicePixelRatio();
+    if (primary_screen)
+    {
+        QSize physical { primary_screen->size() * primary_screen->devicePixelRatio() };
         screen_info.physical_width = physical.width();
         screen_info.physical_height = physical.height();
         screen_info.dpr = static_cast<float>(primary_screen->devicePixelRatio());
 
         spdlog::info("[DisplayManager::initialize]: Auto-detected screen: {}x{}, DPR: {:.2f}",
                      screen_info.physical_width, screen_info.physical_height, screen_info.dpr);
-    } else {
+    }
+    else
+    {
         spdlog::warn("[DisplayManager::initialize]: No screen detected, using defaults");
         screen_info.physical_width = 1920;
         screen_info.physical_height = 1080;
@@ -101,7 +104,8 @@ void DisplayManager::setRenderingItem(Rendering::IRenderingItemBase* item)
     spdlog::debug("[DisplayManager::setRenderingItem]: Setting new rendering item");
     m_rendering_item = item;
 
-    if (m_rendering_item) {
+    if (m_rendering_item)
+    {
         spdlog::debug("[DisplayManager::setRenderingItem]: Updating zoom and pan on rendering item");
         m_rendering_item->setZoom(m_zoom);
         m_rendering_item->setPan(m_pan);
@@ -198,9 +202,10 @@ void DisplayManager::setSourceImageSize(int width, int height)
         m_display_scale = 1.0f;
         m_fit_zoom = 1.0f;
     } else {
-        ViewportCalculation calc = m_viewport_manager->calculateDisplay(m_source_image_size);
+        ViewportCalculation calc { m_viewport_manager->calculateDisplay(m_source_image_size) };
 
-        if (calc.isValid()) {
+        if (calc.isValid())
+        {
             m_display_image_size = calc.display_size;
             m_downsample_size = calc.downsample_size;
             m_fit_zoom = calc.fit_zoom;
@@ -335,30 +340,31 @@ void DisplayManager::fitToView()
         m_zoom = 1.0f;
         m_pan = QPointF(0.0, 0.0);
     } else {
-        const QSize viewport { m_viewport_manager->viewportSize() };
-
         // ============================================================
-        // Calculate zoom to fit downsampled image in viewport
+        // The rendering canvas matches the size of the QML item (m_display_image_size).
+        // QML handles centering this item within the global viewport.
+        // We therefore calculate the zoom level to fill this canvas.
         // ============================================================
-        const float zoom_x = static_cast<float>(viewport.width()) / m_downsample_size.width();
-        const float zoom_y = static_cast<float>(viewport.height()) / m_downsample_size.height();
+        const float zoom_x { static_cast<float>(m_display_image_size.width()) / m_downsample_size.width() };
+        const float zoom_y { static_cast<float>(m_display_image_size.height()) / m_downsample_size.height() };
         m_zoom = std::min(zoom_x, zoom_y);
 
         // ============================================================
-        // Calculate pan to center the image
+        // Calculate the pan to center the image WITHIN the canvas (m_display_image_size)
         // ============================================================
-        const float image_displayed_width = m_downsample_size.width() * m_zoom;
-        const float image_displayed_height = m_downsample_size.height() * m_zoom;
-        
-        const float pan_x = (viewport.width() - image_displayed_width) / 2.0f;
-        const float pan_y = (viewport.height() - image_displayed_height) / 2.0f;
+        const float image_displayed_width { m_downsample_size.width() * m_zoom };
+        const float image_displayed_height { m_downsample_size.height() * m_zoom };
+
+        const float pan_x { (m_display_image_size.width() - image_displayed_width) / 2.0f };
+        const float pan_y { (m_display_image_size.height() - image_displayed_height) / 2.0f };
         m_pan = QPointF(pan_x, pan_y);
 
         spdlog::debug("[DisplayManager::fitToView]: zoom={:.3f}, pan=({:.1f}, {:.1f})",
                       m_zoom, m_pan.x(), m_pan.y());
     }
 
-    if (m_rendering_item) {
+    if (m_rendering_item)
+    {
         spdlog::trace("[DisplayManager::fitToView]: Updating zoom and pan on rendering item");
         m_rendering_item->setZoom(m_zoom);
         m_rendering_item->setPan(m_pan);
@@ -408,15 +414,18 @@ void DisplayManager::setViewportSize(const QSize& size) {
 
     // Check if max downsample changed
     const int new_max { m_viewport_manager->maxDownsample() };
-    if (new_max != old_max) {
+    if (new_max != old_max)
+    {
         spdlog::debug("[DisplayManager::setViewportSize]: Max downsample changed: {} → {}", old_max, new_max);
         emit maxDownsampleChanged(new_max);
 
         // Recalculate display if we have a source image
-        if (m_source_image_size.isValid()) {
-            ViewportCalculation calc = m_viewport_manager->calculateDisplay(m_source_image_size);
+        if (m_source_image_size.isValid())
+        {
+            ViewportCalculation calc { m_viewport_manager->calculateDisplay(m_source_image_size) };
 
-            if (calc.isValid() && calc.downsample_size != m_downsample_size) {
+            if (calc.isValid() && calc.downsample_size != m_downsample_size)
+            {
                 m_display_image_size = calc.display_size;
                 m_downsample_size = calc.downsample_size;
                 m_fit_zoom = calc.fit_zoom;
@@ -477,19 +486,13 @@ void DisplayManager::constrainPan()
         return;
     }
 
-    // Get viewport size
-    const QSize viewport { m_viewport_manager ? m_viewport_manager->viewportSize() : QSize(800, 600) };
-
-    // Calculate visible area at current zoom
     const float visible_width { m_display_image_size.width() * m_zoom };
     const float visible_height { m_display_image_size.height() * m_zoom };
 
-    // Calculate maximum pan in each direction
-    const float max_pan_x { std::max(0.0f, (visible_width - viewport.width()) / 2.0f) };
-    const float max_pan_y { std::max(0.0f, (visible_height - viewport.height()) / 2.0f) };
+    const float max_pan_x { std::max(0.0f, (visible_width - m_display_image_size.width()) / 2.0f) };
+    const float max_pan_y { std::max(0.0f, (visible_height - m_display_image_size.height()) / 2.0f) };
 
-    // Clamp pan
-    const QPointF old_pan = m_pan;
+    const QPointF old_pan { m_pan };
     m_pan.setX(std::clamp(static_cast<float>(m_pan.x()), -max_pan_x, max_pan_x));
     m_pan.setY(std::clamp(static_cast<float>(m_pan.y()), -max_pan_y, max_pan_y));
 
@@ -505,7 +508,7 @@ QSize DisplayManager::calculateDisplaySize(const QSize& source_size) const
         return {};
     }
 
-    ViewportCalculation calc = m_viewport_manager->calculateDisplay(source_size);
+    ViewportCalculation calc { m_viewport_manager->calculateDisplay(source_size) };
     return calc.display_size;
 }
 
