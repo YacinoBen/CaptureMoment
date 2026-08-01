@@ -77,7 +77,7 @@ bool QmlContextSetup::createControllerMainScene()
 {
     spdlog::debug("QmlContextSetup::createControllerMainScene: Creating ImageController...");
 
-    m_controller_main_scene = std::make_shared<Controller::ImageControllerSGS>();
+    m_controller_main_scene = std::make_shared<Controller::ImageControllerRHI>();
 
     if (!m_controller_main_scene) {
         spdlog::error("QmlContextSetup::createControllerMainScene: Failed to create ImageController (out of memory or constructor threw).");
