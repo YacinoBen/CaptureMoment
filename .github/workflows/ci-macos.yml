@@ -45,8 +45,8 @@
             brew update
             brew install ccache
 
-            # core dependencies
-            brew install spdlog halide
+            # spdlog dependencies
+            brew install spdlog
 
             # Exiv2 dependencies
             brew install inih
@@ -57,8 +57,19 @@
             # OpenColorIO dependencies
             brew install pystring
 
-            brew list --versions spdlog halide ccache
+            brew list --versions spdlog ccache
 
+      # ====================================================================
+      # Setup Python and install Halide via pip
+      # ====================================================================
+        - name: Setup Python
+          uses: actions/setup-python@v6
+          with:
+           python-version: '3.12'
+  
+        - name: pip halide
+          run: |
+             pip install halide~=21.0.0
 
         # ====================================================================
         # Setup ccache
@@ -126,9 +137,12 @@
               https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
             cd /tmp/oiio-src
 
+             HALIDE_CMAKE_DIR=$(python3 -c "import halide; print(halide.cmake_dir())")
+
             cmake -S . -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_PREFIX }}/oiio \
+              -DHalide_DIR="${HALIDE_CMAKE_DIR}" \
               -DEXIV2_ROOT=${{ env.INSTALL_PREFIX }}/exiv2 \
               -DOpenImageIO_BUILD_MISSING_DEPS=required \
               -DSTOP_ON_WARNING=0 \
