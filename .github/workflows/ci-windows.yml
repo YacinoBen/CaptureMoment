@@ -97,7 +97,7 @@ jobs:
   
       - name: pip halide
         run: |
-         pip install halide
+         pip install halide~=21.0.0
     
       # ====================================================================
       # Configure & Build with CMake
