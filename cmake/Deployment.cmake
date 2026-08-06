@@ -52,6 +52,7 @@ if(BUILD_DESKTOP_UI)
         set(CPACK_PACKAGE_CONTACT "CaptureMoment Team")
         set(CPACK_DEBIAN_PACKAGE_SECTION "graphics")
         set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
+        set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     endif()
 
     # Include CPack module
