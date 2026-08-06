@@ -61,7 +61,8 @@
   
         - name: pip halide
           run: |
-             pip install halide~=21.0.0
+             pip install --only-binary :all: halide==21.0.0
+             echo "HALIDE_CMAKE_DIR=$(python3 -c 'import halide; print(halide.cmake_dir())')" >> "$GITHUB_ENV"
 
         # ====================================================================
         # Setup ccache
@@ -189,8 +190,9 @@
         
         - name: Package DMG via CPack
           run: |
-            cd build/release-homebrew
-            cpack -G DragNDrop -C Release
+           macdeployqt build/release-homebrew/CaptureMoment.app -no-translations
+           cd build/release-homebrew
+           cpack -G DragNDrop -C Release
 
         - name: Create GitHub Release
           uses: softprops/action-gh-release@v2

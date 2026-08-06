@@ -88,7 +88,13 @@ jobs:
       - name: Package DEB via CPack
         run: |
           cd build/release-ninja-linux
-          cpack -G DEB -C Release
+          cpack -G DEB -C Release -DCPACK_DEBIAN_PACKAGE_SHLIBDEPS=ON
+
+      - name: Verify DEB dependencies
+        run: |
+          DEB_FILE=$(ls build/release-ninja-linux/*.deb | head -1)
+          echo "Checking dependencies for $DEB_FILE"
+          dpkg-deb -I "$DEB_FILE" | grep -q "libQt6" || (echo "::error::DEB is missing Qt runtime dependencies!" && exit 1)
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
