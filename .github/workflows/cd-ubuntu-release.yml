@@ -72,11 +72,13 @@ jobs:
 
       - name: Configure CMake Project
         run: |
+          HALIDE_DIR=$(python3 -c 'import halide; print(halide.cmake_dir())')
           cmake \
           --preset release-ninja-linux \
           -DBUILD_DESKTOP_UI:BOOL=ON \
           -Dtests=OFF \
           -DCMAKE_BUILD_TYPE=Release \
+          -DHALIDE_DIR="${HALIDE_DIR}" \
           -DCMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/oiio;/opt/exiv2"
         shell: bash
 
