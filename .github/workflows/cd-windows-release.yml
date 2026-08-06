@@ -113,10 +113,20 @@ jobs:
         run: |
           # 1. Gather Qt dependencies next to the executable
           $exePath = "build/release-vcpkg-msvc/Release/capturemoment_desktop.exe"
+
+          $halideBin = Join-Path (Split-Path $env:HALIDE_CMAKE_DIR -Parent) "bin"
+          if (Test-Path "$halideBin\Halide.dll") {
+              Copy-Item "$halideBin\Halide.dll" "build\release-vcpkg-msvc\Release\" -Force
+              Write-Host "Halide.dll copied successfully."
+          } else {
+              Write-Error "Halide.dll not found in $halideBin"
+              exit 1
+          }
+
           & "C:\Qt\6.10.2\msvc2022_64\bin\windeployqt.exe" "$exePath" --release --no-translations
           
           # 2. Run CPack to build the NSIS installer
-          cpack --build-config Release --config build/CPackConfig.cmake
+          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake
 
       - name: Upload Installer to Release
         uses: softprops/action-gh-release@v2
