@@ -77,9 +77,9 @@ jobs:
             -StorePasswordInClearText `
             -Name "GitHubPackages" `
             -UserName "$env:USERNAME" `
-            -Password "${{ secrets.GITHUB_TOKEN }}"
+            -Password "$env:FEED_TOKEN" `
 
-          & $nugetExe setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "$env:FEED_URL"
+          & $nugetExe setapikey "$env:FEED_TOKEN" -Source "$env:FEED_URL"
 
       # ====================================================================
       # Setup Python and install Halide via pip
