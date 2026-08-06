@@ -135,4 +135,3 @@ jobs:
           files: build/CaptureMoment-*-win64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

@@ -66,7 +66,7 @@
           uses: actions/setup-python@v6
           with:
            python-version: '3.12'
-  
+
         - name: pip halide
           run: |
              pip install --only-binary :all: halide==21.0.0

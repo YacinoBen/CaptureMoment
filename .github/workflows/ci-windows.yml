@@ -58,10 +58,10 @@ jobs:
 
           Write-Host "Fetching specific baseline..."
           git fetch origin cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
-          
+
           Write-Host "Checking out project baseline..."
           git checkout cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
-          
+     
           Write-Host "Bootstrapping vcpkg..."
           .\bootstrap-vcpkg.bat
 
@@ -80,7 +80,7 @@ jobs:
         run: |
           $nugetExe = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
           Write-Host "Using NuGet executable: $nugetExe"
-          
+
           & $nugetExe sources add `
             -Source "$env:FEED_URL" `
             -StorePasswordInClearText `
@@ -97,7 +97,7 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-  
+
       - name: pip halide
         run: |
          pip install --only-binary :all: halide==21.0.0
