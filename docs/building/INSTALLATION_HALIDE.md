@@ -19,7 +19,7 @@ This is the easiest way to get a fully working Halide (with CPU + GPU support) i
 
 #### Via PIP
 ```bash
-pip3 install halide~=21.0.0
+pip install --only-binary :all: halide==21.0.0
 ```
 
 ##### ⚠️ Important (Runtime Dependency)
