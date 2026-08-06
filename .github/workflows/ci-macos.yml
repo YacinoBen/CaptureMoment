@@ -143,7 +143,7 @@
             cmake -S . -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_PREFIX }}/oiio \
-              -DHalide_DIR="${HALIDE_CMAKE_DIR}" \
+              -DHALIDE_DIR="${HALIDE_CMAKE_DIR}" \
               -DEXIV2_ROOT=${{ env.INSTALL_PREFIX }}/exiv2 \
               -DOpenImageIO_BUILD_MISSING_DEPS=required \
               -DSTOP_ON_WARNING=0 \
