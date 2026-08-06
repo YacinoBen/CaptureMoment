@@ -65,6 +65,9 @@ jobs:
       # ====================================================================
       - name: Configure NuGet source for vcpkg cache
         shell: pwsh
+        env:
+            FEED_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         run: |
           $nugetExe = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
           Write-Host "Using NuGet executable: $nugetExe"
@@ -88,7 +91,8 @@ jobs:
   
       - name: pip halide
         run: |
-         pip install halide~=21.0.0
+         pip install --only-binary :all: halide==21.0.0
+         echo "HALIDE_CMAKE_DIR=$(python3 -c 'import halide; print(halide.cmake_dir())')" >> "$GITHUB_ENV"
     
       # ====================================================================
       # Configure & Build with CMake
@@ -108,7 +112,7 @@ jobs:
         shell: pwsh
         run: |
           # 1. Gather Qt dependencies next to the executable
-          $exePath = "build/ui/desktop/Release/CaptureMoment.exe"
+          $exePath = "build/release-vcpkg-msvc/Release/capturemoment_desktop.exe"
           & "C:\Qt\6.10.2\msvc2022_64\bin\windeployqt.exe" "$exePath" --release --no-translations
           
           # 2. Run CPack to build the NSIS installer
