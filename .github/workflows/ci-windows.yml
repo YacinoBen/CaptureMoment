@@ -74,6 +74,9 @@ jobs:
       # ====================================================================
       - name: Configure NuGet source for vcpkg cache
         shell: pwsh
+        env:
+          FEED_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         run: |
           $nugetExe = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
           Write-Host "Using NuGet executable: $nugetExe"
