@@ -1,10 +1,9 @@
-name: CI Windows (vcpkg + MSVC)
+name: CD Windows (vcpkg + MSVC)
 
 on:
   push:
-    branches: ["main", "develop"]
-  pull_request:
-    branches: ["main", "develop"]
+    tags:
+      - 'v*'
 
 env:
   USERNAME: ${{ github.repository_owner }}
@@ -18,15 +17,7 @@ jobs:
 
     permissions:
       packages: write
-
-    strategy:
-      matrix:
-        build-type: [Release, Debug]
-        include:
-          - build-type: Release
-            preset: release-vcpkg-msvc
-          - build-type: Debug
-            preset: debug-vcpkg-msvc
+      contents: write
 
     steps:
       # ====================================================================
@@ -74,6 +65,9 @@ jobs:
       # ====================================================================
       - name: Configure NuGet source for vcpkg cache
         shell: pwsh
+        env:
+            FEED_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         run: |
           $nugetExe = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
           Write-Host "Using NuGet executable: $nugetExe"
@@ -83,9 +77,9 @@ jobs:
             -StorePasswordInClearText `
             -Name "GitHubPackages" `
             -UserName "$env:USERNAME" `
-            -Password "${{ secrets.GITHUB_TOKEN }}"
+            -Password "$env:FEED_TOKEN" `
 
-          & $nugetExe setapikey "${{ secrets.GITHUB_TOKEN }}" -Source "$env:FEED_URL"
+          & $nugetExe setapikey "$env:FEED_TOKEN" -Source "$env:FEED_URL"
 
       # ====================================================================
       # Setup Python and install Halide via pip
@@ -97,7 +91,9 @@ jobs:
   
       - name: pip halide
         run: |
-         pip install halide
+         pip install --only-binary :all: halide==21.0.0
+         $halide_path = python -c "import halide, os; print(os.path.dirname(halide.__file__))"
+         echo "HALIDE_CMAKE_DIR=$halide_path" >> $env:GITHUB_ENV
     
       # ====================================================================
       # Configure & Build with CMake
@@ -105,25 +101,38 @@ jobs:
       - name: Run CMake consuming CMakePreset.json and run vcpkg to build packages
         uses: lukka/run-cmake@v10
         with:
-          configurePreset: '${{ matrix.preset }}'
-          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=OFF']" # Turn On Tests afters
-          buildPreset: '${{ matrix.preset }}'
-          buildPresetAdditionalArgs: "['--config ${{ matrix.build-type }}']"
-        # testPreset: '${{ matrix.preset }}'
-        # testPresetAdditionalArgs: "['--config ${{ matrix.build-type }}', '--output-on-failure']"
+          configurePreset: 'release-vcpkg-msvc'
+          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=OFF']"
+          buildPreset: 'release-vcpkg-msvc'
+          buildPresetAdditionalArgs: "['--config Release']"
 
       # ====================================================================
-      # Upload build artifacts
+      # Packaging Release Artifact
       # ====================================================================
-      - name: Upload build artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Package NSIS Installer
+        shell: pwsh
+        run: |
+          # 1. Gather Qt dependencies next to the executable
+          $exePath = "build/release-vcpkg-msvc/Release/capturemoment_desktop.exe"
+
+          $halideBin = Join-Path (Split-Path $env:HALIDE_CMAKE_DIR -Parent) "bin"
+          if (Test-Path "$halideBin\Halide.dll") {
+              Copy-Item "$halideBin\Halide.dll" "build\release-vcpkg-msvc\Release\" -Force
+              Write-Host "Halide.dll copied successfully."
+          } else {
+              Write-Error "Halide.dll not found in $halideBin"
+              exit 1
+          }
+
+          & "C:\Qt\6.10.2\msvc2022_64\bin\windeployqt.exe" "$exePath" --release --no-translations
+          
+          # 2. Run CPack to build the NSIS installer
+          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake
+
+      - name: Upload Installer to Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: build-${{ matrix.build-type }}
-          path: |
-            build/ui/desktop/${{ matrix.build-type }}/*.exe
-            build/tests/${{ matrix.build-type }}/*.exe
-            build/${{ matrix.build-type }}/*.lib
-            build/${{ matrix.build-type }}/*.dll
-          retention-days: 7
-          if-no-files-found: ignore
+          # CPack usually names NSIS files like ProjectName-Version-win64.exe
+          files: build/CaptureMoment-*-win64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

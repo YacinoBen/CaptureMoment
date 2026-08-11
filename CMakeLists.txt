@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 4.2)
 
-project(CaptureMoment VERSION 0.1 LANGUAGES CXX)
+project(CaptureMoment VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -126,6 +126,14 @@ apply_compiler_flags_recursive(${CMAKE_CURRENT_SOURCE_DIR}) # From CompilerDetec
 # ============================================================
 get_compiler_name(COMPILER_NAME) # From CompilerDetection.cmake
 
+# ============================================================
+# Deployment & Packaging
+# ============================================================
+include(Deployment)
+
+# ============================================================
+# Summary
+# ============================================================
 message(STATUS "")
 message(STATUS "╔════════════════════════════════════════════════════════════╗")
 message(STATUS "║  CaptureMoment ${PROJECT_VERSION} Configuration             ")

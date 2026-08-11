@@ -1,0 +1,203 @@
+  name: CD macOS (Homebrew + Clang)
+
+  on:
+    push:
+      tags:
+        - 'v*'
+
+  env:
+   CMAKE_GENERATOR: Ninja
+   EXIV2_VERSION: "v0.28.7"
+   OIIO_VERSION: "v3.1.14.0"
+   INSTALL_PREFIX: "/Users/runner/local"
+
+  jobs:
+    build:
+      runs-on: macos-latest
+      timeout-minutes: 30
+
+      permissions:
+        contents: write
+
+      steps:
+        # ====================================================================
+        # Checkout
+        # ====================================================================
+        - name: Checkout repository
+          uses: actions/checkout@v4
+          with:
+            submodules: recursive
+            fetch-depth: 0
+
+        # ====================================================================
+        # Install dependencies via Homebrew
+        # ====================================================================
+        - name: Install Homebrew dependencies
+          run: |
+            brew update
+            brew install ccache
+
+            # spdlog dependencies
+            brew install spdlog
+
+            # Exiv2 dependencies
+            brew install inih
+
+            # OpenImageIO dependencies
+            brew install libpng jpeg libtiff openexr
+
+            # OpenColorIO dependencies
+            brew install pystring
+
+            brew list --versions spdlog ccache
+
+      # ====================================================================
+      # Setup Python and install Halide via pip
+      # ====================================================================
+        - name: Setup Python
+          uses: actions/setup-python@v6
+          with:
+           python-version: '3.12'
+  
+        - name: pip halide
+          run: |
+             pip install --only-binary :all: halide==21.0.0
+             echo "HALIDE_CMAKE_DIR=$(python3 -c 'import halide; print(halide.cmake_dir())')" >> "$GITHUB_ENV"
+
+        # ====================================================================
+        # Setup ccache
+        # ====================================================================
+        - name: Setup ccache
+          uses: hendrikmuhs/ccache-action@v1.2
+          with:
+            key: macos-ccache-Release
+            max-size: "200M"
+
+        # ====================================================================
+        # Cache for Exiv2
+        # ====================================================================
+        - name: Cache Exiv2
+          id: cache-exiv2
+          uses: actions/cache@v4
+          with:
+            path: ${{ env.INSTALL_PREFIX }}/exiv2
+            key: exiv2-${{ env.EXIV2_VERSION }}-macos
+
+        # ====================================================================
+        # Build Exiv2 from source
+        # ====================================================================
+        - name: Build Exiv2 from source
+          if: steps.cache-exiv2.outputs.cache-hit != 'true'
+          run: |
+            echo "::group::Building Exiv2 ${{ env.EXIV2_VERSION }}"
+
+            git clone --depth 1 --branch ${{ env.EXIV2_VERSION }} \
+              https://github.com/Exiv2/exiv2.git /tmp/exiv2-src
+            cd /tmp/exiv2-src
+
+            cmake -S . -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_PREFIX }}/exiv2 \
+              -DBUILD_SHARED_LIBS=ON \
+              -DEXIV2_BUILD_SAMPLES=OFF \
+              -DEXIV2_BUILD_TESTS=OFF
+
+            cmake --build build --parallel $(sysctl -n hw.ncpu)
+            cmake --install build
+
+            rm -rf /tmp/exiv2-src
+            echo "::endgroup::"
+
+        # ====================================================================
+        # Cache for OpenImageIO
+        # ====================================================================
+        - name: Cache OpenImageIO
+          id: cache-oiio
+          uses: actions/cache@v4
+          with:
+            path: ${{ env.INSTALL_PREFIX }}/oiio
+            key: oiio-${{ env.OIIO_VERSION }}-macos
+
+        # ====================================================================
+        # Build OpenImageIO from source
+        # ====================================================================
+        - name: Build OpenImageIO from source
+          if: steps.cache-oiio.outputs.cache-hit != 'true'
+          run: |
+            echo "::group::Building OpenImageIO ${{ env.OIIO_VERSION }}"
+
+            git clone --depth 1 --branch ${{ env.OIIO_VERSION }} \
+              https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
+            cd /tmp/oiio-src
+
+            HALIDE_CMAKE_DIR=$(python3 -c "import halide; print(halide.cmake_dir())")
+
+            cmake -S . -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_PREFIX }}/oiio \
+              -DHalide_DIR="${HALIDE_CMAKE_DIR}" \
+              -DEXIV2_ROOT=${{ env.INSTALL_PREFIX }}/exiv2 \
+              -DOpenImageIO_BUILD_MISSING_DEPS=required \
+              -DSTOP_ON_WARNING=0 \
+              -DOIIO_BUILD_TOOLS=OFF \
+              -DOIIO_BUILD_TESTS=OFF \
+              -DUSE_PYTHON=OFF
+
+            cmake --build build --parallel $(sysctl -n hw.ncpu)
+            cmake --install build
+
+            rm -rf /tmp/oiio-src
+            echo "::endgroup::"
+
+      # ====================================================================
+      # Setup Qt
+      # ====================================================================
+        - name: Setup Qt 6.10.2 Environment
+          uses: jurplel/install-qt-action@v4 
+          with:
+           version: '6.10.2'
+           target: 'desktop'
+           host: 'mac'
+           modules: 'qtshadertools'
+
+        # ====================================================================
+        # Configure cmake environment
+        # ====================================================================
+        - name: Configure CMake
+          run: |
+           TESTS_FLAG="-Dtests=OFF"
+
+           if [ -d "tests" ] && [ "$(ls -A tests 2>/dev/null)" ]; then
+             TESTS_FLAG="-Dtests=ON"
+             echo "::notice file=tests::the directory 'tests' exists and is not empty. Tests enabled."
+           else
+             echo "::warning file=tests::the directory 'tests' is empty or missing. Tests disabled (Tests:OFF)."
+           fi
+
+           cmake \
+           --preset release-homebrew \
+           -Ddesktop_ui=ON \
+           ${TESTS_FLAG} \
+           -DCMAKE_BUILD_TYPE=Release \
+           -DHalide_DIR="${HALIDE_CMAKE_DIR}" \
+           -DEXIV2_ROOT=${{ env.INSTALL_PREFIX }}/exiv2 \
+           -DOpenImageIO_ROOT=${{ env.INSTALL_PREFIX }}/oiio
+          shell: bash
+          
+          
+        - name: Build Project
+          run: cmake --build build/release-homebrew --config Release --parallel $(sysctl -n hw.ncpu)
+        
+        - name: Package DMG via CPack
+          run: |
+           macdeployqt build/release-homebrew/CaptureMoment.app -no-translations
+           cd build/release-homebrew
+           cpack -G DragNDrop -C Release
+
+        - name: Create GitHub Release
+          uses: softprops/action-gh-release@v2
+          with:
+            files: build/release-homebrew/CaptureMoment-*.dmg
+            generate_release_notes: true
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -y \
 # ==============================================================================
 # Install Python core packages
 # ==============================================================================
-RUN pip3 install --break-system-packages cmake aqtinstall halide
+RUN pip3 install --break-system-packages cmake aqtinstall
+RUN pip3 install --break-system-packages --only-binary :all: halide==21.0.0
 
 # ==============================================================================
 # Install Qt framework

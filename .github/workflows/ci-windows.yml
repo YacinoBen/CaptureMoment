@@ -1,0 +1,134 @@
+name: CI Windows (vcpkg + MSVC)
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+env:
+  USERNAME: ${{ github.repository_owner }}
+  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+  VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 70
+
+    permissions:
+      packages: write
+
+    strategy:
+      matrix:
+        build-type: [Release, Debug]
+        include:
+          - build-type: Release
+            preset: release-vcpkg-msvc
+          - build-type: Debug
+            preset: debug-vcpkg-msvc
+
+    steps:
+      # ====================================================================
+      # Checkout
+      # ====================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # ====================================================================
+      # Setup Qt
+      # ====================================================================
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+         version: '6.10.2'
+         target: 'desktop'
+         arch: 'win64_msvc2022_64'
+         modules: 'qtshadertools'
+
+      # ====================================================================
+      # Setup vcpkg
+      # ====================================================================
+      - name: Setup vcpkg (latest)
+        run: |
+          cd C:\vcpkg
+
+          Write-Host "Fetching specific baseline..."
+          git fetch origin cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
+
+          Write-Host "Checking out project baseline..."
+          git checkout cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
+     
+          Write-Host "Bootstrapping vcpkg..."
+          .\bootstrap-vcpkg.bat
+
+          Write-Host "Setting environment variables..."
+          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+          echo "C:\vcpkg" >> $env:GITHUB_PATH
+
+      # ====================================================================
+      # Configuration of NuGet source for vcpkg cache
+      # ====================================================================
+      - name: Configure NuGet source for vcpkg cache
+        shell: pwsh
+        env:
+          FEED_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        run: |
+          $nugetExe = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
+          Write-Host "Using NuGet executable: $nugetExe"
+
+          & $nugetExe sources add `
+            -Source "$env:FEED_URL" `
+            -StorePasswordInClearText `
+            -Name "GitHubPackages" `
+            -UserName "$env:USERNAME" `
+            -Password "$env:FEED_TOKEN"
+
+          & $nugetExe setapikey "$env:FEED_TOKEN" -Source "$env:FEED_URL"
+
+      # ====================================================================
+      # Setup Python and install Halide via pip
+      # ====================================================================
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: pip halide
+        run: |
+         pip install --only-binary :all: halide==21.0.0
+         $halide_path = python -c "import halide, os; print(os.path.dirname(halide.__file__))"
+         echo "HALIDE_CMAKE_DIR=$halide_path" >> $env:GITHUB_ENV
+    
+      # ====================================================================
+      # Configure & Build with CMake
+      # ====================================================================
+      - name: Run CMake consuming CMakePreset.json and run vcpkg to build packages
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: '${{ matrix.preset }}'
+          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=OFF']" # Turn On Tests afters
+          buildPreset: '${{ matrix.preset }}'
+          buildPresetAdditionalArgs: "['--config ${{ matrix.build-type }}']"
+        # testPreset: '${{ matrix.preset }}'
+        # testPresetAdditionalArgs: "['--config ${{ matrix.build-type }}', '--output-on-failure']"
+
+      # ====================================================================
+      # Upload build artifacts
+      # ====================================================================
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.build-type }}
+          path: |
+            build/ui/desktop/${{ matrix.build-type }}/*.exe
+            build/tests/${{ matrix.build-type }}/*.exe
+            build/${{ matrix.build-type }}/*.lib
+            build/${{ matrix.build-type }}/*.dll
+          retention-days: 7
+          if-no-files-found: ignore
