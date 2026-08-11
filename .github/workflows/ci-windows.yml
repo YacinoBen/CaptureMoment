@@ -101,7 +101,8 @@ jobs:
       - name: pip halide
         run: |
          pip install --only-binary :all: halide==21.0.0
-         echo "HALIDE_CMAKE_DIR=$(python3 -c 'import halide; print(halide.cmake_dir())')" >> "$GITHUB_ENV"
+         $halide_path = python -c "import halide, os; print(os.path.dirname(halide.__file__))"
+         echo "HALIDE_CMAKE_DIR=$halide_path" >> $env:GITHUB_ENV
     
       # ====================================================================
       # Configure & Build with CMake
