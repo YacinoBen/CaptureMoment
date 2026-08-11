@@ -62,7 +62,7 @@
         - name: pip halide
           run: |
              pip install --only-binary :all: halide==21.0.0
-             echo "HALIDE_CMAKE_DIR=$(python3 -c 'import halide; print(halide.cmake_dir())')" >> "$GITHUB_ENV"
+             echo "HALIDE_CMAKE_DIR=$(python3 -c 'import halide, os; print(os.path.dirname(halide.__file__))')" >> "$GITHUB_ENV"
 
         # ====================================================================
         # Setup ccache
@@ -130,7 +130,7 @@
               https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
             cd /tmp/oiio-src
 
-            HALIDE_CMAKE_DIR=$(python3 -c "import halide; print(halide.cmake_dir())")
+            HALIDE_CMAKE_DIR=$(python3 -c "import halide, os; print(os.path.dirname(halide.__file__))")
 
             cmake -S . -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
