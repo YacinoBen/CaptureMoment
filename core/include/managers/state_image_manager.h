@@ -230,13 +230,6 @@ private:
     // ========================================================================
 
     /**
-     * @brief The single persistent thread running @ref workerLoop.
-     * @details Created at construction, joined at destruction. Avoids the overhead
-     *          of spawning a new thread on every slider movement.
-     */
-    std::thread m_worker_thread;
-
-    /**
      * @brief Atomic flag to signal the worker thread to exit cleanly.
      */
     std::atomic<bool> m_stop_requested{false};
@@ -307,6 +300,13 @@ private:
      * @brief Dependency to access original image tiles and metadata.
      */
     std::unique_ptr<Managers::ISourceManager> m_source_manager;
+
+    /**
+     * @brief The single persistent thread running @ref workerLoop.
+     * @details Created at construction, joined at destruction. Avoids the overhead
+     *          of spawning a new thread on every slider movement.
+     */
+    std::thread m_worker_thread;
 };
 
 } // namespace Managers

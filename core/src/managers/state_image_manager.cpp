@@ -23,12 +23,14 @@ StateImageManager::StateImageManager()
     , m_worker_context(std::make_unique<Workers::WorkerContext>())
     , m_working_image_context(std::make_unique<ImageProcessing::WorkingImageContext>())
     , m_source_manager(std::make_unique<Managers::SourceManager>())
-    , m_worker_thread(&StateImageManager::workerLoop, this)
 {
     if (!m_source_manager) {
         spdlog::critical("[StateImageManager::StateImageManager]: Null dependency provided during construction.");
         throw std::invalid_argument("[StateImageManager::StateImageManager]: Null dependency provided.");
     }
+
+    // Start the worker thread ONLY AFTER all members are constructed and validation passes.
+    m_worker_thread = std::thread(&StateImageManager::workerLoop, this);
 }
 
 StateImageManager::~StateImageManager()
