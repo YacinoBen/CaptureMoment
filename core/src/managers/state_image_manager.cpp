@@ -23,18 +23,23 @@ StateImageManager::StateImageManager()
     , m_worker_context(std::make_unique<Workers::WorkerContext>())
     , m_working_image_context(std::make_unique<ImageProcessing::WorkingImageContext>())
     , m_source_manager(std::make_unique<Managers::SourceManager>())
-    , m_worker_thread(&StateImageManager::workerLoop, this)
 {
     if (!m_source_manager) {
         spdlog::critical("[StateImageManager::StateImageManager]: Null dependency provided during construction.");
         throw std::invalid_argument("[StateImageManager::StateImageManager]: Null dependency provided.");
     }
+
+    // Start the worker thread ONLY AFTER all members are constructed and validation passes.
+    m_worker_thread = std::thread(&StateImageManager::workerLoop, this);
 }
 
 StateImageManager::~StateImageManager()
 {
-    // Signal the worker thread to stop and wake it up
-    m_stop_requested.store(true, std::memory_order_release);
+    // Signal the worker thread to stop and wake it up safely (prevents lost wakeup)
+    {
+        std::lock_guard<std::mutex> lock(m_work_mutex);
+        m_stop_requested.store(true, std::memory_order_release);
+    }
     m_work_cv.notify_one();
 
     // Wait for the thread to finish its current task and exit
@@ -124,6 +129,12 @@ void StateImageManager::workerLoop()
                     try { m_active_promise->set_value(false); }
                     catch (const std::future_error&) {}
                 }
+
+                // CRITICAL: Clear pending state and signal idle to prevent waiters from hanging
+                m_pending_work.reset();
+                m_is_idle.store(true, std::memory_order_release);
+                m_idle_cv.notify_all();
+
                 break;
             }
 
@@ -285,10 +296,10 @@ std::future<bool> StateImageManager::applyOperations(std::vector<Operations::Ope
 
 void StateImageManager::waitForPendingProcessing()
 {
-    // Spin-wait with yield: highly efficient for short waits, avoids OS context switches
-    while (!m_is_idle.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
-    }
+    std::unique_lock<std::mutex> lock(m_idle_mutex);
+    m_idle_cv.wait(lock, [this] {
+        return m_is_idle.load(std::memory_order_acquire);
+    });
 }
 
 Common::ImageDim StateImageManager::getSourceWidth() const

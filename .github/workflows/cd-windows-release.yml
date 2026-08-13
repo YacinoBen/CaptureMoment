@@ -92,8 +92,8 @@ jobs:
       - name: pip halide
         run: |
          pip install --only-binary :all: halide==21.0.0
-         $halide_path = python -c "import halide, os; print(os.path.dirname(halide.__file__))"
-         echo "HALIDE_CMAKE_DIR=$halide_path" >> $env:GITHUB_ENV
+         $halideRoot = python -c "import halide; print(halide.install_dir())"
+         echo "HALIDE_ROOT=$halideRoot" >> $env:GITHUB_ENV
     
       # ====================================================================
       # Configure & Build with CMake
@@ -112,22 +112,31 @@ jobs:
       - name: Package NSIS Installer
         shell: pwsh
         run: |
-          # 1. Gather Qt dependencies next to the executable
           $exePath = "build/release-vcpkg-msvc/Release/capturemoment_desktop.exe"
-
-          $halideBin = Join-Path (Split-Path $env:HALIDE_CMAKE_DIR -Parent) "bin"
-          if (Test-Path "$halideBin\Halide.dll") {
-              Copy-Item "$halideBin\Halide.dll" "build\release-vcpkg-msvc\Release\" -Force
+          
+          # Copy Halide.dll from pip package
+          $halideBin = Join-Path $env:HALIDE_ROOT "bin"
+          $halideDll = Join-Path $halideBin "Halide.dll"
+          
+          if (Test-Path $halideDll) {
+              Copy-Item $halideDll "build\release-vcpkg-msvc\Release\" -Force
               Write-Host "Halide.dll copied successfully."
           } else {
-              Write-Error "Halide.dll not found in $halideBin"
+              Write-Error "Halide.dll not found at $halideDll"
               exit 1
           }
 
+          # Gather Qt dependencies
           & "C:\Qt\6.10.2\msvc2022_64\bin\windeployqt.exe" "$exePath" --release --no-translations
           
-          # 2. Run CPack to build the NSIS installer
-          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake
+          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake -B build/release-vcpkg-msvc/packages
+
+      - name: Upload Installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/release-vcpkg-msvc/packages/CaptureMoment-*-win64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Installer to Release
         uses: softprops/action-gh-release@v2
