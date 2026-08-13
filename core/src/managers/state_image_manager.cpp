@@ -35,8 +35,11 @@ StateImageManager::StateImageManager()
 
 StateImageManager::~StateImageManager()
 {
-    // Signal the worker thread to stop and wake it up
-    m_stop_requested.store(true, std::memory_order_release);
+    // Signal the worker thread to stop and wake it up safely (prevents lost wakeup)
+    {
+        std::lock_guard<std::mutex> lock(m_work_mutex);
+        m_stop_requested.store(true, std::memory_order_release);
+    }
     m_work_cv.notify_one();
 
     // Wait for the thread to finish its current task and exit
