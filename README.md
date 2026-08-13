@@ -1,4 +1,8 @@
-# Capture Moment
+# Capture Moment <img src="./assets/icons/favicon.png" height="32" align="absmiddle" alt="Capture Moment">
+
+<p align="center">
+  <img src="./assets/logo/colored-logo.png" width="400" alt="Capture Moment Logo">
+</p>
 
 **An open-source, non-destructive photo editing application (GPLv3), cross-platform (desktop + mobile), featuring RAW processing, cataloging, and professional color science.**
 
@@ -7,14 +11,17 @@
 [![Qt](https://img.shields.io/badge/Qt-6-blue.svg)](https://doc.qt.io/qt-6/)
 
 
-![Home](docs/img/home.jpg)
-
 ---
 
 ## 🎯 Goal
 
 Capture Moment aims to become a **performant and modular open-source alternative** software. Designed for **professional and advanced amateur photographers**, it offers a **modern**, **non-destructive**, and **color-accurate** photo workflow.
 
+<p align="center">
+  <img src="docs/img/home.jpg" width="800" alt="Capture Moment Desktop">
+  <br>
+  <sub><i>Capture Moment — Interface desktop</i></sub>
+</p>
 ---
 
 ## ✨ Core Features

@@ -61,13 +61,24 @@ void RHIImageItem::updateTile(std::unique_ptr<Core::Common::ImageRegion> tile)
             tile->height() == m_full_image->height()) {
             m_full_image = std::move(tile);
             spdlog::debug("[RHIImageItem::updateTile]: Full replacement");
-        } else {
+        } else
+        {
+            // Security: Validate tile bounds and channel count before partial copy
+            if (tile->x() < 0 || tile->y() < 0 ||
+                tile->x() + tile->width() > m_full_image->width() ||
+                tile->y() + tile->height() > m_full_image->height() ||
+                tile->channels() != m_full_image->channels()) {
+                spdlog::warn("[RHIImageItem::updateTile]: Tile out of bounds or channel mismatch");
+                return;
+            }
+
             // Partial copy by row (optimized)
-            const size_t row_size = tile->width() * tile->channels();
-            for (int y = 0; y < tile->height(); ++y) {
-                const float* src = tile->getBuffer().data() + y * row_size;
-                float* dst = m_full_image->getBuffer().data() +
-                    ((tile->y() + y) * m_full_image->width() + tile->x()) * m_full_image->channels();
+            const size_t row_size { tile->width() * tile->channels() };
+            for (int y = 0; y < tile->height(); ++y)
+            {
+                const float* src { tile->getBuffer().data() + y * row_size };
+                float* dst { m_full_image->getBuffer().data() +
+                    ((tile->y() + y) * m_full_image->width() + tile->x()) * m_full_image->channels() };
                 std::copy(src, src + row_size, dst);
             }
             spdlog::debug("[RHIImageItem::updateTile]: Partial at ({}, {})", tile->x(), tile->y());

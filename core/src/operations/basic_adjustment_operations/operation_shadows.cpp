@@ -6,17 +6,10 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_shadows.h"
-#include "common/error_handling/core_error.h"
 
 #include <spdlog/spdlog.h>
-#include <algorithm>
-#include <limits>
 
 namespace CaptureMoment::Core::Operations {
-
-// ============================================================================
-// Internal Helper: Shared Halide Logic
-// ============================================================================
 
 template<typename InputType>
 Halide::Func applyShadowsAdjustment(
@@ -24,40 +17,36 @@ Halide::Func applyShadowsAdjustment(
     const Halide::Param<float>& param_shadows,
     const Halide::Var& x,
     const Halide::Var& y,
-    const Halide::Var& c,
-    float low_threshold = 0.0f,
-    float high_threshold = 0.3f)
+    const Halide::Var& c)
 {
     Halide::Func shadows_func("shadows_op");
-    Halide::Func luminance_func("luminance_shadows");
-    Halide::Func mask_func("mask_shadows");
 
-    // Calculate Luminance
-    luminance_func(x, y) = 0.299f * input(x, y, 0) +
-                           0.587f * input(x, y, 1) +
-                           0.114f * input(x, y, 2);
+    // 1. In Oklab, channel 0 IS the perceptual luminance.
+    Halide::Expr L = input(x, y, 0);
 
-    // Mask: 1.0 below 0.0, ramp to 0.0 at 0.3
-    mask_func(x, y) = Halide::select(
-        luminance_func(x, y) >= high_threshold,
-        0.0f,
-        luminance_func(x, y) <= low_threshold,
-        1.0f,
-        (high_threshold - luminance_func(x, y)) / (high_threshold - low_threshold)
+    // 2. Create a smooth mask targeting the shadow/lower-midtone range.
+    // Shadows typically cover a wider range than "Blacks" (e.g., 0.0 to 0.5).
+    // Adjust the 0.5f threshold if you want a tighter or wider shadow roll-off.
+    constexpr float shadow_cutoff = 0.5f;
+
+    Halide::Expr t = clamp((shadow_cutoff - L) / shadow_cutoff, 0.0f, 1.0f);
+
+    // Apply the smoothstep polynomial curve: 3t^2 - 2t^3
+    Halide::Expr mask = t * t * (3.0f - 2.0f * t);
+
+    // 3. Clamp the input parameter to the operation's defined valid range.
+    Halide::Expr safe_val = clamp(
+        param_shadows,
+        OperationShadows::MIN_SHADOWS_VALUE,
+        OperationShadows::MAX_SHADOWS_VALUE
         );
 
-    // Safety: Clamp the input parameter to the operation's defined valid range.
-    Halide::Expr safe_val = Halide::clamp(
-        param_shadows, 
-        OperationShadows::MIN_SHADOWS_VALUE, 
-        OperationShadows::MAX_SHADOWS_VALUE
-    );
-
-    // Apply Adjustment
-    shadows_func(x, y, c) = Halide::select(
-        c < 3,
-        input(x, y, c) + safe_val * mask_func(x, y),
-        input(x, y, c) // Alpha unchanged
+    // 4. Apply adjustment only to channel 0 (L)
+    // NO CLAMP here to prevent hue shifts during oklab_to_rgb conversion.
+    shadows_func(x, y, c) = select(
+        c == 0,
+        L + safe_val * mask,
+        input(x, y, c) // a, b, and Alpha channels remain untouched
         );
 
     return shadows_func;

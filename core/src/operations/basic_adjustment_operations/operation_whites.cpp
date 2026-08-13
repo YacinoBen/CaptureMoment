@@ -6,17 +6,10 @@
  */
 
 #include "operations/basic_adjustment_operations/operation_whites.h"
-#include "common/error_handling/core_error.h"
 
 #include <spdlog/spdlog.h>
-#include <algorithm>
-#include <limits>
 
 namespace CaptureMoment::Core::Operations {
-
-// ============================================================================
-// Internal Helper: Shared Halide Logic
-// ============================================================================
 
 template<typename InputType>
 Halide::Func applyWhitesAdjustment(
@@ -24,43 +17,36 @@ Halide::Func applyWhitesAdjustment(
     const Halide::Param<float>& param_whites,
     const Halide::Var& x,
     const Halide::Var& y,
-    const Halide::Var& c,
-    float low_threshold = 0.7f,
-    float high_threshold = 1.0f)
+    const Halide::Var& c)
 {
     Halide::Func whites_func("whites_op");
-    Halide::Func luminance_func("luminance_whites");
-    Halide::Func mask_func("mask_whites");
 
-    // Calculate Luminance
-    luminance_func(x, y) = 0.299f * input(x, y, 0) +
-                           0.587f * input(x, y, 1) +
-                           0.114f * input(x, y, 2);
+    // 1. In Oklab, channel 0 IS the perceptual luminance.
+    Halide::Expr L = input(x, y, 0);
 
-    // Mask: 0.0 below 0.7, ramp to 1.0 at 1.0
-    // Note: Typically Whites targets the very top (e.g. > 0.9),
-    // adjusting low_threshold separates it from Highlights.
-    mask_func(x, y) = Halide::select(
-        luminance_func(x, y) <= low_threshold,
-        0.0f,
-        luminance_func(x, y) >= high_threshold,
-        1.0f,
-        (luminance_func(x, y) - low_threshold) / (high_threshold - low_threshold)
+    // 2. Create a smooth mask targeting ONLY the extreme whites.
+    // Unlike Highlights (0.7 - 1.0), Whites should target the very top end (e.g., 0.85 - 1.0)
+    // to adjust clipping without affecting the upper midtones.
+    constexpr float whites_cutoff = 0.85f;
+
+    Halide::Expr t = clamp((L - whites_cutoff) / (1.0f - whites_cutoff), 0.0f, 1.0f);
+
+    // Apply the smoothstep polynomial curve: 3t^2 - 2t^3
+    Halide::Expr mask = t * t * (3.0f - 2.0f * t);
+
+    // 3. Clamp the input parameter to the operation's defined valid range.
+    Halide::Expr safe_val = clamp(
+        param_whites,
+        OperationWhites::MIN_WHITES_VALUE,
+        OperationWhites::MAX_WHITES_VALUE
         );
 
-    
-    // Safety: Clamp the input parameter to the operation's defined valid range.
-    Halide::Expr safe_val = Halide::clamp(
-        param_whites, 
-        OperationWhites::MIN_WHITES_VALUE, 
-        OperationWhites::MAX_WHITES_VALUE
-    );
-
-    // Apply Adjustment
-    whites_func(x, y, c) = Halide::select(
-        c < 3,
-        input(x, y, c) + safe_val * mask_func(x, y),
-        input(x, y, c) // Alpha unchanged
+    // 4. Apply adjustment only to channel 0 (L)
+    // NO CLAMP here to prevent hue shifts during oklab_to_rgb conversion.
+    whites_func(x, y, c) = select(
+        c == 0,
+        L + safe_val * mask,
+        input(x, y, c) // a, b, and Alpha channels remain untouched
         );
 
     return whites_func;

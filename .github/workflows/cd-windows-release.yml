@@ -1,0 +1,147 @@
+name: CD Windows (vcpkg + MSVC)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  USERNAME: ${{ github.repository_owner }}
+  FEED_URL: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+  VCPKG_BINARY_SOURCES: "clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,readwrite"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 70
+
+    permissions:
+      packages: write
+      contents: write
+
+    steps:
+      # ====================================================================
+      # Checkout
+      # ====================================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # ====================================================================
+      # Setup Qt
+      # ====================================================================
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+         version: '6.10.2'
+         target: 'desktop'
+         arch: 'win64_msvc2022_64'
+         modules: 'qtshadertools'
+
+      # ====================================================================
+      # Setup vcpkg
+      # ====================================================================
+      - name: Setup vcpkg (latest)
+        run: |
+          cd C:\vcpkg
+
+          Write-Host "Fetching specific baseline..."
+          git fetch origin cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
+          
+          Write-Host "Checking out project baseline..."
+          git checkout cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
+          
+          Write-Host "Bootstrapping vcpkg..."
+          .\bootstrap-vcpkg.bat
+
+          Write-Host "Setting environment variables..."
+          echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+          echo "C:\vcpkg" >> $env:GITHUB_PATH
+
+      # ====================================================================
+      # Configuration of NuGet source for vcpkg cache
+      # ====================================================================
+      - name: Configure NuGet source for vcpkg cache
+        shell: pwsh
+        env:
+            FEED_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+        run: |
+          $nugetExe = & "$env:VCPKG_ROOT\vcpkg.exe" fetch nuget | Select-Object -Last 1
+          Write-Host "Using NuGet executable: $nugetExe"
+          
+          & $nugetExe sources add `
+            -Source "$env:FEED_URL" `
+            -StorePasswordInClearText `
+            -Name "GitHubPackages" `
+            -UserName "$env:USERNAME" `
+            -Password "$env:FEED_TOKEN" `
+
+          & $nugetExe setapikey "$env:FEED_TOKEN" -Source "$env:FEED_URL"
+
+      # ====================================================================
+      # Setup Python and install Halide via pip
+      # ====================================================================
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+  
+      - name: pip halide
+        run: |
+         pip install --only-binary :all: halide==21.0.0
+         $halideRoot = python -c "import halide; print(halide.install_dir())"
+         echo "HALIDE_ROOT=$halideRoot" >> $env:GITHUB_ENV
+    
+      # ====================================================================
+      # Configure & Build with CMake
+      # ====================================================================
+      - name: Run CMake consuming CMakePreset.json and run vcpkg to build packages
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: 'release-vcpkg-msvc'
+          configurePresetAdditionalArgs: "['-Ddesktop_ui=ON','-Dtests=OFF']"
+          buildPreset: 'release-vcpkg-msvc'
+          buildPresetAdditionalArgs: "['--config Release']"
+
+      # ====================================================================
+      # Packaging Release Artifact
+      # ====================================================================
+      - name: Package NSIS Installer
+        shell: pwsh
+        run: |
+          $exePath = "build/release-vcpkg-msvc/Release/capturemoment_desktop.exe"
+          
+          # Copy Halide.dll from pip package
+          $halideBin = Join-Path $env:HALIDE_ROOT "bin"
+          $halideDll = Join-Path $halideBin "Halide.dll"
+          
+          if (Test-Path $halideDll) {
+              Copy-Item $halideDll "build\release-vcpkg-msvc\Release\" -Force
+              Write-Host "Halide.dll copied successfully."
+          } else {
+              Write-Error "Halide.dll not found at $halideDll"
+              exit 1
+          }
+
+          # Gather Qt dependencies
+          & "C:\Qt\6.10.2\msvc2022_64\bin\windeployqt.exe" "$exePath" --release --no-translations
+          
+          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake -B build/release-vcpkg-msvc/packages
+
+      - name: Upload Installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/release-vcpkg-msvc/packages/CaptureMoment-*-win64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # CPack usually names NSIS files like ProjectName-Version-win64.exe
+          files: build/CaptureMoment-*-win64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

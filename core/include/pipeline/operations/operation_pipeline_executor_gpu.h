@@ -35,6 +35,9 @@ public:
 
     [[nodiscard]] bool execute(ImageProcessing::IWorkingImageHardware& working_image) override;
 
+protected:
+    void buildOperationChain() override;
+
 private:
     void applyScheduling(Halide::Func& pipeline, Halide::Var& x, Halide::Var& y, Halide::Var& c) const override;
 };

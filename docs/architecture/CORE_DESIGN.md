@@ -80,16 +80,34 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 ## 4. Pipeline Fusion with Halide
 
 * **Problem:** Applying multiple adjustments sequentially (e.g., brightness -> contrast -> saturation) involves multiple passes over the image buffer, leading to poor performance and potential rounding errors.
-* **Solution:** Use Halide to fuse multiple operations into a single computational pipeline executed in one pass.
+* **Solution:** Use Halide to fuse multiple operations into a single computational pipeline executed in one pass, with automatic conversion to/from Oklab perceptual color space.
 * **Impact:**
   * **Performance:** Dramatically reduces execution time by minimizing memory bandwidth usage and loop overhead.
-  * **Quality:** Reduces cumulative floating-point errors by performing all calculations in a single pass.
-  * **Hardware Agnostic:** The fused pipeline system works seamlessly across different hardware backends.
+  * **Quality:** Reduces cumulative floating-point errors by performing all calculations in a single pass; Oklab ensures perceptually uniform adjustments without hue shifts.
+  * **Hardware Agnostic:** The fused pipeline system works seamlessly across different hardware backends with backend-specific memory layout optimizations.
+
+### Pipeline Flow with Oklab Integration
+
+```bash
+Input RGB (Chunky, linear)
+       ↓
+[CPU] Transpose: Chunky(x,y,c) → Planar(c,y,x) → Chunky(x,y,c)  // For SIMD vectorization
+[GPU] Direct Chunky(x,y,c)                                         // For GPU memory coalescing
+       ↓
+rgb_to_oklab() → [L, a, b, Alpha]  // Alpha preserved (c==3 passthrough)
+       ↓
+applyOperations() → Fused ops on L channel only (a, b, Alpha unchanged)
+       ↓
+oklab_to_rgb() → Output RGB (Chunky)
+       ↓
+Final clamp [0,1] applied post-conversion for display/export
+```
 
 ### Operation Fusion Logic Update
 
-* **Halide Parameters:** Operations now pass `Halide::Param<float>` to `appendToFusedPipeline` instead of the full `OperationDescriptor`, enabling efficient runtime parameter updates without recompilation.
-* **Interface Consolidation:** All basic operations now inherit exclusively from `IOperationFusionLogic`. Legacy `execute(IWorkingImageHardware&, const OperationDescriptor&)` and `executeOnImageRegion(...)` have been removed from core operations to enforce fusion-first execution.
+* **Oklab-First Design**: All basic tone adjustments (Brightness, Contrast, Highlights, Shadows, Whites, Blacks) now operate exclusively on the Oklab `L` channel (`c == 0`). The `a`, `b`, and Alpha channels are preserved unchanged to prevent hue shifts.
+* **Smoothstep Masks**: Regional adjustments use the smoothstep polynomial `3t² - 2t³` for mask generation, eliminating banding artifacts in tonal roll-offs.
+* **Deferred Clamping**: No intermediate `clamp()` on the `L` channel during operations; clamping is applied only after `oklabToRgb()` conversion to avoid color distortion.
 
 ### Dynamic Input/Output Binding Correction
 
@@ -98,6 +116,26 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Impact:**
   * **Correctness:** Ensures the pipeline operates on the intended image data.
   * **Flexibility:** Allows the same compiled pipeline to process different image instances or perform non-destructive transformations with different output dimensions.
+
+### Executor Refactoring: Generic applyOperations() + Backend-Specific buildOperationChain()
+
+* **`applyOperations(const Halide::Func& input, x, y, c)`**: Protected generic method in `OperationPipelineExecutor` that chains operations via `appendToFusedPipeline()`. Backend-agnostic; works on any input Func.
+* **`buildOperationChain()`**: Pure virtual protected method implemented by `OperationPipelineExecutorCPU` and `OperationPipelineExecutorGPU`. Each backend:
+- Wraps `m_input` into a chunky Func.
+- Applies backend-specific layout transformations (CPU: transpose for planar logic; GPU: direct chunky).
+- Calls `ColorSpace::rgbToOklab()` → `applyOperations()` → `ColorSpace::oklabToRgb()`.
+- Sets output strides (`dim(0).set_stride(4)`, `dim(2).set_stride(1)`) and applies backend-specific scheduling.
+- Compiles JIT and stores result in `m_pipeline`.
+
+
+### Backend-Specific Layout Strategies
+| Backend | Memory Layout | Rationale |
+|:-------:|:-------------:|:---------:|
+|CPU | Chunky → Planar(c,y,x) → Chunky | Enables `reorder(c, x, y).unroll(c)` for contiguous SIMD loads on 4 channels|
+|GPU | Direct Chunky(x,y,c) | Preserves memory coalescing for GPU threads; `gpu_tile(x, y, ...)` handles parallelism |
+
+* **Stride Constraints**: Both backends enforce `dim(0).set_stride(4)` and `dim(2).set_stride(1)` on output buffers to match the expected interleaved RGBA layout.
+
 
 ### Pipeline Executor Interaction
 
@@ -196,11 +234,9 @@ This factory encapsulates the logic for creating the appropriate `IWorkingImageH
 * **Solution:**
   * `StateImageManager` acts as the single authority for the current "working image".
   * Operations modify the image *in-place* on the `IWorkingImageHardware` managed by `WorkingImageContext`.
-  * Explicit synchronization points (e.g., waiting on futures from `PhotoEngine::applyOperations`) ensure operations complete before dependent actions begin.
+  * **Persistent Worker Model**: A single background thread processes operations sequentially; rapid UI updates (e.g., slider drag) are coalesced so only the latest state is executed.
+  * **Explicit Synchronization**: Callers wait on `std::future<bool>` from `applyOperations()`; `waitForPendingProcessing()` uses atomic idle checks + `yield()` for efficient blocking.
   * `WorkingImageData` maintains a cached original buffer (`m_original_data`) enabling `restoreOriginalData()` without re-reading from disk.
-* **Impact:**
-  * **Clarity:** Clear ownership and modification points.
-  * **Consistency:** Ensures the displayed or saved image reflects the latest applied operations.
 
 ---
 
@@ -240,10 +276,21 @@ The codebase is structured using a clear namespace hierarchy to improve modulari
 
 ### StateImageManager as Central Coordinator
 
-- **Exclusive Source Management:** `StateImageManager` now owns and manages `SourceManager` internally, providing a unified interface for image loading (`loadImage`), committing results (`commitWorkingImageToSource`), and querying source properties (`getWidth`, `getHeight`, `getChannels`).
-- **Simplified PhotoEngine:** `PhotoEngine` delegates image loading and metadata queries to `StateImageManager`.
-
+* **Threading Model**: Uses a **single persistent background thread** (`m_worker_thread`) for all image processing, avoiding thread creation/destruction overhead during rapid UI interactions.
+* **Coalescing Strategy**: When `applyOperations()` is called while the worker is busy, new operations **overwrite** the pending queue. Superseded `std::future` objects are resolved immediately to prevent UI blocking.
+* **Synchronization**: Uses `std::condition_variable` + `std::mutex` for efficient wait/notify; `std::atomic<bool>` for lock-free idle state checks.
 ---
+
+### Asynchronous Processing & Coalescing
+
+* **Persistent Worker**: `StateImageManager` owns a single `std::thread` running `workerLoop()`, which waits on a `std::condition_variable` for new work.
+* **Coalescing Logic**: 
+  - New `applyOperations()` calls overwrite `m_pending_work` if the worker is busy.
+  - Superseded `std::promise<bool>` objects are resolved immediately with `set_value(true)` to unblock callers.
+  - Only the *latest* operation list is executed, ensuring UI responsiveness during rapid interactions.
+* **Shutdown**: Clean termination via `m_stop_requested` atomic flag + `join()` in destructor.
+* **Thread Safety**: All shared state (`m_pending_work`, `m_active_promise`, `m_is_idle`) protected by `m_work_mutex`; atomics used for idle/stop flags.
+
 
 ### Simplified PhotoEngine Architecture
 

@@ -9,9 +9,8 @@ import CaptureMoment.UI.Rendering.RHI 1.0
 Rectangle {
     id: displayArea
 
-    color: "#1a1a1a"
+    color: "#1E1E1E"
 
-    // Local properties to force info display immediately upon loading
     property int currentSourceWidth: 0
     property int currentSourceHeight: 0
     property var displaySize: controller.displayManager ? controller.displayManager.displayImageSize : Qt.size(0, 0)
@@ -29,7 +28,7 @@ Rectangle {
 
             clip: true
 
-            QMLSGSImageItem {
+            QMLRHIImageItem {
                 id: imageDisplay
 
                 // Center the item in the container instead of filling it
@@ -41,7 +40,7 @@ Rectangle {
 
                 onImageSizeChanged: {
                     console.log("DisplayArea.qml::onImageSizeChanged: width:", imageDisplay.imageWidth,
-                    "height:", imageDisplay.imageHeight)
+                                "height:", imageDisplay.imageHeight)
                 }
             }
 
@@ -76,7 +75,7 @@ Rectangle {
 
         Rectangle {
             id: infoFooter
-            color: "#252525"
+            color: "#1E1E1E"
             Layout.fillWidth: true
             Layout.preferredHeight: infoText.implicitHeight + 20
             Layout.minimumHeight: 30
@@ -91,7 +90,7 @@ Rectangle {
                 anchors.margins: 10
 
                 text:"Source: " + currentSourceWidth + "x" + currentSourceHeight +
-                " | Display: " + displaySize.width + "x" + displaySize.height
+                     " | Display: " + displaySize.width + "x" + displaySize.height
 
                 color: "#CCCCCC"
                 font.pixelSize: 12
@@ -101,12 +100,13 @@ Rectangle {
     }
 
     Component.onCompleted: {
-       // controller.setPaintedImageItemFromQml(imageDisplay)
-        controller.setSGSImageItemFromQml(imageDisplay)
-       //controller.setRHIImageItemFromQml(imageDisplay)
+        // controller.setPaintedImageItemFromQml(imageDisplay)
+        // controller.setSGSImageItemFromQml(imageDisplay)
+        controller.setRHIImageItemFromQml(imageDisplay)
     }
 
-    function updateViewport() {
+    function updateViewport()
+    {
         if (!controller || !controller.displayManager) {
             return;
         }
@@ -145,7 +145,8 @@ Rectangle {
             currentSourceWidth = loadedWidth;
             currentSourceHeight = loadedHeight;
 
-            if (controller.displayManager) {
+            if (controller.displayManager)
+            {
                 // This ensures the Layout engine has finished resizing the footer
                 // before we calculate the available height for the image.
                 // This prevents the image from overflowing on first load.

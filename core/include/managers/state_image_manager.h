@@ -12,9 +12,11 @@
  * - **Move Semantics:** All data processing methods accept ownership of data via `std::move`.
  * - **Thread-Safe:** Uses mutexes to protect the working image and status flags.
  * - **Stateless Processing:** Does not store operation lists; it receives, processes, and discards.
- * - **Coalescing Updates:** If an update is requested while another is in progress,
- *   the new request replaces any previously pending request, optimizing for the most
- *   recent state during rapid UI interactions (e.g., dragging a slider).
+ * - **Single Persistent Worker:** Uses ONE background thread for all processing, avoiding
+ *   the overhead of thread creation/destruction during rapid UI interactions.
+ * - **Coalescing Updates:** If an update is requested while the worker is busy,
+ *   the new request overwrites the pending one. Intermediate requests are discarded,
+ *   ensuring only the latest state is processed.
  *
  * @author CaptureMoment Team
  * @date 2026
@@ -35,6 +37,9 @@
 #include <string_view>
 #include <string>
 #include <optional>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
 
 
 namespace CaptureMoment::Core {
@@ -54,6 +59,7 @@ class WorkingImageContext;
 
 namespace Managers {
 
+
 /**
  * @class StateImageManager
  * @brief Manages the working image lifecycle and coordinates asynchronous processing.
@@ -64,17 +70,20 @@ namespace Managers {
  * and updates the final result. It implements a coalescing strategy for incoming
  * operations to optimize responsiveness during rapid UI interactions.
  *
- * **Coalescing Behavior:**
- * - When `applyOperations` is called and an update is already `isUpdatePending()`,
- *   the new operation list is stored as pending.
- * - If another `applyOperations` call occurs while a *previous* one is pending,
- *   the *newest* operation list **overwrites** the previously pending one.
- * - Once the currently running update finishes, if a pending operation exists,
- *   it is launched immediately, continuing the chain. If no pending operation exists,
- *   the update state is reset.
- * - The `std::future<bool>` returned by `applyOperations` resolves only when the
- *   operation *actually executed* (either the initial one or the final coalesced one)
- *   completes.
+ * **Threading Model:**
+ * The class owns a single persistent background thread (`m_worker_thread`).
+ * No new threads are spawned during image processing.
+ *
+ * **Coalescing Behavior (e.g., Slider Dragging):**
+ * - When `applyOperations` is called, if the worker is idle, processing starts immediately.
+ * - If the worker is already processing, the new operations are stored as pending,
+ *   **overwriting** any previously pending operations.
+ * - Superseded `std::future` objects from intermediate calls are resolved immediately
+ *   to prevent caller blocking.
+ * - When the worker finishes its current task, it checks for pending work. If present,
+ *   it processes the *latest* one. If absent, it goes to sleep.
+ * - The final `std::future<bool>` returned by `applyOperations` resolves only when
+ *   the operation *actually executed* completes.
  */
 class StateImageManager {
 public:
@@ -96,6 +105,25 @@ public:
     // Disable copy and assignment
     StateImageManager(const StateImageManager&) = delete;
     StateImageManager& operator=(const StateImageManager&) = delete;
+
+    /**
+     * @brief Applies a list of operations to the current image using move semantics.
+     *
+     * @details
+     * This method is the primary entry point for image processing. It takes ownership
+     * of the provided operation descriptors via `std::move` to avoid unnecessary copies.
+     *
+     * **Workflow:**
+     * 1. If the worker thread is idle, the operations are dispatched immediately.
+     * 2. If the worker thread is busy, the operations overwrite the pending queue.
+     *    Any previous pending `std::future` is resolved instantly.
+     * 3. The method returns immediately without blocking the UI thread.
+     *
+     * @param ops The list of operation descriptors to apply (moved into the method).
+     * @return `std::future<bool>` representing the asynchronous result.
+     *         The future resolves when the operation actually executed completes.
+     */
+    [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
 
     /**
      * @brief Loads an image file into the internal SourceManager.
@@ -125,38 +153,6 @@ public:
      * @return `std::expected<void, CoreError>` indicating success or failure.
      */
     [[nodiscard]] std::expected<void, ErrorHandling::CoreError> resetToOriginal();
-
-    /**
-     * @brief Applies a list of operations to the current image using move semantics.
-     *
-     * @details
-     * This method is the primary entry point for image processing. It takes ownership
-     * of the provided operation descriptors via `std::move` to avoid unnecessary copies.
-     *
-     * **Coalescing Workflow:**
-     * 1. If `isUpdatePending()` is true, the `ops` are stored as the new pending request
-     *    (overwriting any older pending request) and a new `std::future<bool>` is returned.
-     *    The processing chain continues when the current operation finishes.
-     * 2. If `isUpdatePending()` is false, the `ops` are processed immediately via `launchProcessing`.
-     *
-     * **Standard Workflow (when no pending update):**
-     * 1. Creates a new working image from the source.
-     * 2. Initializes the Halide strategy from the context, transferring the operation data.
-     * 3. Creates a worker and executes the pipeline asynchronously.
-     * 4. Updates the internal working image state upon successful completion.
-     *
-     * @param ops The list of operation descriptors to apply (moved into the method).
-     * @return `std::future<bool>` representing the asynchronous result.
-     *         The future resolves when the operation actually executed completes.
-     */
-    [[nodiscard]] std::future<bool> applyOperations(std::vector<Operations::OperationDescriptor>&& ops);
-
-    /**
-     * @brief Checks if a processing update is currently in progress.
-     *
-     * @return true if the worker thread is processing, false otherwise.
-     */
-    [[nodiscard]] bool isUpdatePending() const;
 
     /**
      * @brief Gets the path of the image source.
@@ -208,28 +204,49 @@ public:
     getDownsampledDisplayImage(Common::ImageDim target_width, Common::ImageDim target_height);
 
 private:
-
-    // ========================================================================
-    // Internal Processing Methods
-    // ========================================================================
-
     /**
-     * @brief Launches async processing pipeline for operations.
-     * @param ops Operations to process.
+     * @brief Main loop for the persistent worker thread.
+     * @details Waits for new operations, processes them, and checks for coalesced
+     *          operations. Runs continuously until @ref m_stop_requested is true.
      */
-    void launchProcessing(std::vector<Operations::OperationDescriptor> ops);
+    void workerLoop();
 
     /**
-     * @brief Handles processing completion and triggers pending ops if exists.
-     * @param success Whether processing succeeded.
+     * @brief Executes the image processing pipeline synchronously.
+     * @details Called from within the worker thread. Initializes the pipeline context
+     *          and delegates execution to the Halide worker.
+     * @param ops The operations to execute (moved).
+     * @return true if the processing succeeded, false otherwise.
      */
-    void onProcessingComplete(bool success);
+    [[nodiscard]] bool executeProcessing(std::vector<Operations::OperationDescriptor> ops);
 
     /**
-     * @brief Blocks until all pending processing completes.
+     * @brief Blocks until worker and pending queue are fully empty.
      */
     void waitForPendingProcessing();
 
+    // ========================================================================
+    // Worker Thread Synchronization
+    // ========================================================================
+
+    /**
+     * @brief Atomic flag to signal the worker thread to exit cleanly.
+     */
+    std::atomic<bool> m_stop_requested{false};
+
+    /**
+     * @brief Mutex protecting access to @ref m_pending_work and @ref m_active_promise.
+     */
+    mutable std::mutex m_work_mutex;
+
+    /**
+     * @brief Condition variable to wake up the worker thread when new work is available.
+     */
+    std::condition_variable m_work_cv;
+
+    // ========================================================================
+    // State & Infrastructure
+    // ========================================================================
 
     /**
      * @brief Mutex protecting access to `m_working_image` and `m_original_image_path`.
@@ -238,21 +255,16 @@ private:
 
     /**
      * @brief The Pipeline Context infrastructure.
-     * @details
-     * Owns the Builder and the Strategy Managers (Halide, Sky, etc.).
      */
     std::unique_ptr<Pipeline::PipelineContext> m_pipeline_context;
 
     /**
      * @brief The Worker Context infrastructure.
-     * @details
-     * Owns the logic to create and retrieve processing workers.
      */
     std::unique_ptr<Workers::WorkerContext> m_worker_context;
 
     /**
-     * @brief The current working image context, containing the active working image and related state.
-     * @details This context manages the lifecycle of the working image, including creation, reuse, and export.
+     * @brief The current working image context.
      */
     std::unique_ptr<ImageProcessing::WorkingImageContext> m_working_image_context;
 
@@ -262,40 +274,55 @@ private:
     std::string m_original_image_path;
 
     /**
-     * @brief Mutex protecting the atomic flag `m_is_updating`.
+     * @brief Holds the latest operations requested while the worker is busy.
+     * @details Overwritten on each new request to ensure only the most recent
+     *          state is processed (coalescing). Middle requests are discarded.
      */
-    mutable std::mutex m_flag_mutex;
+    std::optional<std::vector<Operations::OperationDescriptor>> m_pending_work;
 
     /**
-     * @brief Flag preventing multiple concurrent update requests.
-     * @details Uses atomic<bool> for lock-free reads in `isUpdatePending()`.
+     * @brief Shared pointer to the promise corresponding to the latest pending or active operation.
+     * @details Using a shared_ptr allows safely resolving superseded futures
+     *          from the caller thread without violating promise rules.
      */
-    std::atomic<bool> m_is_updating{false};
+    std::shared_ptr<std::promise<bool>> m_active_promise;
+
+    /**
+     * @brief Atomic flag indicating the system is completely idle.
+     * @details True only when no work is currently processing AND no work is pending.
+     *          Used by @ref waitForPendingProcessing() to know when it is safe to
+     *          modify the underlying image source. Modified under @ref m_work_mutex
+     *          to prevent race conditions.
+     */
+    std::atomic<bool> m_is_idle{true};
 
     /**
      * @brief Dependency to access original image tiles and metadata.
      */
     std::unique_ptr<Managers::ISourceManager> m_source_manager;
 
+    /**
+     * @brief The single persistent thread running @ref workerLoop.
+     * @details Created at construction, joined at destruction. Avoids the overhead
+     *          of spawning a new thread on every slider movement.
+     */
+    std::thread m_worker_thread;
+
+
+    // ========================================================================
+    // Idle State Synchronization
+    // ========================================================================
 
     /**
-     * @brief Mutex protecting access to `m_pending_ops` and `m_pending_promise`.
+     * @brief Mutex and CV dedicated to waiting for the idle state.
+     * @details Decoupled from m_work_mutex to prevent deadlocks during shutdown.
      */
-    mutable std::mutex m_pending_mutex;
+    std::mutex m_idle_mutex;
 
     /**
-     * @brief Stores the most recent operation list requested while an update is in progress.
-     * @details If `has_value()`, this operation will be processed next.
+     * @brief  Condition variable to notify when the system becomes idle.
      */
-    std::optional<std::vector<Operations::OperationDescriptor>> m_pending_ops;
-
-    /**
-     * @brief Promise associated with the currently executing or last completed operation chain.
-     * @details The future returned by the initial `applyOperations` call in a chain
-     *          is resolved by this promise when the chain (potentially including a coalesced
-     *          operation) finishes.
-     */
-    std::promise<bool> m_pending_promise;
+    std::condition_variable m_idle_cv;
 };
 
 } // namespace Managers
