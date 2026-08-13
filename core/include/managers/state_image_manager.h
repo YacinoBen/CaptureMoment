@@ -307,6 +307,22 @@ private:
      *          of spawning a new thread on every slider movement.
      */
     std::thread m_worker_thread;
+
+
+    // ========================================================================
+    // Idle State Synchronization
+    // ========================================================================
+
+    /**
+     * @brief Mutex and CV dedicated to waiting for the idle state.
+     * @details Decoupled from m_work_mutex to prevent deadlocks during shutdown.
+     */
+    std::mutex m_idle_mutex;
+
+    /**
+     * @brief  Condition variable to notify when the system becomes idle.
+     */
+    std::condition_variable m_idle_cv;
 };
 
 } // namespace Managers

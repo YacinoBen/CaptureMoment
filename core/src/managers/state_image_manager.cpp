@@ -129,6 +129,12 @@ void StateImageManager::workerLoop()
                     try { m_active_promise->set_value(false); }
                     catch (const std::future_error&) {}
                 }
+
+                // CRITICAL: Clear pending state and signal idle to prevent waiters from hanging
+                m_pending_work.reset();
+                m_is_idle.store(true, std::memory_order_release);
+                m_idle_cv.notify_all();
+
                 break;
             }
 
@@ -290,10 +296,10 @@ std::future<bool> StateImageManager::applyOperations(std::vector<Operations::Ope
 
 void StateImageManager::waitForPendingProcessing()
 {
-    // Spin-wait with yield: highly efficient for short waits, avoids OS context switches
-    while (!m_is_idle.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
-    }
+    std::unique_lock<std::mutex> lock(m_idle_mutex);
+    m_idle_cv.wait(lock, [this] {
+        return m_is_idle.load(std::memory_order_acquire);
+    });
 }
 
 Common::ImageDim StateImageManager::getSourceWidth() const
