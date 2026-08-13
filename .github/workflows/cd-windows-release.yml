@@ -129,8 +129,14 @@ jobs:
           # Gather Qt dependencies
           & "C:\Qt\6.10.2\msvc2022_64\bin\windeployqt.exe" "$exePath" --release --no-translations
           
-          # Run CPack to build the NSIS installer
-          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake
+          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake -B build/release-vcpkg-msvc/packages
+
+      - name: Upload Installer to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/release-vcpkg-msvc/packages/CaptureMoment-*-win64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Installer to Release
         uses: softprops/action-gh-release@v2
