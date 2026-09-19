@@ -188,12 +188,24 @@
         - name: Build Project
           run: cmake --build build/release-homebrew --config Release --parallel $(sysctl -n hw.ncpu)
         
-        - name: Package DMG via CPack
+        - name: Package DMG via hdiutil
           run: |
-           macdeployqt build/release-homebrew/CaptureMoment.app -no-translations
-           cd build/release-homebrew
-           cpack -G DragNDrop -C Release
+            APP="build/release-homebrew/CaptureMoment.app"
 
+            if [ ! -d "$APP" ]; then
+              echo "::error::Bundle not found : $APP"
+              echo "Contenu du build dir :"
+
+              find build/release-homebrew -maxdepth 2 -name "*.app"
+              exit 1
+            fi
+
+            macdeployqt "$APP" -no-translations
+
+            VERSION="${GITHUB_REF_NAME#v}"
+            hdiutil create -volname CaptureMoment \
+            -srcfolder build/release-homebrew/CaptureMoment.app \
+            -ov -format UDZO "build/release-homebrew/CaptureMoment-${VERSION}-macos.dmg"
         - name: Create GitHub Release
           uses: softprops/action-gh-release@v2
           with:
