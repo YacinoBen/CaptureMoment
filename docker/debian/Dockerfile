@@ -53,8 +53,8 @@ RUN git clone https://github.com/Exiv2/exiv2.git /tmp/exiv2-src && \
 # ==============================================================================
 RUN git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src && \
     cd /tmp/oiio-src && git checkout v3.1.14.0 && \
-    mkdir build && cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release \
+    cmake -S . -B build -G Ninja \
+           -DCMAKE_BUILD_TYPE=Release \
            -DCMAKE_INSTALL_PREFIX=/opt/oiio \
            -DOpenImageIO_BUILD_MISSING_DEPS=required \
            -DSTOP_ON_WARNING=0 \
