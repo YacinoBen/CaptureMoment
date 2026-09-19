@@ -130,12 +130,9 @@
               https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/oiio-src
             cd /tmp/oiio-src
 
-            HALIDE_CMAKE_DIR=$(python3 -c "import halide, os; print(os.path.dirname(halide.__file__))")
-
             cmake -S . -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_PREFIX }}/oiio \
-              -DHalide_DIR="${HALIDE_CMAKE_DIR}" \
               -DEXIV2_ROOT=${{ env.INSTALL_PREFIX }}/exiv2 \
               -DOpenImageIO_BUILD_MISSING_DEPS=required \
               -DSTOP_ON_WARNING=0 \
@@ -173,6 +170,9 @@
            else
              echo "::warning file=tests::the directory 'tests' is empty or missing. Tests disabled (Tests:OFF)."
            fi
+
+           HALIDE_CMAKE_DIR=$(python3 -c "import halide, os; print(os.path.dirname(halide.__file__))")
+
 
            cmake \
            --preset release-homebrew \
