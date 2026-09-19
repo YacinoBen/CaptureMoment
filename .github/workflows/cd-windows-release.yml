@@ -77,7 +77,7 @@ jobs:
             -StorePasswordInClearText `
             -Name "GitHubPackages" `
             -UserName "$env:USERNAME" `
-            -Password "$env:FEED_TOKEN" `
+            -Password "$env:FEED_TOKEN"
 
           & $nugetExe setapikey "$env:FEED_TOKEN" -Source "$env:FEED_URL"
 
@@ -117,7 +117,7 @@ jobs:
           # Copy Halide.dll from pip package
           $halideBin = Join-Path $env:HALIDE_ROOT "bin"
           $halideDll = Join-Path $halideBin "Halide.dll"
-          
+
           if (Test-Path $halideDll) {
               Copy-Item $halideDll "build\release-vcpkg-msvc\Release\" -Force
               Write-Host "Halide.dll copied successfully."
@@ -127,21 +127,22 @@ jobs:
           }
 
           # Gather Qt dependencies
-          & "C:\Qt\6.10.2\msvc2022_64\bin\windeployqt.exe" "$exePath" --release --no-translations
-          
+           $windeployqt = (Get-Command windeployqt.exe -ErrorAction SilentlyContinue).Source
+           if (-not $windeployqt) {
+           Write-Error "windeployqt.exe not found in PATH (QT_ROOT_DIR=$env:QT_ROOT_DIR)"
+           exit 1
+           }
+
+           Write-Host "windeployqt: $windeployqt"
+           & $windeployqt "$exePath" --release --no-translations
+
+           if ($LASTEXITCODE -ne 0) { exit 1 }
+
           cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake -B build/release-vcpkg-msvc/packages
 
       - name: Upload Installer to Release
         uses: softprops/action-gh-release@v2
         with:
           files: build/release-vcpkg-msvc/packages/CaptureMoment-*-win64.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Installer to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          # CPack usually names NSIS files like ProjectName-Version-win64.exe
-          files: build/CaptureMoment-*-win64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
