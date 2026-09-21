@@ -179,9 +179,6 @@
              echo "::warning file=tests::the directory 'tests' is empty or missing. Tests disabled (Tests:OFF)."
            fi
 
-           HALIDE_CMAKE_DIR=$(python3 -c "import halide, os; print(os.path.dirname(halide.__file__))")
-
-
            cmake \
            --preset ${{ matrix.preset }} \
            -Ddesktop_ui=ON \
