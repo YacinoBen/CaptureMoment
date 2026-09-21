@@ -61,8 +61,7 @@ RUN git clone https://github.com/AcademySoftwareFoundation/OpenImageIO.git /tmp/
            -DOIIO_BUILD_TOOLS=OFF \
            -DOIIO_BUILD_TESTS=OFF \
            -DUSE_PYTHON=OFF \
-           .. && \
-    cmake --build . --parallel $(nproc) && \
-    cmake --install . && \
+    cmake --build build --parallel $(nproc) && \
+    cmake --install build && \
     rm -rf /tmp/*
 WORKDIR /app
