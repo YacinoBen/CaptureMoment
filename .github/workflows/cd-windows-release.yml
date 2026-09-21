@@ -91,7 +91,7 @@ jobs:
   
       - name: pip halide
         run: |
-         pip install --only-binary :all: halide==21.0.0
+         python -m pip install --only-binary :all: halide==21.0.0
          $halideRoot = python -c "import halide; print(halide.install_dir())"
          echo "HALIDE_ROOT=$halideRoot" >> $env:GITHUB_ENV
     
@@ -112,8 +112,13 @@ jobs:
       - name: Package NSIS Installer
         shell: pwsh
         run: |
-          $exePath = "build/release-vcpkg-msvc/Release/capturemoment_desktop.exe"
+          $exePath = "build/release-vcpkg-msvc/CaptureMoment.exe"
           
+          if (-not (Test-Path $exePath)) {
+              Get-ChildItem build/release-vcpkg-msvc -Recurse -Filter CaptureMoment.exe | Select-Object FullName
+              exit 1
+          }
+
           # Copy Halide.dll from pip package
           $halideBin = Join-Path $env:HALIDE_ROOT "bin"
           $halideDll = Join-Path $halideBin "Halide.dll"
