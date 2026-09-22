@@ -176,7 +176,7 @@
            -Ddesktop_ui=ON \
            ${TESTS_FLAG} \
            -DCMAKE_BUILD_TYPE=Release \
-           -DHalide_DIR="${HALIDE_CMAKE_DIR}" \
+           -DHALIDE_DIR="${HALIDE_CMAKE_DIR}" \
            -DEXIV2_ROOT=${{ env.INSTALL_PREFIX }}/exiv2 \
            -DOpenImageIO_ROOT=${{ env.INSTALL_PREFIX }}/oiio
           shell: bash

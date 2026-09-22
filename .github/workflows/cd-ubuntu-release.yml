@@ -77,7 +77,7 @@ jobs:
           -DBUILD_DESKTOP_UI:BOOL=ON \
           -Dtests=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DHalide_DIR="${HALIDE_DIR}" \
+          -DHALIDE_DIR="${HALIDE_DIR}" \
           -DCMAKE_PREFIX_PATH="/opt/qt/6.10.2/gcc_64;/opt/oiio;/opt/exiv2"
         shell: bash
 
