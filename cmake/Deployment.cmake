@@ -36,7 +36,7 @@ if(BUILD_DESKTOP_UI)
             "CreateShortCut '$DESKTOP\\\\CaptureMoment.lnk' '$INSTDIR\\\\bin\\\\CaptureMoment.exe'"
         )
         set(CPACK_NSIS_DELETE_ICONS_EXTRA 
-            "Delete '$DESKTOP\\Capture Moment.lnk'"
+            "Delete '$DESKTOP\\\\Capture Moment.lnk'"
         )
 
     elseif(APPLE)
