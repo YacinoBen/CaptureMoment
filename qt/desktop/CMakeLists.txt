@@ -170,13 +170,19 @@ target_sources(${CAPTUREMOMENT_DESKTOP_TARGET}
 # explicit, fixed bundle identifier manually though.
 set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
     OUTPUT_NAME "CaptureMoment"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     MACOSX_BUNDLE_GUI_IDENTIFIER org.capturerepo.desktop
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR} #.${PROJECT_VERSION_MINOR} is not working
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
+
+if(UNIX AND NOT APPLE)
+    set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+endif()
+
 if(APPLE)
     set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
         MACOSX_BUNDLE_ICON_FILE "favicon.icns"
@@ -194,11 +200,12 @@ target_link_libraries(${CAPTUREMOMENT_DESKTOP_TARGET}
 )
 
 include(GNUInstallDirs)
-install(TARGETS capturemoment_desktop
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+
+if(WIN32)
+    install(DIRECTORY $<TARGET_FILE_DIR:${CAPTUREMOMENT_DESKTOP_TARGET}>/
+            DESTINATION ${CMAKE_INSTALL_BINDIR}
+            FILES_MATCHING PATTERN "*.dll")
+endif()
 
 # =====================================================================
 # Installation of the PNG for the Linux application menu (standard hicolor)
