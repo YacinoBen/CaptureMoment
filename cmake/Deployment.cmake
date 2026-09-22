@@ -33,7 +33,7 @@ if(BUILD_DESKTOP_UI)
         
         # Create desktop shortcut using the exact target name (capturemoment_desktop.exe)
         set(CPACK_NSIS_CREATE_ICONS_EXTRA 
-            "CreateShortCut '$DESKTOP\\Capture Moment.lnk' '$INSTDIR\\bin\\capturemoment_desktop.exe'"
+            "CreateShortCut '$DESKTOP\\\\CaptureMoment.lnk' '$INSTDIR\\\\bin\\\\CaptureMoment.exe'"
         )
         set(CPACK_NSIS_DELETE_ICONS_EXTRA 
             "Delete '$DESKTOP\\Capture Moment.lnk'"
