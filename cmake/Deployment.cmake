@@ -20,16 +20,21 @@ if(BUILD_DESKTOP_UI)
     # Platform specific generators
     if(WIN32)
         set(CPACK_GENERATOR "NSIS")
-        
+
         # NSIS specific settings
         set(CPACK_NSIS_DISPLAY_NAME "Capture Moment")
         set(CPACK_NSIS_PACKAGE_NAME "CaptureMoment")
         set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
         set(CPACK_PACKAGE_INSTALL_DIRECTORY "CaptureMoment")
-        
-        # Set the .ico for the NSIS installer UI itself
-        set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/assets/icons/favicon.ico")
-        set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/assets/icons/favicon.ico")
+
+        set(_icon "${CMAKE_SOURCE_DIR}/assets/icons/favicon.ico")
+
+        # Icon for the installed application (used in Add/Remove Programs)
+        set(CPACK_NSIS_INSTALLED_ICON "${_icon}")
+
+        # Icon for the installer itself (used in the installer window)
+        set(CPACK_NSIS_MUI_ICON "${_icon}")
+        set(CPACK_NSIS_MUI_UNIICON "${_icon}")
         
         # Create desktop shortcut using the exact target name (capturemoment_desktop.exe)
         set(CPACK_NSIS_CREATE_ICONS_EXTRA 
