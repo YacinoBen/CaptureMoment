@@ -78,7 +78,7 @@
         # ====================================================================
         - name: Cache Exiv2
           id: cache-exiv2
-          uses: actions/cache@v4
+          uses: actions/cache@v6
           with:
             path: ${{ env.INSTALL_PREFIX }}/exiv2
             key: exiv2-${{ env.EXIV2_VERSION }}-macos
@@ -113,7 +113,7 @@
         # ====================================================================
         - name: Cache OpenImageIO
           id: cache-oiio
-          uses: actions/cache@v4
+          uses: actions/cache@v6
           with:
             path: ${{ env.INSTALL_PREFIX }}/oiio
             key: oiio-${{ env.OIIO_VERSION }}-macos
