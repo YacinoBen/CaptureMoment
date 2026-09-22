@@ -197,7 +197,7 @@
               exit 1
             fi
 
-            macdeployqt "$APP" -no-translations
+            macdeployqt "$APP"
 
             VERSION="${GITHUB_REF_NAME#v}"
             hdiutil create -volname CaptureMoment \
