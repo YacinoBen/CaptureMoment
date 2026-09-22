@@ -78,7 +78,7 @@
         # ====================================================================
         - name: Cache Exiv2
           id: cache-exiv2
-          uses: actions/cache@v4
+          uses: actions/cache@v6
           with:
             path: ${{ env.INSTALL_PREFIX }}/exiv2
             key: exiv2-${{ env.EXIV2_VERSION }}-macos
@@ -113,7 +113,7 @@
         # ====================================================================
         - name: Cache OpenImageIO
           id: cache-oiio
-          uses: actions/cache@v4
+          uses: actions/cache@v6
           with:
             path: ${{ env.INSTALL_PREFIX }}/oiio
             key: oiio-${{ env.OIIO_VERSION }}-macos
@@ -187,13 +187,13 @@
         
         - name: Package DMG via hdiutil
           run: |
-            APP="build/release-homebrew/CaptureMoment.app"
+            APP="build/release-homebrew/desktop/CaptureMoment.app"
 
             if [ ! -d "$APP" ]; then
               echo "::error::Bundle not found : $APP"
               echo "Contenu du build dir :"
 
-              find build/release-homebrew -maxdepth 2 -name "*.app"
+              find build/release-homebrew -name "*.app"
               exit 1
             fi
 
@@ -201,10 +201,10 @@
 
             VERSION="${GITHUB_REF_NAME#v}"
             hdiutil create -volname CaptureMoment \
-            -srcfolder build/release-homebrew/CaptureMoment.app \
+            -srcfolder "$APP" \
             -ov -format UDZO "build/release-homebrew/CaptureMoment-${VERSION}-macos.dmg"
         - name: Create GitHub Release
-          uses: softprops/action-gh-release@v2
+          uses: softprops/action-gh-release@v3
           with:
             files: build/release-homebrew/CaptureMoment-*.dmg
             generate_release_notes: true
