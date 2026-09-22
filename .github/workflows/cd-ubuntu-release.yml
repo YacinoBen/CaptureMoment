@@ -99,7 +99,7 @@ jobs:
         shell: bash
 
       - name: Upload executable to Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: build/release-ninja-linux/CaptureMoment
           generate_release_notes: true
