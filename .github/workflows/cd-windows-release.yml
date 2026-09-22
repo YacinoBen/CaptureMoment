@@ -107,6 +107,15 @@ jobs:
           buildPresetAdditionalArgs: "['--config Release']"
 
       # ====================================================================
+      # Install NSIS (removed from recent runner images)
+      # ====================================================================
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+
+      # ====================================================================
       # Packaging Release Artifact
       # ====================================================================
       - name: Package NSIS Installer
