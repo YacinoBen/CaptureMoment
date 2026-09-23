@@ -46,8 +46,8 @@ jobs:
           file: ./docker/linux/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/build-linux:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/build-linux:buildcache,mode=max
 
   # ====================================================================
   # Build and Release (AppImage)
