@@ -97,25 +97,15 @@ jobs:
             echo "::error::Unresolved libraries!" && exit 1 || true
           echo "Build OK"
         shell: bash
-      - name: Install AppImage tooling
-        run: |
-          apt-get update && apt-get install -y --no-install-recommends \
-            wget file patchelf desktop-file-utils
-          mkdir -p /opt/tools && cd /opt/tools
-          wget -q --max-redirect=5 \
-            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          wget -q --max-redirect=5 \
-            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy*.AppImage
 
-      - name: Create AppImage
+      - name: Create AppImage # We already have linuxdeploy and linuxdeploy-plugin-qt in the Docker image, so we can use them directly
         env:
           QMAKE: /opt/qt/6.10.2/gcc_64/bin/qmake
           QML_SOURCES_PATHS: ${{ github.workspace }}/qt/desktop/qml
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           export PATH=/opt/qt/6.10.2/gcc_64/bin:$PATH
-          export VERSION="${GITHUB_REF_NAME#v}"    # v0.1.0 -> 0.1.0
+          export VERSION="${GITHUB_REF_NAME#v}"
           cp assets/icons/favicon.png /tmp/capturemoment.png
 
           /opt/tools/linuxdeploy-x86_64.AppImage \

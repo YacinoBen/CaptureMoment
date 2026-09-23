@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # ==============================================================================
 RUN apt-get update && apt-get install -y \
     ninja-build python3 python3-pip python3-venv ccache \
+    patchelf desktop-file-utils \
     libspdlog-dev libcurl4-openssl-dev libxkbcommon-dev libgl1-mesa-dev \
     libbrotli-dev libexpat1-dev libgtest-dev libinih-dev libssh-dev \
     libxml2-utils libz-dev zlib1g-dev libjpeg-dev libfreetype-dev \
@@ -15,6 +16,16 @@ RUN apt-get update && apt-get install -y \
     libopenexr-dev \
     libyaml-cpp-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# ==============================================================================
+# AppImage packaging tools
+# ==============================================================================
+RUN mkdir -p /opt/tools && cd /opt/tools && \
+    wget -q --max-redirect=5 \
+      https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage && \
+    wget -q --max-redirect=5 \
+      https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage && \
+    chmod +x linuxdeploy*.AppImage
 
 # ==============================================================================
 # Install Python core packages
