@@ -116,7 +116,11 @@ jobs:
             --plugin qt \
             --output appimage
 
-          mv ./*.AppImage "CaptureMoment-${VERSION}-x86_64.AppImage"
+          # Rename the AppImage to include the version number
+          if [ ! -f "CaptureMoment-${VERSION}-x86_64.AppImage" ]; then
+            mv ./*.AppImage "CaptureMoment-${VERSION}-x86_64.AppImage"
+          fi
+
           ls -lh CaptureMoment-*.AppImage
         shell: bash
 
