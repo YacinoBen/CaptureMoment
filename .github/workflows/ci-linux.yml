@@ -47,7 +47,7 @@ jobs:
         with:
           context: .
           file: ./docker/linux/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -57,7 +57,6 @@ jobs:
   # ====================================================================
   build:
     needs: build-docker
-    if: needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped'
     runs-on: ubuntu-latest
 
     container: ${{ needs.build-docker.outputs.image_uri }}
@@ -131,6 +130,6 @@ jobs:
         with:
           name: build-linux-${{ matrix.build-type }}
           path: |
-            build/${{ matrix.preset }}/capturemoment_desktop
+            build/${{ matrix.preset }}/CaptureMoment
           retention-days: 7
           if-no-files-found: warn
