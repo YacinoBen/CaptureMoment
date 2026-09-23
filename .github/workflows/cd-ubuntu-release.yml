@@ -50,7 +50,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ====================================================================
-  # Build, Package DEB, and Release
+  # Build and Release (AppImage)
   # ====================================================================
   build-and-release:
     needs: build-docker
@@ -97,11 +97,41 @@ jobs:
             echo "::error::Unresolved libraries!" && exit 1 || true
           echo "Build OK"
         shell: bash
+      - name: Install AppImage tooling
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends \
+            wget file patchelf desktop-file-utils
+          mkdir -p /opt/tools && cd /opt/tools
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy*.AppImage
 
-      - name: Upload executable to Release
+      - name: Create AppImage
+        env:
+          QMAKE: /opt/qt/6.10.2/gcc_64/bin/qmake
+          QML_SOURCES_PATHS: ${{ github.workspace }}/qt/desktop/qml
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          export PATH=/opt/qt/6.10.2/gcc_64/bin:$PATH
+          export VERSION="${GITHUB_REF_NAME#v}"    # v0.1.0 -> 0.1.0
+          cp assets/icons/favicon.png /tmp/capturemoment.png
+
+          /opt/tools/linuxdeploy-x86_64.AppImage \
+            --appdir appdir \
+            --executable build/release-ninja-linux/CaptureMoment \
+            --desktop-file assets/linux/capturemoment.desktop \
+            --icon-file /tmp/capturemoment.png \
+            --plugin qt \
+            --output appimage
+
+          mv ./*.AppImage "CaptureMoment-${VERSION}-x86_64.AppImage"
+          ls -lh CaptureMoment-*.AppImage
+        shell: bash
+
+      - name: Upload AppImage to Release
         uses: softprops/action-gh-release@v3
         with:
-          files: build/release-ninja-linux/CaptureMoment
+          files: CaptureMoment-*-x86_64.AppImage
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
