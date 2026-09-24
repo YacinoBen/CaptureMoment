@@ -19,6 +19,8 @@ if(BUILD_DESKTOP_UI)
 
     # Platform specific generators
     if(WIN32)
+        set(CPACK_PACKAGE_FILE_NAME "CaptureMoment-win64")
+
         set(CPACK_GENERATOR "NSIS")
 
         # NSIS specific settings
@@ -29,8 +31,7 @@ if(BUILD_DESKTOP_UI)
 
         set(_icon "${CMAKE_SOURCE_DIR}/assets/icons/favicon.ico")
 
-        # Icon for the installed application (used in Add/Remove Programs)
-        set(CPACK_NSIS_INSTALLED_ICON "${_icon}")
+        set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\CaptureMoment.exe")
 
         # Icon for the installer itself (used in the installer window)
         set(CPACK_NSIS_MUI_ICON "${_icon}")
@@ -41,7 +42,7 @@ if(BUILD_DESKTOP_UI)
             "CreateShortCut '$DESKTOP\\\\CaptureMoment.lnk' '$INSTDIR\\\\bin\\\\CaptureMoment.exe'"
         )
         set(CPACK_NSIS_DELETE_ICONS_EXTRA 
-            "Delete '$DESKTOP\\\\Capture Moment.lnk'"
+            "Delete '$DESKTOP\\\\CaptureMoment.lnk'"
         )
 
     elseif(APPLE)

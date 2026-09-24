@@ -191,22 +191,19 @@
 
             if [ ! -d "$APP" ]; then
               echo "::error::Bundle not found : $APP"
-              echo "Contenu du build dir :"
-
               find build/release-homebrew -name "*.app"
               exit 1
             fi
 
             macdeployqt "$APP"
 
-            VERSION="${GITHUB_REF_NAME#v}"
             hdiutil create -volname CaptureMoment \
-            -srcfolder "$APP" \
-            -ov -format UDZO "build/release-homebrew/CaptureMoment-${VERSION}-macos.dmg"
+              -srcfolder "$APP" \
+              -ov -format UDZO "build/release-homebrew/CaptureMoment.dmg"
         - name: Create GitHub Release
           uses: softprops/action-gh-release@v3
           with:
-            files: build/release-homebrew/CaptureMoment-*.dmg
+            files: build/release-homebrew/CaptureMoment.dmg
             generate_release_notes: true
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
