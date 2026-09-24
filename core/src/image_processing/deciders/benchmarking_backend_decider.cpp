@@ -84,11 +84,11 @@ static Halide::Buffer<float> create_fresh_test_buffer(int width, int height, int
 {
     Halide::Buffer<float> buffer(width, height, channels);
 
-    for (int c = 0; c < channels; ++c)
+    for (size_t c = 0; c < channels; ++c)
     {
-        for (int y = 0; y < height; ++y)
+        for (size_t y = 0; y < height; ++y)
         {
-            for (int x = 0; x < width; ++x)
+            for (size_t x = 0; x < width; ++x)
             {
                 buffer(x, y, c) = static_cast<float>((x + y + c) % 256) / 255.0f;
             }
@@ -135,22 +135,22 @@ static bool try_compile_jit(Halide::Func& pipeline, const Halide::Target& target
 
 Common::MemoryType BenchmarkingBackendDecider::decide()
 {
-    spdlog::info("[BackendDecider] Starting backend performance benchmark...");
+    spdlog::info("[BenchmarkingBackendDecider::decide]: Starting backend performance benchmark...");
 
     // --- Phase 1: Log Host Target Info ---
-    Halide::Target host_target = Halide::get_host_target();
-    spdlog::info("[BackendDecider] Host target: {}", host_target.to_string());
+    Halide::Target host_target { Halide::get_host_target() };
+    spdlog::info("[BenchmarkingBackendDecider::decide]: Host target: {}", host_target.to_string());
 
     // --- Phase 2: CPU Benchmark ---
-    auto cpu_time = benchmark_cpu();
+    auto cpu_time { benchmark_cpu() };
 
     if (cpu_time == std::chrono::milliseconds::max())
     {
-        spdlog::warn("[BackendDecider] CPU benchmark failed completely. Defaulting to CPU.");
+        spdlog::warn("[BenchmarkingBackendDecider::decide]: CPU benchmark failed completely. Defaulting to CPU.");
         m_winning_target = host_target;
         return Common::MemoryType::CPU_RAM;
     }
-    spdlog::info("[BackendDecider] CPU Baseline: {} ms", cpu_time.count());
+    spdlog::info("[BenchmarkingBackendDecider::decide]: CPU Baseline: {} ms", cpu_time.count());
 
     // --- Phase 3: Detect & Benchmark GPUs (Strict Priority Order) ---
 
@@ -164,8 +164,8 @@ Common::MemoryType BenchmarkingBackendDecider::decide()
         } };
 
     std::optional<std::chrono::milliseconds> best_gpu_time;
-    std::string best_gpu_name = "None";
-    Halide::Target::Feature best_gpu_feature = Halide::Target::OpenCL;
+    std::string best_gpu_name { "None" };
+    Halide::Target::Feature best_gpu_feature { Halide::Target::OpenCL };
 
     for (const auto& [feature, name] : gpu_priorities)
     {
@@ -175,13 +175,13 @@ Common::MemoryType BenchmarkingBackendDecider::decide()
             continue;
         }
 
-        spdlog::info("[BackendDecider] Testing {} backend...", name);
+        spdlog::info("[BenchmarkingBackendDecider::decide]: Testing {} backend...", name);
 
         // CRITICAL: Create a FRESH buffer for each backend test
         // Reusing buffers across different GPU interfaces causes:
         // "halide_copy_to_device does not support switching interfaces"
-        Halide::Buffer<float> fresh_buffer = create_fresh_test_buffer(
-            k_benchmark_width, k_benchmark_height, k_benchmark_channels);
+        Halide::Buffer<float> fresh_buffer { create_fresh_test_buffer(
+            k_benchmark_width, k_benchmark_height, k_benchmark_channels) };
 
         auto result = benchmark_gpu_feature(feature, fresh_buffer);
 
@@ -192,12 +192,12 @@ Common::MemoryType BenchmarkingBackendDecider::decide()
                 best_gpu_time = result;
                 best_gpu_name = name;
                 best_gpu_feature = feature;
-                spdlog::info("[BackendDecider] {} benchmarked in {} ms (Current Best)",
+                spdlog::info("[BenchmarkingBackendDecider::decide]: {} benchmarked in {} ms (Current Best)",
                              name, result.value().count());
             }
             else
             {
-                spdlog::debug("[BackendDecider] {} benchmarked in {} ms (Slower than {})",
+                spdlog::debug("[BenchmarkingBackendDecider::decide]: {} benchmarked in {} ms (Slower than {})",
                               name, result.value().count(), best_gpu_name);
             }
         }
@@ -206,18 +206,18 @@ Common::MemoryType BenchmarkingBackendDecider::decide()
     // --- Phase 4: Final Decision ---
     if (!best_gpu_time.has_value())
     {
-        spdlog::info("[BackendDecider] No GPU benchmark succeeded. Using CPU backend.");
+        spdlog::info("[BenchmarkingBackendDecider::decide]: No GPU benchmark succeeded. Using CPU backend.");
         m_winning_target = host_target;
         return Common::MemoryType::CPU_RAM;
     }
 
-    spdlog::info("[BackendDecider] Best GPU: {} at {} ms", best_gpu_name, best_gpu_time.value().count());
+    spdlog::info("[BenchmarkingBackendDecider::decide]: Best GPU: {} at {} ms", best_gpu_name, best_gpu_time.value().count());
 
     long long threshold_ms = static_cast<long long>(cpu_time.count() * k_gpu_advantage_threshold);
 
     if (best_gpu_time.value().count() < threshold_ms)
     {
-        spdlog::info("[BackendDecider] GPU ({} ms) is significantly faster than CPU ({} ms). SELECTING GPU.",
+        spdlog::info("[BenchmarkingBackendDecider::decide]: GPU ({} ms) is significantly faster than CPU ({} ms). SELECTING GPU.",
                      best_gpu_time.value().count(), cpu_time.count());
 
         m_winning_target = host_target;
@@ -227,7 +227,7 @@ Common::MemoryType BenchmarkingBackendDecider::decide()
     }
     else
     {
-        spdlog::info("[BackendDecider] CPU ({} ms) is comparable or faster than GPU ({} ms). SELECTING CPU.",
+        spdlog::info("[BenchmarkingBackendDecider::decide]: CPU ({} ms) is comparable or faster than GPU ({} ms). SELECTING CPU.",
                      cpu_time.count(), best_gpu_time.value().count());
         m_winning_target = host_target;
         return Common::MemoryType::CPU_RAM;
@@ -239,8 +239,8 @@ std::chrono::milliseconds BenchmarkingBackendDecider::benchmark_cpu() const
     try
     {
         Halide::Var x, y, c;
-        Halide::Buffer<float> buffer = create_fresh_test_buffer(
-            k_benchmark_width, k_benchmark_height, k_benchmark_channels);
+        Halide::Buffer<float> buffer { create_fresh_test_buffer(
+            k_benchmark_width, k_benchmark_height, k_benchmark_channels) };
 
         auto pipeline = create_benchmark_pipeline(buffer, x, y, c);
 
@@ -252,7 +252,7 @@ std::chrono::milliseconds BenchmarkingBackendDecider::benchmark_cpu() const
     }
     catch (const std::exception& e)
     {
-        spdlog::error("[BackendDecider] CPU Benchmark Exception: {}", e.what());
+        spdlog::error("[BenchmarkingBackendDecider::decide]: CPU Benchmark Exception: {}", e.what());
         return std::chrono::milliseconds::max();
     }
 }
@@ -264,12 +264,12 @@ BenchmarkingBackendDecider::benchmark_gpu_feature(Halide::Target::Feature featur
     try
     {
         // Step 1: Create target with GPU feature
-        Halide::Target target = Halide::get_host_target();
+        Halide::Target target { Halide::get_host_target() };
         target.set_feature(feature);
 
         // Step 2: Create pipeline
         // Note: ref_buffer is already fresh (created in decide() for each backend)
-        Halide::Buffer<float> work_buffer(ref_buffer);
+        Halide::Buffer<float> work_buffer { ref_buffer };
         Halide::Var x, y, c, xo, yo, xi, yi;
         auto pipeline = create_benchmark_pipeline(work_buffer, x, y, c);
         pipeline.gpu_tile(x, y, xo, yo, xi, yi, 16, 16);
@@ -277,12 +277,12 @@ BenchmarkingBackendDecider::benchmark_gpu_feature(Halide::Target::Feature featur
         // Step 3: Try JIT compilation FIRST
         if (!try_compile_jit(pipeline, target))
         {
-            spdlog::debug("[BackendDecider] {} - JIT compilation failed (not supported by Halide build)",
+            spdlog::debug("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} - JIT compilation failed (not supported by Halide build)",
                           feature_to_string(feature));
             return std::nullopt;
         }
 
-        spdlog::debug("[BackendDecider] {} - JIT compilation successful", feature_to_string(feature));
+        spdlog::debug("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} - JIT compilation successful", feature_to_string(feature));
 
         // Step 4: Copy to device
         // The buffer is fresh, so no interface conflict can occur
@@ -290,7 +290,7 @@ BenchmarkingBackendDecider::benchmark_gpu_feature(Halide::Target::Feature featur
         int copy_res = work_buffer.copy_to_device(target);
         if (copy_res != 0)
         {
-            spdlog::debug("[BackendDecider] {} - copy_to_device failed (err: {}), no GPU device available",
+            spdlog::debug("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} - copy_to_device failed (err: {}), no GPU device available",
                           feature_to_string(feature), copy_res);
             return std::nullopt;
         }
@@ -306,30 +306,30 @@ BenchmarkingBackendDecider::benchmark_gpu_feature(Halide::Target::Feature featur
         }
         catch (const Halide::Error& e)
         {
-            spdlog::debug("[BackendDecider] {} - realize failed: {}", feature_to_string(feature), e.what());
+            spdlog::debug("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} - realize failed: {}", feature_to_string(feature), e.what());
             return std::nullopt;
         }
 
         auto end = std::chrono::high_resolution_clock::now();
 
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        spdlog::info("[BackendDecider] {} benchmark success: {} ms",
+        spdlog::info("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} benchmark success: {} ms",
                      feature_to_string(feature), duration.count());
         return duration;
     }
     catch (const Halide::Error& e)
     {
-        spdlog::debug("[BackendDecider] {} Halide error: {}", feature_to_string(feature), e.what());
+        spdlog::debug("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} Halide error: {}", feature_to_string(feature), e.what());
         return std::nullopt;
     }
     catch (const std::exception& e)
     {
-        spdlog::debug("[BackendDecider] {} exception: {}", feature_to_string(feature), e.what());
+        spdlog::debug("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} exception: {}", feature_to_string(feature), e.what());
         return std::nullopt;
     }
     catch (...)
     {
-        spdlog::debug("[BackendDecider] {} - unknown exception prevented", feature_to_string(feature));
+        spdlog::debug("[BenchmarkingBackendDecider::benchmark_gpu_feature]: {} - unknown exception prevented", feature_to_string(feature));
         return std::nullopt;
     }
 }
