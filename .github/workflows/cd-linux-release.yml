@@ -120,7 +120,7 @@ jobs:
             --artifact-name "CaptureMoment-x86_64.AppImage" \
             --output appimage
 
-          ls -lh CaptureMoment-*.AppImage
+          ls -lh CaptureMoment-x86_64.AppImage
         shell: bash
 
       - name: Upload AppImage to Release
