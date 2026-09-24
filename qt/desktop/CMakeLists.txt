@@ -165,6 +165,22 @@ target_sources(${CAPTUREMOMENT_DESKTOP_TARGET}
             ${CORE_HEADERS}
 )
 
+
+# =====================================================================
+# Platform-specific implementation (compile-time selection)
+# =====================================================================
+if(WIN32)
+    set(PLATFORM_IMPL src/platform/desktop_platform_windows.cpp)
+elseif(APPLE)
+    set(PLATFORM_IMPL src/platform/desktop_platform_macos.cpp)
+elseif(UNIX)                                      # ← elseif, pas if
+    set(PLATFORM_IMPL src/platform/desktop_platform_linux.cpp)
+else()
+    message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
+endif()
+
+target_sources(${CAPTUREMOMENT_DESKTOP_TARGET} PRIVATE ${PLATFORM_IMPL})
+
 # =====================================================================
 # Bundle properties for macOS and iOS
 # ====================================================================
