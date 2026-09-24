@@ -23,6 +23,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Compute lowercase image name
+        id: img
+        run: echo "ref=ghcr.io/${GITHUB_REPOSITORY,,}/build-linux" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -36,7 +40,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}/build-linux
+          images: ${{ steps.img.outputs.ref }}
           tags: |
             type=raw,value=latest
       - name: Build and Push the Image
@@ -46,8 +50,8 @@ jobs:
           file: ./docker/linux/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/build-linux:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/build-linux:buildcache,mode=max
+          cache-from: type=registry,ref=${{ steps.img.outputs.ref }}:buildcache
+          cache-to: type=registry,ref=${{ steps.img.outputs.ref }}:buildcache,mode=max
 
   # ====================================================================
   # Build and Release (AppImage)
@@ -105,7 +109,6 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           export PATH=/opt/qt/6.10.2/gcc_64/bin:$PATH
-          export VERSION="${GITHUB_REF_NAME#v}"
           cp assets/icons/favicon.png /tmp/capturemoment.png
 
           /opt/tools/linuxdeploy-x86_64.AppImage \
@@ -114,12 +117,8 @@ jobs:
             --desktop-file assets/linux/capturemoment.desktop \
             --icon-file /tmp/capturemoment.png \
             --plugin qt \
+            --artifact-name "CaptureMoment-x86_64.AppImage" \
             --output appimage
-
-          # Rename the AppImage to include the version number
-          if [ ! -f "CaptureMoment-${VERSION}-x86_64.AppImage" ]; then
-            mv ./*.AppImage "CaptureMoment-${VERSION}-x86_64.AppImage"
-          fi
 
           ls -lh CaptureMoment-*.AppImage
         shell: bash
@@ -127,7 +126,7 @@ jobs:
       - name: Upload AppImage to Release
         uses: softprops/action-gh-release@v3
         with:
-          files: CaptureMoment-*-x86_64.AppImage
+          files: CaptureMoment-x86_64.AppImage
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
