@@ -2,6 +2,8 @@
 #include <QQuickWindow>
 #include <QQmlApplicationEngine>
 
+#include <platform/desktop_platform.h>
+
 #include "utils/qml_context_setup.h"
 #include "utils/splash_screen.h"
 
@@ -16,6 +18,7 @@
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    CaptureMoment::UI::Platform::applyApplicationSettings();
 
     CaptureMoment::UI::SplashScreen splash;
     splash.show();
@@ -71,8 +74,8 @@ int main(int argc, char *argv[])
     }
 
     QObject* rootObject { engine.rootObjects().first() };
-    if (auto* window { qobject_cast<QQuickWindow*>(rootObject) }) {
-        // Ajout de "window" comme 3ème argument (contexte) pour lever l'ambiguïté de MSVC
+    if (auto* window { qobject_cast<QQuickWindow*>(rootObject) })
+    {
         QObject::connect(window, &QQuickWindow::frameSwapped, window, [window, &splash]() {
             splash.close();
             window->raise();
