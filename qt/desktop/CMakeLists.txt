@@ -137,8 +137,10 @@ qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "image-splash"
 )
 
 qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "app-icon"
-    PREFIX "/icons"
-    FILES "${CMAKE_SOURCE_DIR}/assets/icons/favicon.png"
+    PREFIX "icons"
+    BASE "${CMAKE_SOURCE_DIR}/assets/icons"
+    FILES
+         "${CMAKE_SOURCE_DIR}/assets/icons/favicon.png"
 )
 
 # ====================================================================
