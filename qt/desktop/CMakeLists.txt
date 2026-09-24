@@ -136,6 +136,13 @@ qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "image-splash"
         "${CMAKE_SOURCE_DIR}/assets/desktop/splash/splash-screen.png"
 )
 
+qt_add_resources(${CAPTUREMOMENT_DESKTOP_TARGET} "app-icon"
+    PREFIX "icons"
+    BASE "${CMAKE_SOURCE_DIR}/assets/icons"
+    FILES
+         "${CMAKE_SOURCE_DIR}/assets/icons/favicon.png"
+)
+
 # ====================================================================
 # End
 # ====================================================================
@@ -159,6 +166,22 @@ target_sources(${CAPTUREMOMENT_DESKTOP_TARGET}
         BASE_DIRS include
             ${CORE_HEADERS}
 )
+
+
+# =====================================================================
+# Platform-specific implementation (compile-time selection)
+# =====================================================================
+if(WIN32)
+    set(PLATFORM_IMPL src/platform/desktop_platform_windows.cpp)
+elseif(APPLE)
+    set(PLATFORM_IMPL src/platform/desktop_platform_macos.cpp)
+elseif(UNIX)                                      # ← elseif, pas if
+    set(PLATFORM_IMPL src/platform/desktop_platform_linux.cpp)
+else()
+    message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}")
+endif()
+
+target_sources(${CAPTUREMOMENT_DESKTOP_TARGET} PRIVATE ${PLATFORM_IMPL})
 
 # =====================================================================
 # Bundle properties for macOS and iOS

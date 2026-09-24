@@ -1,4 +1,4 @@
-name: CD Ubuntu (Ninja + GHCR)
+name: CD Linux (Ninja + GHCR)
 
 on:
   push:
@@ -36,18 +36,18 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}/ubuntu-gcc
+          images: ghcr.io/${{ github.repository }}/build-linux
           tags: |
             type=raw,value=latest
       - name: Build and Push the Image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./docker/debian/Dockerfile
+          file: ./docker/linux/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/build-linux:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/build-linux:buildcache,mode=max
 
   # ====================================================================
   # Build and Release (AppImage)

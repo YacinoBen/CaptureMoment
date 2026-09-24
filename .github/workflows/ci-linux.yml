@@ -1,4 +1,4 @@
-name: CI Ubuntu (Ninja + GHCR)
+name: CI Linux (Ninja + GHCR)
 
 on:
   push:
@@ -39,15 +39,15 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}/ubuntu-gcc
+          images: ghcr.io/${{ github.repository }}/build-linux
           tags: |
-            type=raw,value=latest
+            type=raw,value=ci
       - name: Build and Push the Image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./docker/debian/Dockerfile
-          push: true
+          file: ./docker/linux/Dockerfile
+          push: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -57,7 +57,6 @@ jobs:
   # ====================================================================
   build:
     needs: build-docker
-    if: needs.build-docker.result == 'success' || needs.build-docker.result == 'skipped'
     runs-on: ubuntu-latest
 
     container: ${{ needs.build-docker.outputs.image_uri }}
@@ -129,8 +128,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: build-ubuntu-${{ matrix.build-type }}
+          name: build-linux-${{ matrix.build-type }}
           path: |
-            build/${{ matrix.preset }}/qt/desktop/capturemoment_desktop
+            build/${{ matrix.preset }}/CaptureMoment
           retention-days: 7
           if-no-files-found: warn
