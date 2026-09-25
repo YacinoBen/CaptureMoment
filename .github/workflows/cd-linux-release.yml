@@ -119,8 +119,10 @@ jobs:
             --plugin qt \
             --output appimage
 
-          SRC=$(find . -maxdepth 1 -name '*.AppImage' | head -n1)
-          mv "$SRC" CaptureMoment-x86_64.AppImage
+          if [ ! -f "CaptureMoment-x86_64.AppImage" ]; then
+            SRC=$(find . -maxdepth 1 -name '*.AppImage' | head -n1)
+            mv "$SRC" CaptureMoment-x86_64.AppImage
+          fi
 
           ls -lh CaptureMoment-x86_64.AppImage
         shell: bash
