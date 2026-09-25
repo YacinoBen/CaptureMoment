@@ -117,8 +117,10 @@ jobs:
             --desktop-file assets/linux/capturemoment.desktop \
             --icon-file /tmp/capturemoment.png \
             --plugin qt \
-            --artifact-name "CaptureMoment-x86_64.AppImage" \
             --output appimage
+
+          SRC=$(find . -maxdepth 1 -name '*.AppImage' | head -n1)
+          mv "$SRC" CaptureMoment-x86_64.AppImage
 
           ls -lh CaptureMoment-x86_64.AppImage
         shell: bash
