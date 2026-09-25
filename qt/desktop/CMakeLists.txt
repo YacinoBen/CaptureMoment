@@ -210,19 +210,33 @@ if(WIN32)
     install(DIRECTORY $<TARGET_FILE_DIR:${CAPTUREMOMENT_DESKTOP_TARGET}>/
             DESTINATION ${CMAKE_INSTALL_BINDIR}
             FILES_MATCHING PATTERN "*.dll")
+    set(deploy_tool_options_arg "--no-system-d3d-compiler")
 endif()
 
 if(UNIX AND NOT APPLE)
     set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     )
+    set(deploy_tool_options_arg "")
 endif()
 
 if(APPLE)
     set_target_properties(${CAPTUREMOMENT_DESKTOP_TARGET} PROPERTIES
         MACOSX_BUNDLE_ICON_FILE "favicon.icns"
     )
+    set(deploy_tool_options_arg "")
 endif()
+
+
+qt_generate_deploy_qml_app_script(
+    TARGET ${CAPTUREMOMENT_DESKTOP_TARGET}
+    OUTPUT_SCRIPT deploy_script
+    NO_UNSUPPORTED_PLATFORM_ERROR
+    DEPLOY_USER_QML_MODULES_ON_UNSUPPORTED_PLATFORM
+    NO_TRANSLATIONS
+    DEPLOY_TOOL_OPTIONS ${deploy_tool_options_arg}
+)
+install(SCRIPT ${deploy_script})
 
 # =====================================================================
 # End

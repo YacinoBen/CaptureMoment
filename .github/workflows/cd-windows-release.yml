@@ -130,23 +130,15 @@ jobs:
 
           $halideDll = Join-Path $env:HALIDE_ROOT "bin\Halide.dll"
           if (-not (Test-Path $halideDll)) {
-           Write-Error "Halide.dll not found at $halideDll"
-           exit 1
+              Write-Error "Halide.dll not found at $halideDll"
+              exit 1
           }
 
           Copy-Item $halideDll (Split-Path $exePath) -Force
 
-          # Gather Qt dependencies
-          $windeployqt = (Get-Command windeployqt.exe -ErrorAction SilentlyContinue).Source
-          if (-not $windeployqt) {
-              Write-Error "windeployqt.exe not found in PATH (QT_ROOT_DIR=$env:QT_ROOT_DIR)"
-              exit 1
-          }
-
-          & $windeployqt "$exePath" --release --no-translations
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-
-          cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake -B build/release-vcpkg-msvc/packages
+          cpack -V --build-config Release `
+              --config build/release-vcpkg-msvc/CPackConfig.cmake `
+              -B build/release-vcpkg-msvc/packages
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Upload Installer to Release
