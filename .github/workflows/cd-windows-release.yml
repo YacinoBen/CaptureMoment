@@ -143,7 +143,7 @@ jobs:
               exit 1
           }
 
-          & $windeployqt "$exePath" --release --no-translations
+          & $windeployqt "$exePath" --release --no-translations --no-system-d3d-compiler
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
           cpack --build-config Release --config build/release-vcpkg-msvc/CPackConfig.cmake -B build/release-vcpkg-msvc/packages
